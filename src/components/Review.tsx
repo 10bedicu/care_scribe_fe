@@ -2,24 +2,28 @@ import { useEffect, useState } from "react";
 import { ScribeFieldReviewedSuggestion, ScribeFieldSuggestion } from "../types";
 import CareIcon from "@/CAREUI/icons/CareIcon";
 import { renderFieldValue, sleep, updateFieldValue } from "../utils";
+import useKeyboardShortcut from "use-keyboard-shortcut";
+import { KeyboardShortcutKey } from "@/CAREUI/interactive/KeyboardShortcut";
 
 export default function ScribeReview(props: {
   toReview: ScribeFieldSuggestion[];
   onReviewComplete: (accepted: ScribeFieldReviewedSuggestion[]) => void;
 }) {
   const { toReview, onReviewComplete } = props;
-  const [reviewIndex, setReviewIndex] = useState(0);
+  const initialReviewIndex = toReview.length > 1 ? -1 : 0;
+  const [reviewIndex, setReviewIndex] = useState(initialReviewIndex);
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<
     ScribeFieldReviewedSuggestion[]
   >([]);
 
-  const reviewingField = toReview?.[reviewIndex];
+  const reviewingField =
+    reviewIndex !== -1 ? toReview?.[reviewIndex] : undefined;
 
   const reviewingFieldRect =
     reviewingField?.fieldElement.getBoundingClientRect();
 
   useEffect(() => {
-    reviewingField.fieldElement.scrollIntoView({
+    reviewingField?.fieldElement.scrollIntoView({
       behavior: "instant",
       block: "center",
       inline: "center",
@@ -27,7 +31,7 @@ export default function ScribeReview(props: {
   }, [reviewingField]);
 
   useEffect(() => {
-    setReviewIndex(0);
+    setReviewIndex(initialReviewIndex);
     setAcceptedSuggestions([]);
   }, [toReview]);
 
@@ -56,10 +60,21 @@ export default function ScribeReview(props: {
         suggestionIndex: reviewIndex,
       },
     ];
-    if (!approved) updateFieldValue(reviewingField);
+    if (!approved && reviewingField) updateFieldValue(reviewingField);
     await sleep(150);
     setAcceptedSuggestions(accepted);
     handleForward(accepted);
+  };
+
+  const handleAcceptAll = () => {
+    const accepted = toReview.map((field, idx) => ({
+      ...field,
+      approved: true,
+      suggestionIndex: idx,
+    }));
+    toReview.forEach((f) => updateFieldValue(f, true));
+    setAcceptedSuggestions(accepted);
+    handleReviewComplete(accepted);
   };
 
   useEffect(() => {
@@ -70,12 +85,58 @@ export default function ScribeReview(props: {
         `<div style="height:50vh;" data-scribe-spacer></div>`,
       );
     }
-    updateFieldValue(reviewingField, true);
+    if (reviewingField) updateFieldValue(reviewingField, true);
     return () =>
       document
         .querySelectorAll(`[data-scribe-spacer]`)
         .forEach((e) => e.remove());
   }, [reviewingField]);
+
+  useKeyboardShortcut(["A"], () =>
+    reviewIndex !== -1 ? handleVerdict(true) : handleForward(),
+  );
+  useKeyboardShortcut(["E"], () =>
+    reviewIndex === -1 ? handleAcceptAll() : undefined,
+  );
+  useKeyboardShortcut(["R"], () => handleVerdict(false));
+  useKeyboardShortcut(["B"], handleBack);
+
+  if (reviewIndex === -1) {
+    return (
+      <div className="fixed inset-0 z-20 flex flex-col items-center justify-center bg-black/50 p-20 text-white backdrop-blur">
+        <h2 className="font-black">{toReview.length} fields inferred</h2>
+        <div>
+          <div className="my-4 flex flex-wrap items-center justify-center gap-2">
+            {toReview.map((field, index) => (
+              <div
+                key={index}
+                className="flex flex-col items-start rounded-lg bg-black/20 px-4 py-2"
+              >
+                <div className="text-xs text-secondary-400">{field.label}</div>
+                <div className="font-bold">{renderFieldValue(field, true)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 md:flex-row">
+          <button
+            onClick={handleAcceptAll}
+            className="flex w-full items-center gap-2 rounded-full bg-primary-500 px-4 py-2 text-lg font-semibold transition-all hover:bg-primary-600 md:w-auto"
+          >
+            <KeyboardShortcutKey shortcut={["E"]} />
+            Accept All
+          </button>
+          <button
+            onClick={() => handleForward()}
+            className="flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-secondary-100 md:w-auto"
+          >
+            <KeyboardShortcutKey shortcut={["A"]} />
+            Start Review
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-20">
@@ -100,7 +161,7 @@ export default function ScribeReview(props: {
         </div>
         <div className="flex-1 bg-black/50 transition-all" />
       </div>
-      <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-4 p-4 text-white">
+      <div className="absolute inset-x-0 bottom-32 flex flex-col items-center justify-center gap-4 p-4 text-white md:bottom-0">
         <div className="flex items-center gap-2">
           <button
             onClick={handleBack}
@@ -110,16 +171,16 @@ export default function ScribeReview(props: {
           </button>
           <button
             onClick={() => handleVerdict(false)}
-            className="flex items-center gap-1 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-secondary-100"
+            className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-secondary-100"
           >
-            <CareIcon icon="l-times" className="text-2xl" />
+            <KeyboardShortcutKey shortcut={["R"]} />
             Reject
           </button>
           <button
             onClick={() => handleVerdict(true)}
-            className="flex items-center gap-1 rounded-full bg-primary-500 px-4 py-2 text-lg font-semibold transition-all hover:bg-primary-600"
+            className="flex items-center gap-2 rounded-full bg-primary-500 px-4 py-2 text-lg font-semibold transition-all hover:bg-primary-600"
           >
-            <CareIcon icon="l-check" className="text-2xl" />
+            <KeyboardShortcutKey shortcut={["A"]} />
             Accept
           </button>
         </div>

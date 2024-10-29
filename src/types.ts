@@ -38,7 +38,7 @@ export type ScribeFieldOption = {
     text: string
 }
 
-export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "radio" | "checkbox"
+export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "cui-date" | "radio" | "checkbox"
 
 export type ScribeField = {
     type: ScribeFieldTypes

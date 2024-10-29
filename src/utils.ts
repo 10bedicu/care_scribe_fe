@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import { ScribeAIResponse, ScribeField, ScribeFieldSuggestion, ScribeFieldTypes } from "./types";
 
 const isVisible = (elem: HTMLElement) => !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length || window.getComputedStyle(elem).visibility !== "hidden") && !elem.closest('[data-scribe-ignore="true"]');
@@ -10,6 +11,7 @@ export const scrapeFields = () => {
     const selectElements = [...(formElement.querySelectorAll(`select`))].filter(ele => isVisible(ele as HTMLElement)) as HTMLSelectElement[];
     // Care UI (Headless UI) does not use the traditional <select> field for dropdowns.
     const careUISelectElements = [...formElement.querySelectorAll(`[data-cui-listbox]`)].filter(ele => isVisible(ele as HTMLElement));
+    const careUIDateElements = [...formElement.querySelectorAll(`[data-cui-dateinput]`)].filter(ele => isVisible(ele as HTMLElement));
 
     const getInputType: (t: string | null) => ScribeField["type"] = (type: string | null) =>
         type && ["string", "number", "date", "datetime-local", "radio", "checkbox"].includes(type) ? type as ScribeField["type"] : "string"
@@ -71,12 +73,22 @@ export const scrapeFields = () => {
         customExample: ele.getAttribute("data-scribe-example") || undefined
     }))
 
+    const cuiDateInput: ScribeField[] = careUIDateElements.map((ele) => ({
+        type: "cui-date",
+        fieldElement: ele,
+        label: (ele.parentElement?.parentElement?.parentElement?.querySelector("label") as HTMLLabelElement)?.innerText,
+        value: JSON.parse(ele.getAttribute("data-cui-dateinput-value") || `""`),
+        customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
+        customExample: ele.getAttribute("data-scribe-example") || undefined
+    }))
+
     const fields = [
         ...inputs,
         ...textareas,
         ...selects,
         ...cuiSelects,
-        ...checkBoxesAndRadios
+        ...checkBoxesAndRadios,
+        ...cuiDateInput
     ]
 
     return fields;
@@ -94,7 +106,7 @@ export const renderFieldValue = (
         return "N/A";
     return field.options
         ? field.options.find(
-            (o) => o.value === (useNewValue ? field.newValue : field.value),
+            (o) => String(o.value) === String(useNewValue ? field.newValue : field.value),
         )?.text
         : ((useNewValue ? field.newValue : field.value) as string | number);
 };
@@ -113,6 +125,10 @@ export const updateFieldValue = (field: ScribeFieldSuggestion, useNewValue?: boo
     switch (field.type) {
         case "cui-select":
             element.setAttribute("data-cui-listbox-value", JSON.stringify(val || ""));
+            break;
+
+        case "cui-date":
+            element.setAttribute("data-cui-dateinput-value", JSON.stringify(val || ""));
             break;
 
         case "radio":
@@ -137,7 +153,11 @@ export const SCRIBE_PROMPT_MAP: { [key in ScribeFieldTypes | "default"]?: { prom
         example: "2003-12-21"
     },
     "datetime-local": {
-        prompt: "A date time value",
+        prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
+        example: "2003-12-21T23:10"
+    },
+    "cui-date": {
+        prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
         example: "2003-12-21T23:10"
     },
     number: {

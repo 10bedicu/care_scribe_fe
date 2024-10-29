@@ -6,7 +6,7 @@ const manifest: PluginManifest = {
   routes: {},
   extends: [],
   components: {},
-  Entry: Entry,
+  //Entry: Entry,
   navItems: [],
 };
 

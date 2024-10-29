@@ -1,6 +1,7 @@
 import CareIcon from "@/CAREUI/icons/CareIcon";
 import { ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
+import useKeyboardShortcut from "use-keyboard-shortcut";
 
 export default function ScribeButton(props: {
   status: ScribeStatus;
@@ -8,6 +9,8 @@ export default function ScribeButton(props: {
 }) {
   const { status, onClick } = props;
   const { t } = useTranslation();
+
+  useKeyboardShortcut(["X"], onClick);
 
   return (
     <button
