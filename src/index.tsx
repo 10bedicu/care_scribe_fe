@@ -5,7 +5,7 @@ import { usePath } from "raviger";
 
 export { default as manifest } from "./manifest";
 
-export function Entry() {
+export default function Entry() {
   const path = usePath();
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]

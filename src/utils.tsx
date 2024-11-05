@@ -6,20 +6,21 @@ import {
   ScribeFieldTypes,
 } from "./types";
 
-const isVisible = (elem: HTMLElement, allowSubform: boolean) =>
+const isVisible = (elem: HTMLElement, allowSubform: boolean) => {
   // Ignore fields that are hidden in the viewport
-  !!(
-    elem.offsetWidth ||
-    elem.offsetHeight ||
-    elem.getClientRects().length ||
-    window.getComputedStyle(elem).visibility !== "hidden"
-  ) &&
-  // Intentionally ignored fields
-  !elem.closest('[data-scribe-ignore="true"]') &&
-  // Check if field is not in a subform
-  allowSubform
-    ? true
-    : !elem.closest("[data-scribe-subform]");
+  return (
+    !!(
+      elem.offsetWidth ||
+      elem.offsetHeight ||
+      elem.getClientRects().length ||
+      window.getComputedStyle(elem).visibility !== "hidden"
+    ) &&
+    // Intentionally ignored fields
+    !elem.closest('[data-scribe-ignore="true"]') &&
+    // Check if field is not in a subform
+    (allowSubform ? true : !elem.closest("[data-scribe-subform]"))
+  );
+};
 
 export const scrapeFields = (
   initFormElement: HTMLElement | null,
@@ -52,7 +53,9 @@ export const scrapeFields = (
   const careUIDateElements = [
     ...formElement.querySelectorAll(`[data-cui-dateinput]`),
   ].filter((ele) => isVisible(ele as HTMLElement, isSubform));
-  const subFormElements = scrapeSubForms(formElement);
+
+  // temp disable subforms
+  // const subFormElements = scrapeSubForms(formElement);
 
   const getInputType: (t: string | null) => ScribeField["type"] = (
     type: string | null,
@@ -182,33 +185,33 @@ export const scrapeFields = (
     customExample: ele.getAttribute("data-scribe-example") || undefined,
   }));
 
-  const subForms: ScribeField[] = subFormElements.map((form) => ({
-    type: "sub-form",
-    fieldElement: form.element,
-    label: form.label,
-    value: JSON.stringify(
-      form.entries.map((row, id) => ({
-        id,
-        action: "NONE",
-        fields: row.map((field) => ({ [field.label]: field.value })),
-      })),
-    ),
-    customPrompt: `A complex array of objects.
-        If there are any additions to the field, please add to the array in the following example format: 
-        ${JSON.stringify({ id: null, action: "ADD", fields: form.creator.map((field) => ({ [field.label]: field.options ? (field.type === "cui-multi-select" ? [field.options[0].value, field.options[1].value] : field.options[0].value) : SCRIBE_PROMPT_MAP[field.type]?.example })) })}.
-        ${
-          form.creator.filter((f) => f.options).length
-            ? `
-        NOTE : Refer to the following as option values for the fields. Make sure you select only the value of the option for the corresponding field. 
-        ${JSON.stringify(form.creator.filter((f) => f.options).map((f) => ({ [f.label]: f.options })))}
-        `
-            : ``
-        }
-        If a row is being added, action should be "ADD". If an existing row is being updated, action should be "UPDATE", and if the row is being deleted or removed, action should be "DELETE". If there is no action, the action should be "NONE". No other action value is allowed.`,
-    customExample: `${JSON.stringify({ id: null, action: "ADD", fields: form.creator.map((field) => ({ [field.label]: field.options ? (field.type === "cui-multi-select" ? [field.options[0].value, field.options[1].value] : field.options[0].value) : SCRIBE_PROMPT_MAP[field.type]?.example })) })}.`,
-  }));
+  // const subForms: ScribeField[] = subFormElements.map((form) => ({
+  //   type: "sub-form",
+  //   fieldElement: form.element,
+  //   label: form.label,
+  //   value: JSON.stringify(
+  //     form.entries.map((row, id) => ({
+  //       id,
+  //       action: "NONE",
+  //       fields: row.map((field) => ({ [field.label]: field.value })),
+  //     })),
+  //   ),
+  //   customPrompt: `A complex array of objects.
+  //       If there are any additions to the field, please add to the array in the following example format:
+  //       ${JSON.stringify({ id: null, action: "ADD", fields: form.creator.map((field) => ({ [field.label]: field.options ? (field.type === "cui-multi-select" ? [field.options[0].value, field.options[1].value] : field.options[0].value) : SCRIBE_PROMPT_MAP[field.type]?.example })) })}.
+  //       ${
+  //         form.creator.filter((f) => f.options).length
+  //           ? `
+  //       NOTE : Refer to the following as option values for the fields. Make sure you select only the value of the option for the corresponding field.
+  //       ${JSON.stringify(form.creator.filter((f) => f.options).map((f) => ({ [f.label]: f.options })))}
+  //       `
+  //           : ``
+  //       }
+  //       If a row is being added, action should be "ADD". If an existing row is being updated, action should be "UPDATE", and if the row is being deleted or removed, action should be "DELETE". If there is no action, the action should be "NONE". No other action value is allowed.`,
+  //   customExample: `${JSON.stringify({ id: null, action: "ADD", fields: form.creator.map((field) => ({ [field.label]: field.options ? (field.type === "cui-multi-select" ? [field.options[0].value, field.options[1].value] : field.options[0].value) : SCRIBE_PROMPT_MAP[field.type]?.example })) })}.`,
+  // }));
 
-  console.log(subForms[0]?.customPrompt);
+  //console.log(subForms[0]?.customPrompt);
 
   const fields = [
     ...inputs,
@@ -217,7 +220,7 @@ export const scrapeFields = (
     ...cuiSelects,
     ...checkBoxesAndRadios,
     ...cuiDateInput,
-    ...subForms,
+    //...subForms,
   ];
 
   return fields;
@@ -303,7 +306,7 @@ export const updateFieldValue = (
       break;
 
     case "sub-form":
-      console.log("Subform", getSubFormValues(val));
+      //console.log("Subform", getSubFormValues(val));
       break;
 
     default:
@@ -332,9 +335,9 @@ const getSubFormValues = (value?: string) => {
 export const previewFieldUpdate = (field: ScribeFieldSuggestion) => {
   switch (field.type) {
     case "sub-form":
-      console.log(field.newValue);
-      const newFields = getSubFormValues(field.newValue as string);
-      console.log(newFields);
+      //console.log(field.newValue);
+      // const newFields = getSubFormValues(field.newValue as string);
+      //console.log(newFields);
 
       // TODO: Update styling to reflect changes
       // entries.forEach((entry, i) => {
