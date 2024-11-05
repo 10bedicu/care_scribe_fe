@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { ScribeFieldReviewedSuggestion, ScribeFieldSuggestion } from "../types";
 import CareIcon from "@/CAREUI/icons/CareIcon";
-import { renderFieldValue, sleep, updateFieldValue } from "../utils";
+import {
+  previewFieldUpdate,
+  renderFieldValue,
+  sleep,
+  updateFieldValue,
+} from "../utils";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { KeyboardShortcutKey } from "@/CAREUI/interactive/KeyboardShortcut";
 
@@ -78,18 +83,21 @@ export default function ScribeReview(props: {
   };
 
   useEffect(() => {
-    const page = document.querySelector("[data-cui-page]") as HTMLElement;
-    if (page) {
-      page.insertAdjacentHTML(
-        "beforeend",
-        `<div style="height:50vh;" data-scribe-spacer></div>`,
-      );
+    // const page = document.querySelector("[data-cui-page]") as HTMLElement;
+    // if (page) {
+    //   page.insertAdjacentHTML(
+    //     "beforeend",
+    //     `<div style="height:50vh;" data-scribe-spacer></div>`,
+    //   );
+    // }
+    if (reviewingField) {
+      updateFieldValue(reviewingField, true);
+      previewFieldUpdate(reviewingField);
     }
-    if (reviewingField) updateFieldValue(reviewingField, true);
-    return () =>
-      document
-        .querySelectorAll(`[data-scribe-spacer]`)
-        .forEach((e) => e.remove());
+    // return () =>
+    //   document
+    //     .querySelectorAll(`[data-scribe-spacer]`)
+    //     .forEach((e) => e.remove());
   }, [reviewingField]);
 
   useKeyboardShortcut(["A"], () =>

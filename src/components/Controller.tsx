@@ -33,6 +33,12 @@ export function Controller() {
   const [toReview, setToReview] = useState<ScribeFieldSuggestion[]>();
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
 
+  //Use this to test scribe
+  const SCRIBE_TEST_INPUT = `The physical examination info of the patient is that the wound is located on the wrist. 
+    Blood pressure is 10 systolic and 14 diastolic. Pulse is 40 bpm. Temperature is 98. 
+    Respiratory rate is 43. Heartbeat is irregular. Level of consciousness is alert. 
+    The action to be taken is plan for home care. Please review after 15 minutes.`;
+
   const {
     isRecording,
     startRecording: startSegmentedRecording,
@@ -78,14 +84,12 @@ export function Controller() {
             if (type === "ai_response" && ai_response) {
               return resolve(ai_response);
             }
-
-            reject(new Error(`Expected ${type} but it is unavailable.`));
           }
         } catch (error) {
           clearInterval(interval);
           reject(error);
         }
-      }, 2500);
+      }, 2000);
     });
   };
 
@@ -230,10 +234,12 @@ export function Controller() {
       current: field.value,
       id: `${i}`,
       description:
+        field.customPrompt ||
         SCRIBE_PROMPT_MAP[field.type]?.prompt ||
         SCRIBE_PROMPT_MAP["default"]?.prompt,
       type: "string",
       example:
+        field.customExample ||
         SCRIBE_PROMPT_MAP[field.type]?.example ||
         SCRIBE_PROMPT_MAP["default"]?.example,
       options: field.options?.map((opt) => ({
@@ -261,7 +267,7 @@ export function Controller() {
     });
     if (res.error || !res.data) throw Error("Error updating scribe instance");
     setStatus("THINKING");
-    const fields = scrapeFields();
+    const fields = scrapeFields(null, false);
     const aiResponse = await getAIResponse(instanceId, fields);
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
@@ -280,7 +286,7 @@ export function Controller() {
     timer.reset();
     setStatus("UPLOADING");
     stopSegmentedRecording();
-    const fields = scrapeFields();
+    const fields = scrapeFields(null, false);
     const instanceId = await createScribeInstance(fields);
     setInstanceId(instanceId);
     setStatus("TRANSCRIBING");
@@ -340,6 +346,12 @@ export function Controller() {
                 <p className="mb-4 text-xs text-gray-800">
                   {t("transcript_edit_info")}
                 </p>
+                <button
+                  onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
+                  className="absolute left-2 top-2 text-xs"
+                >
+                  Test
+                </button>
                 <TextAreaFormField
                   name="transcript"
                   disabled={status !== "REVIEWING"}
