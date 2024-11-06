@@ -29,5 +29,23 @@ export default function Entry() {
     return () => observer.disconnect();
   }, [SCRIBE_ENABLED]);
 
-  return <div>{!!forms?.length && <Controller />}</div>;
+  useEffect(() => {
+    if (!forms || forms.length === 0) return;
+
+    const pageElement = document.querySelector(
+      '[data-cui-page="true"]',
+    ) as HTMLElement;
+    console.log(pageElement);
+    if (pageElement) {
+      pageElement.style.setProperty("padding-bottom", "100px", "important");
+    }
+
+    return () => {
+      if (pageElement) {
+        pageElement.style.paddingBottom = "";
+      }
+    };
+  }, [forms]);
+
+  return <div>{forms?.length && <Controller />}</div>;
 }

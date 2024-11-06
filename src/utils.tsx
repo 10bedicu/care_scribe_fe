@@ -298,11 +298,21 @@ export const updateFieldValue = (
 
     case "radio":
     case "checkbox":
-      element.querySelectorAll(`input`).forEach((e) => (e.checked = false));
       const toCheck = element.querySelector(
         `input[value=${val || "__NULL__"}]`,
       ) as HTMLInputElement;
-      if (toCheck) toCheck.checked = true;
+      element.querySelectorAll(`input`).forEach((e) => {
+        const descriptor = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "checked",
+        );
+
+        if (descriptor?.set) {
+          descriptor.set.call(e, toCheck.value === e.value);
+          e.dispatchEvent(new Event("change", { bubbles: true }));
+          toCheck.value === e.value && e.click();
+        }
+      });
       break;
 
     case "sub-form":
@@ -310,7 +320,18 @@ export const updateFieldValue = (
       break;
 
     default:
-      (field.fieldElement as HTMLInputElement).value = val as string;
+      const input = field.fieldElement as
+        | HTMLInputElement
+        | HTMLTextAreaElement;
+      // input.value = x won't do the trick as it will just update the DOM value, and not trigger the onChange for the state to update.
+      const descriptor = Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(element),
+        "value",
+      );
+      if (descriptor?.set) {
+        descriptor.set.call(input, val as string);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
   }
 };
 

@@ -9,13 +9,7 @@ import uploadFile from "@/Utils/request/uploadFile";
 import TextAreaFormField from "@/components/Form/FormFields/TextAreaFormField";
 import ButtonV2 from "@/components/Common/components/ButtonV2";
 import CareIcon from "@/CAREUI/icons/CareIcon";
-import {
-  getFieldsToReview,
-  scrapeFields,
-  SCRIBE_PROMPT_MAP,
-  sleep,
-  updateFieldValue,
-} from "../utils";
+import { getFieldsToReview, scrapeFields, SCRIBE_PROMPT_MAP } from "../utils";
 import * as Notify from "@/Utils/Notifications";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
@@ -34,13 +28,13 @@ export function Controller() {
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
 
   //Use this to test scribe
-  const SCRIBE_TEST_INPUT = `The physical examination info of the patient is that the wound is located on the wrist. 
+  const SCRIBE_TEST_INPUT = `The patients category is mild. The physical examination info of the patient is that the patient is wounded.
     Blood pressure is 10 systolic and 14 diastolic. Pulse is 40 bpm. Temperature is 98. 
-    Respiratory rate is 43. Heartbeat is irregular. Level of consciousness is alert. 
-    The action to be taken is plan for home care. Please review after 15 minutes.`;
+    Respiratory rate is 43. Spo2 is 14 percent. Heartbeat is irregular. 
+The rhythm description is dhuk dhuk dhuk dhuk.
+Level of consciousness is alert. The action to be taken is plan for home care. Please review after 15 minutes.`;
 
   const {
-    isRecording,
     startRecording: startSegmentedRecording,
     stopRecording: stopSegmentedRecording,
     resetRecording,
@@ -77,13 +71,15 @@ export function Controller() {
               return reject(new Error("Transcription failed"));
             }
 
-            if (type === "transcript" && transcript) {
+            if (type === "transcript" && transcript !== null) {
               return resolve(transcript);
             }
 
-            if (type === "ai_response" && ai_response) {
+            if (type === "ai_response" && ai_response !== null) {
               return resolve(ai_response);
             }
+
+            return reject(new Error(`Failed to resolve response`));
           }
         } catch (error) {
           clearInterval(interval);
@@ -98,20 +94,28 @@ export function Controller() {
     scribeInstanceId: string,
     fields: ScribeField[],
   ) => {
-    const hfields = await getHydratedFields(fields);
-    const updatedFieldsResponse = await poller(scribeInstanceId, "ai_response");
-    const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
-    // run type validations
-    const changedData = Object.entries(parsedFormData)
-      .filter(([k, v]) => {
-        const f = hfields.find((f) => f.id === k);
-        if (!f) return false;
-        if (v === f.current) return false;
-        return true;
-      })
-      .map(([k, v]) => ({ [k]: v }))
-      .reduce((acc, curr) => ({ ...acc, ...curr }), {});
-    return changedData;
+    try {
+      const hfields = await getHydratedFields(fields);
+      const updatedFieldsResponse = await poller(
+        scribeInstanceId,
+        "ai_response",
+      );
+      const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
+      // run type validations
+      const changedData = Object.entries(parsedFormData)
+        .filter(([k, v]) => {
+          const f = hfields.find((f) => f.id === k);
+          if (!f) return false;
+          if (v === f.current) return false;
+          return true;
+        })
+        .map(([k, v]) => ({ [k]: v }))
+        .reduce((acc, curr) => ({ ...acc, ...curr }), {});
+      return changedData;
+    } catch (e) {
+      Notify.Error({ msg: t("scribe_error") });
+      setStatus("FAILED");
+    }
   };
 
   // gets the audio transcription
@@ -126,11 +130,15 @@ export function Controller() {
     });
 
     if (res.error || !res.data) throw Error("Error updating scribe instance");
-
-    const transcript = await poller(scribeInstanceId, "transcript");
-    setLastTranscript(transcript);
-    setTranscript(transcript);
-    return transcript;
+    try {
+      const transcript = await poller(scribeInstanceId, "transcript");
+      setLastTranscript(transcript);
+      setTranscript(transcript);
+      return transcript;
+    } catch (error) {
+      Notify.Error({ msg: t("scribe_error") });
+      setStatus("FAILED");
+    }
   };
 
   // Uploads a scribe audio blob. Returns the response of the upload.
@@ -206,29 +214,7 @@ export function Controller() {
     return response.data.external_id;
   };
 
-  // Hydrates the values for all fields. This is required for fields whos' values need to be fetched asynchronously. Ex. Diagnoses data for a patient.
-  /*const hydrateValues = async () => {
-    const hydratedPromises = context.inputs.map(async (input) => {
-      const value = await input.value();
-      return {
-        friendlyName: input.friendlyName,
-        current: value,
-        id: input.id,
-        description: input.description,
-        type: input.type,
-        example: input.example,
-      };
-    });
-    const hydrated = await Promise.all(hydratedPromises);
-    setContext((context) => ({ ...context, hydratedInputs: hydrated }));
-    return hydrated;
-  };*/
-
-  // gets hydrated fields, but does not fetch them again unless ignoreCache is true
   const getHydratedFields = async (fields: ScribeField[]) => {
-    //if (context.hydratedInputs && !ignoreCache) return context.hydratedInputs;
-    //return await hydrateValues();
-
     return fields.map((field, i) => ({
       friendlyName: field.label || "Unlabled Field",
       current: field.value,
@@ -269,6 +255,7 @@ export function Controller() {
     setStatus("THINKING");
     const fields = scrapeFields(null, false);
     const aiResponse = await getAIResponse(instanceId, fields);
+    if (!aiResponse) return;
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
   };
@@ -293,6 +280,7 @@ export function Controller() {
     await getTranscript(instanceId);
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
+    if (!aiResponse) return;
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
   };
@@ -314,7 +302,7 @@ export function Controller() {
             <div className="flex items-center justify-center p-4 py-10">
               <div className="text-center">
                 <div className="text-xl font-black">{timer.time}</div>
-                <p>We are hearing you...</p>
+                <p>{t("hearing")}</p>
               </div>
             </div>
           )}
@@ -326,17 +314,17 @@ export function Controller() {
                 <Lottie animationData={animationData} loop autoPlay />
               </div>
               <div className="-translate-y-4 text-sm text-secondary-700">
-                Copilot is thinking...
+                {t("copilot_thinking")}
               </div>
             </div>
           )}
           {typeof lastTranscript !== "undefined" &&
             status === "REVIEWING" &&
-            (openEditTranscript || (toReview && !toReview.length)) && (
+            (openEditTranscript || (!!toReview && !toReview.length)) && (
               <div className="p-4 md:w-[300px]">
-                {toReview && !toReview.length && (
+                {!!toReview && !toReview.length && (
                   <p className="mb-4 text-sm font-bold text-red-500">
-                    We could not autofill any fields from what you said
+                    {t("could_not_autofill")}
                   </p>
                 )}
                 <div className="text-base font-semibold">
@@ -348,7 +336,7 @@ export function Controller() {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 text-xs"
+                  className="absolute left-2 top-2 hidden text-xs"
                 >
                   Test
                 </button>
@@ -380,6 +368,12 @@ export function Controller() {
                 )}
               </div>
             )}
+          {status === "FAILED" && (
+            <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-red-500">
+              <CareIcon icon="l-times-circle" className="text-4xl" />
+              {t("scribe_error")}
+            </div>
+          )}
         </div>
         {typeof lastTranscript !== "undefined" &&
           status === "REVIEWING" &&
@@ -411,12 +405,12 @@ export function Controller() {
           />
         </div>
       </div>
-      {toReview && toReview.length && (
+      {!!toReview && !!toReview.length && (
         <ScribeReview
           toReview={toReview}
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);
-            approved && Notify.Success({ msg: "Autofilled fields" });
+            approved && Notify.Success({ msg: t("autofilled_fields") });
             setToReview(undefined);
             setStatus("IDLE");
           }}

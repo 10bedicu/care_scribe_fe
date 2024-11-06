@@ -9,6 +9,7 @@ import {
 } from "../utils";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { KeyboardShortcutKey } from "@/CAREUI/interactive/KeyboardShortcut";
+import { useTranslation } from "react-i18next";
 
 export default function ScribeReview(props: {
   toReview: ScribeFieldSuggestion[];
@@ -21,6 +22,8 @@ export default function ScribeReview(props: {
     ScribeFieldReviewedSuggestion[]
   >([]);
 
+  const { t } = useTranslation();
+
   const reviewingField =
     reviewIndex !== -1 ? toReview?.[reviewIndex] : undefined;
 
@@ -28,11 +31,20 @@ export default function ScribeReview(props: {
     reviewingField?.fieldElement.getBoundingClientRect();
 
   useEffect(() => {
-    reviewingField?.fieldElement.scrollIntoView({
-      behavior: "instant",
-      block: "center",
-      inline: "center",
-    });
+    if (!reviewingField) return;
+
+    const fieldRect = reviewingField.fieldElement.getBoundingClientRect();
+    const windowCenter = window.innerHeight / 2;
+    const fieldCenter = fieldRect.top + fieldRect.height / 2;
+    const distanceFromCenter = Math.abs(windowCenter - fieldCenter);
+
+    if (distanceFromCenter > 300) {
+      reviewingField.fieldElement.scrollIntoView({
+        behavior: "instant",
+        block: "center",
+        inline: "center",
+      });
+    }
   }, [reviewingField]);
 
   useEffect(() => {
@@ -71,33 +83,25 @@ export default function ScribeReview(props: {
     handleForward(accepted);
   };
 
-  const handleAcceptAll = () => {
+  const handleAcceptAll = async () => {
     const accepted = toReview.map((field, idx) => ({
       ...field,
       approved: true,
       suggestionIndex: idx,
     }));
-    toReview.forEach((f) => updateFieldValue(f, true));
+    for (const f of toReview) {
+      await sleep(100);
+      updateFieldValue(f, true);
+    }
     setAcceptedSuggestions(accepted);
     handleReviewComplete(accepted);
   };
 
   useEffect(() => {
-    // const page = document.querySelector("[data-cui-page]") as HTMLElement;
-    // if (page) {
-    //   page.insertAdjacentHTML(
-    //     "beforeend",
-    //     `<div style="height:50vh;" data-scribe-spacer></div>`,
-    //   );
-    // }
     if (reviewingField) {
       updateFieldValue(reviewingField, true);
       previewFieldUpdate(reviewingField);
     }
-    // return () =>
-    //   document
-    //     .querySelectorAll(`[data-scribe-spacer]`)
-    //     .forEach((e) => e.remove());
   }, [reviewingField]);
 
   useKeyboardShortcut(["A"], () =>
@@ -132,14 +136,14 @@ export default function ScribeReview(props: {
             className="flex w-full items-center gap-2 rounded-full bg-primary-500 px-4 py-2 text-lg font-semibold transition-all hover:bg-primary-600 md:w-auto"
           >
             <KeyboardShortcutKey shortcut={["E"]} />
-            Accept All
+            {t("accept_all")}
           </button>
           <button
             onClick={() => handleForward()}
             className="flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-secondary-100 md:w-auto"
           >
             <KeyboardShortcutKey shortcut={["A"]} />
-            Start Review
+            {t("start_review")}
           </button>
         </div>
       </div>
@@ -182,18 +186,21 @@ export default function ScribeReview(props: {
             className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-secondary-100"
           >
             <KeyboardShortcutKey shortcut={["R"]} />
-            Reject
+            {t("reject")}
           </button>
           <button
             onClick={() => handleVerdict(true)}
             className="flex items-center gap-2 rounded-full bg-primary-500 px-4 py-2 text-lg font-semibold transition-all hover:bg-primary-600"
           >
             <KeyboardShortcutKey shortcut={["A"]} />
-            Accept
+            {t("accept")}
           </button>
         </div>
         <div className="font-semibold">
-          Reviewing field {reviewIndex + 1} / {toReview.length}
+          {t("scribe__reviewing_field", {
+            currentField: reviewIndex + 1,
+            totalFields: toReview.length,
+          })}
         </div>
         <div className="flex items-center gap-4">
           {toReview.map((r, i) => (
