@@ -35,7 +35,6 @@ export default function Entry() {
     const pageElement = document.querySelector(
       '[data-cui-page="true"]',
     ) as HTMLElement;
-    console.log(pageElement);
     if (pageElement) {
       pageElement.style.setProperty("padding-bottom", "100px", "important");
     }

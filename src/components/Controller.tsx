@@ -260,12 +260,17 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
-  const handleStartRecording = () => {
+  const handleStartRecording = async () => {
     setToReview(undefined);
     resetRecording();
-    timer.start();
-    setStatus("RECORDING");
-    startSegmentedRecording();
+    try {
+      await startSegmentedRecording();
+      timer.start();
+      setStatus("RECORDING");
+    } catch (error) {
+      Notify.Error({ msg: t("audio__permission_message") });
+      setStatus("IDLE");
+    }
   };
 
   const handleStopRecording = async () => {
@@ -380,7 +385,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
           !(openEditTranscript || (toReview && !toReview.length)) && (
             <button
               onClick={() => setOpenEditTranscript(true)}
-              className="max-h-[100px] w-40 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white hover:bg-black/40"
+              className="max-h-[50px] w-40 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white hover:bg-black/40 md:max-h-[100px]"
             >
               {transcript}
             </button>
