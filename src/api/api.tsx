@@ -3,8 +3,8 @@ import {
   CreateFileResponse,
   FileUploadModel,
 } from "@/components/Patient/models";
-import { Type } from "@/Redux/api";
 import { ScribeModel } from "../types";
+import { Type } from "@/Utils/request/api";
 
 const routes = {
   createScribe: {

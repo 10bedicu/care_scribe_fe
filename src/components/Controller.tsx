@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
-import { useTimer } from "@/Utils/useTimer";
 import useSegmentedRecording from "@/Utils/useSegmentedRecorder";
 import request from "@/Utils/request/request";
 import routes from "../api/api";
 import uploadFile from "@/Utils/request/uploadFile";
 import TextAreaFormField from "@/components/Form/FormFields/TextAreaFormField";
-import ButtonV2 from "@/components/Common/components/ButtonV2";
 import CareIcon from "@/CAREUI/icons/CareIcon";
 import { getFieldsToReview, scrapeFields, SCRIBE_PROMPT_MAP } from "../utils";
 import * as Notify from "@/Utils/Notifications";
@@ -15,6 +13,8 @@ import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
 import ScribeReview from "./Review";
+import { useTimer } from "@/hooks/useTimer";
+import ButtonV2 from "@/components/Common/ButtonV2";
 
 export function Controller() {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
