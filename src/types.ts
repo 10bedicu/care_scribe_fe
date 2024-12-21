@@ -1,4 +1,43 @@
-import { UserModel } from "@/components/Users/models";
+import { USER_TYPE_OPTIONS } from "./constants";
+
+export type UserRole = (typeof USER_TYPE_OPTIONS)[number]["id"];
+
+export type FeatureFlag = "SCRIBE_ENABLED"; // "HCX_ENABLED" | "ABDM_ENABLED" |
+
+export type UserBareMinimum = {
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    user_type: UserRole;
+    last_login: string | undefined;
+    read_profile_picture_url?: string;
+    external_id: string;
+};
+
+export type GenderType = "Male" | "Female" | "Transgender";
+
+export type UserModel = UserBareMinimum & {
+    external_id: string;
+    local_body?: number;
+    district?: number;
+    state?: number;
+    video_connect_link: string;
+    phone_number?: string;
+    alt_phone_number?: string;
+    gender?: GenderType;
+    read_profile_picture_url?: string;
+    date_of_birth: Date | null | string;
+    is_superuser?: boolean;
+    verified?: boolean;
+    home_facility?: string;
+    qualification?: string;
+    doctor_experience_commenced_on?: string;
+    doctor_medical_council_registration?: string;
+    weekly_working_hours?: string | null;
+    user_flags?: FeatureFlag[];
+};
 
 export type ScribeModel = {
     external_id: string;
@@ -57,3 +96,66 @@ export type ScribeAIResponse = {
 export type ScribeFieldSuggestion = ScribeField & { newValue: unknown }
 
 export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & { suggestionIndex: number, approved?: boolean }
+
+export type FileCategory = "UNSPECIFIED" | "XRAY" | "AUDIO" | "IDENTITY_PROOF";
+
+export interface CreateFileRequest {
+    file_type: string | number;
+    file_category: FileCategory;
+    name: string;
+    associating_id: string;
+    original_name: string;
+    mime_type: string;
+}
+
+export interface CreateFileResponse {
+    id: string;
+    file_type: string;
+    file_category: FileCategory;
+    signed_url: string;
+    internal_name: string;
+}
+
+export interface FileUploadModel {
+    id?: string;
+    name?: string;
+    associating_id?: string;
+    created_date?: string;
+    upload_completed?: boolean;
+    uploaded_by?: UserBareMinimum;
+    file_category?: FileCategory;
+    read_signed_url?: string;
+    is_archived?: boolean;
+    archive_reason?: string;
+    extension?: string;
+    archived_by?: UserBareMinimum;
+    archived_datetime?: string;
+}
+
+export interface FacilityModel {
+    id?: string;
+    name?: string;
+    read_cover_image_url?: string;
+    facility_type?: string;
+    address?: string;
+    features?: number[];
+    location?: {
+        latitude: number;
+        longitude: number;
+    };
+    phone_number?: string;
+    middleware_address?: string;
+    modified_date?: string;
+    created_date?: string;
+    state?: number;
+    district?: number;
+    local_body?: number;
+    ward?: number;
+    pincode?: string;
+    facility_flags?: FeatureFlag[];
+    latitude?: string;
+    longitude?: string;
+    kasp_empanelled?: boolean;
+    patient_count?: number;
+    bed_count?: number;
+}

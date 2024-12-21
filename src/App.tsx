@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { Controller } from "./components/Controller";
-import { useFeatureFlags } from "@/Utils/featureFlags";
 import { usePath } from "raviger";
+import { useFeatureFlags } from "./featureFlags";
 
-export { default as manifest } from "./manifest";
-
-export default function Entry() {
+export default function App() {
   const path = usePath();
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
@@ -16,7 +14,7 @@ export default function Entry() {
 
   useEffect(() => {
     if (!SCRIBE_ENABLED) return;
-    const observer = new MutationObserver((mutationsList, observer) => {
+    const observer = new MutationObserver((mutationsList) => {
       for (const mutation of mutationsList) {
         if (mutation.type === "childList") {
           const forms = document.querySelectorAll('[data-scribe-form="true"]');

@@ -1,13 +1,12 @@
-import { PluginManifest } from "@/pluginTypes";
 import { lazy } from "react";
 
-const manifest: PluginManifest = {
+const manifest = {
   plugin: "care-scribe",
   routes: {},
   extends: [],
   components: {
     Scribe: lazy(
-      () => import("./index"),
+      () => import("./App"),
     )
   },
   navItems: [],

@@ -335,23 +335,23 @@ export const updateFieldValue = (
   }
 };
 
-const getSubFormValues = (value?: string) => {
-  try {
-    const values: {
-      id: null | number;
-      action: "ADD" | "UPDATE" | "DELETE" | "NONE";
-      fields: unknown;
-    }[] = JSON.parse(value || "[]");
-    return {
-      updated: values.filter((v) => v.action === "UPDATE"),
-      deleted: values.filter((v) => v.action === "DELETE"),
-      added: values.filter((v) => v.action === "ADD"),
-      all: values,
-    };
-  } catch (error) {
-    console.error("Could not parse sub form data from scribe response");
-  }
-};
+// const getSubFormValues = (value?: string) => {
+//   try {
+//     const values: {
+//       id: null | number;
+//       action: "ADD" | "UPDATE" | "DELETE" | "NONE";
+//       fields: unknown;
+//     }[] = JSON.parse(value || "[]");
+//     return {
+//       updated: values.filter((v) => v.action === "UPDATE"),
+//       deleted: values.filter((v) => v.action === "DELETE"),
+//       added: values.filter((v) => v.action === "ADD"),
+//       all: values,
+//     };
+//   } catch (error) {
+//     console.error("Could not parse sub form data from scribe response");
+//   }
+// };
 
 export const previewFieldUpdate = (field: ScribeFieldSuggestion) => {
   switch (field.type) {

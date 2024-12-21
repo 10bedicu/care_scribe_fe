@@ -1,20 +1,17 @@
 import { useState } from "react";
 import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
-import useSegmentedRecording from "@/Utils/useSegmentedRecorder";
-import request from "@/Utils/request/request";
-import routes from "../api/api";
-import uploadFile from "@/Utils/request/uploadFile";
-import TextAreaFormField from "@/components/Form/FormFields/TextAreaFormField";
-import CareIcon from "@/CAREUI/icons/CareIcon";
 import { getFieldsToReview, scrapeFields, SCRIBE_PROMPT_MAP } from "../utils";
-import * as Notify from "@/Utils/Notifications";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
 import ScribeReview from "./Review";
-import { useTimer } from "@/hooks/useTimer";
-import ButtonV2 from "@/components/Common/ButtonV2";
+import useSegmentedRecording from "@/useSegmentedRecorder";
+import { useTimer } from "@/useTimer";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
+import { API } from "@/api/api";
+import uploadFile from "@/uploadFile";
 
 export function Controller() {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
@@ -48,17 +45,8 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
     return new Promise((resolve, reject) => {
       const interval = setInterval(async () => {
         try {
-          const res = await request(routes.getScribe, {
-            pathParams: {
-              external_id: scribeInstanceId,
-            },
-          });
-
-          if (!res.data || res.error)
-            throw new Error("Error getting scribe instance");
-
-          const { status, transcript, ai_response } = res.data;
-
+          const res = await API.scribe.get(scribeInstanceId);
+          const { status, transcript, ai_response } = res;
           if (
             status === "GENERATING_AI_RESPONSE" ||
             status === "COMPLETED" ||
@@ -66,7 +54,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
           ) {
             clearInterval(interval);
             if (status === "FAILED") {
-              Notify.Error({ msg: "Transcription failed" });
+              window.alert("Transcription failed");
               return reject(new Error("Transcription failed"));
             }
 
@@ -112,30 +100,23 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
       return changedData;
     } catch (e) {
-      Notify.Error({ msg: t("scribe_error") });
+      window.alert(t("scribe_error"));
       setStatus("FAILED");
     }
   };
 
   // gets the audio transcription
   const getTranscript = async (scribeInstanceId: string) => {
-    const res = await request(routes.updateScribe, {
-      body: {
-        status: "READY",
-      },
-      pathParams: {
-        external_id: scribeInstanceId,
-      },
-    });
-
-    if (res.error || !res.data) throw Error("Error updating scribe instance");
     try {
+      await API.scribe.update(scribeInstanceId, {
+        status: "READY",
+      });
       const transcript = await poller(scribeInstanceId, "transcript");
       setLastTranscript(transcript);
       setTranscript(transcript);
       return transcript;
     } catch (error) {
-      Notify.Error({ msg: t("scribe_error") });
+      window.alert(t("scribe_error"));
       setStatus("FAILED");
     }
   };
@@ -146,20 +127,18 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
     const name = "audio.mp3";
     const filename = Date.now().toString();
 
-    const response = await request(routes.createScribeFileUpload, {
-      body: {
-        original_name: name,
-        file_type: 1,
-        name: filename,
-        associating_id: scribeInstanceId,
-        file_category: category,
-        mime_type: audioBlob?.type?.split(";")?.[0],
-      },
+    const data = await API.scribe.createFileUpload({
+      original_name: name,
+      file_type: 1,
+      name: filename,
+      associating_id: scribeInstanceId,
+      file_category: category,
+      mime_type: audioBlob?.type?.split(";")?.[0],
     });
 
     await new Promise<void>((resolve, reject) => {
-      const url = response.data?.signed_url;
-      const internal_name = response.data?.internal_name;
+      const url = data?.signed_url;
+      const internal_name = data?.internal_name;
       const f = audioBlob;
       if (f === undefined) {
         reject(Error("No file to upload"));
@@ -182,36 +161,31 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
       );
     });
 
-    const res = request(routes.editScribeFileUpload, {
-      body: { upload_completed: true },
-      pathParams: {
-        id: response.data?.id || "",
-        fileType: "SCRIBE",
-        associatingId: scribeInstanceId,
-      },
-    });
-    return res;
+    return await API.scribe.editFileUpload(
+      data.id,
+      "SCRIBE",
+      scribeInstanceId,
+      { upload_completed: true },
+    );
   };
 
   // Sets up a scribe instance with the available recordings. Returns the instance ID.
   const createScribeInstance = async (fields: ScribeField[]) => {
-    const hfields = await getHydratedFields(fields);
-    const response = await request(routes.createScribe, {
-      body: {
+    try {
+      const hfields = await getHydratedFields(fields);
+      const data = await API.scribe.create({
         status: "CREATED",
-        form_data: hfields,
-      },
-    });
-    if (response.error) throw Error("Error creating scribe instance");
-    if (!response.data) throw Error("Response did not return any data");
+        form_data: hfields as any,
+      });
 
-    await Promise.all(
-      audioBlobs.map((blob) =>
-        uploadAudio(blob, response.data?.external_id ?? ""),
-      ),
-    );
+      await Promise.all(
+        audioBlobs.map((blob) => uploadAudio(blob, data?.external_id ?? "")),
+      );
 
-    return response.data.external_id;
+      return data.external_id;
+    } catch {
+      throw Error("Error creating scribe instance");
+    }
   };
 
   const getHydratedFields = async (fields: ScribeField[]) => {
@@ -241,17 +215,15 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
     if (!instanceId) throw Error("Cannot find scribe instance");
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
-    const res = await request(routes.updateScribe, {
-      body: {
+    try {
+      await API.scribe.update(instanceId, {
         status: "READY",
         transcript: updatedTranscript,
-        ai_response: null,
-      },
-      pathParams: {
-        external_id: instanceId,
-      },
-    });
-    if (res.error || !res.data) throw Error("Error updating scribe instance");
+        //ai_response: null,
+      });
+    } catch (error) {
+      throw Error("Error updating Scribe Instance");
+    }
     setStatus("THINKING");
     const fields = scrapeFields(null, false);
     const aiResponse = await getAIResponse(instanceId, fields);
@@ -268,7 +240,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
       timer.start();
       setStatus("RECORDING");
     } catch (error) {
-      Notify.Error({ msg: t("audio__permission_message") });
+      window.alert({ msg: t("audio__permission_message") });
       setStatus("IDLE");
     }
   };
@@ -301,7 +273,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
         className={`fixed bottom-5 right-5 z-40 flex flex-col items-end gap-4 transition-all`}
       >
         <div
-          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border border-secondary-400"} bg-white transition-all delay-100`}
+          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-secondary-400 border"} bg-white transition-all delay-100`}
         >
           {status === "RECORDING" && (
             <div className="flex items-center justify-center p-4 py-10">
@@ -318,7 +290,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
               <div className="w-32">
                 <Lottie animationData={animationData} loop autoPlay />
               </div>
-              <div className="-translate-y-4 text-sm text-secondary-700">
+              <div className="text-secondary-700 -translate-y-4 text-sm">
                 {t("copilot_thinking")}
               </div>
             </div>
@@ -334,7 +306,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
                 )}
                 {audioBlobs.length > 0 && (
                   <div className="mb-4">
-                    <div className="rounded border border-secondary-400 bg-secondary-200">
+                    <div className="border-secondary-400 bg-secondary-200 rounded border">
                       <audio controls className="plain-audio w-full">
                         {audioBlobs.map((blob, index) => (
                           <source
@@ -345,15 +317,12 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
                         ))}
                       </audio>
                     </div>
-                    <ButtonV2
-                      variant="primary"
-                      ghost
-                      border
+                    <Button
                       className="mt-2 w-full"
                       onClick={handleStopRecording}
                     >
                       {t("transcribe_again")}
-                    </ButtonV2>
+                    </Button>
                   </div>
                 )}
                 <div className="text-base font-semibold">
@@ -369,16 +338,16 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
                 >
                   Test
                 </button>
-                <TextAreaFormField
+                <Textarea
                   name="transcript"
                   disabled={status !== "REVIEWING"}
                   value={transcript}
-                  onChange={(e) => setTranscript(e.value)}
-                  errorClassName="hidden"
+                  onChange={(e) => setTranscript(e.target.value)}
+                  // errorClassName="hidden"
                   placeholder="Transcript"
                 />
-                <ButtonV2
-                  loading={status !== "REVIEWING"}
+                <Button
+                  // loading={status !== "REVIEWING"}
                   disabled={transcript === lastTranscript}
                   className="mt-4 w-full"
                   onClick={() =>
@@ -386,7 +355,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
                   }
                 >
                   {t("process_transcript")}
-                </ButtonV2>
+                </Button>
                 {!(toReview && !toReview.length) && (
                   <button
                     className="absolute -top-6 right-4 text-xs text-gray-100 hover:text-gray-200"
@@ -399,7 +368,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
             )}
           {status === "FAILED" && (
             <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-red-500">
-              <CareIcon icon="l-times-circle" className="text-4xl" />
+              {/* <CareIcon icon="l-times-circle" className="text-4xl" /> */}
               {t("scribe_error")}
             </div>
           )}
@@ -412,17 +381,17 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
               className="flex max-h-[50px] w-40 items-center gap-2 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white transition-all hover:bg-black/40 md:max-h-[100px]"
             >
               <div>{transcript}</div>
-              <CareIcon icon="l-angle-up" className="text-xl" />
+              {/* <CareIcon icon="l-angle-up" className="text-xl" /> */}
             </button>
           )}
         <div className="flex items-center gap-2">
           {status === "REVIEWING" && (
             <button
               onClick={handleCancel}
-              className="flex aspect-square h-full items-center justify-center rounded-full border border-secondary-400 bg-secondary-300 p-4 text-xl transition-all hover:bg-secondary-400"
+              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
               title={t("cancel")}
             >
-              <CareIcon icon="l-times" />
+              {/* <CareIcon icon="l-times" /> */}
             </button>
           )}
           <ScribeButton
@@ -440,7 +409,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
           toReview={toReview}
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);
-            approved && Notify.Success({ msg: t("autofilled_fields") });
+            approved && window.alert(t("autofilled_fields"));
             setToReview(undefined);
             setStatus("IDLE");
           }}
