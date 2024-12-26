@@ -6,7 +6,7 @@ const manifest = {
   extends: [],
   components: {
     Scribe: lazy(
-      () => import("./App"),
+      () => import("./Providers"),
     )
   },
   navItems: [],

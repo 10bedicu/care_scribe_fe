@@ -4,6 +4,7 @@ import {
   FacilityModel,
   FileUploadModel,
   ScribeModel,
+  UserModel,
 } from "../types";
 
 type methods = "POST" | "GET" | "PATCH" | "DELETE" | "PUT";
@@ -15,8 +16,8 @@ type options = {
   auth?: boolean;
 };
 
-const CARE_BASE_URL = "https://care-staging-api.ohc.network";
-const CARE_ACCESS_TOKEN_LOCAL_STORAGE_KEY = "care_token";
+const CARE_BASE_URL = import.meta.env.VITE_CARE_API_URL || "";
+const CARE_ACCESS_TOKEN_LOCAL_STORAGE_KEY = "care_access_token";
 
 const request = async <T extends unknown>(
   endpoint: string,
@@ -26,7 +27,7 @@ const request = async <T extends unknown>(
 ): Promise<T> => {
   const { formdata, external, headers, auth: isAuth } = options;
 
-  let url = external ? endpoint : CARE_BASE_URL + endpoint;
+  let url = external ? endpoint : CARE_BASE_URL + endpoint + "/";
   let payload: null | string = formdata ? data : JSON.stringify(data);
 
   if (method === "GET") {
@@ -85,7 +86,7 @@ export const API = {
       request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}`, "PUT", data),
     createFileUpload: (data: CreateFileRequest) =>
       request<CreateFileResponse>(
-        "/api/care_scribe/scribe_file/",
+        "/api/care_scribe/scribe_file",
         "POST",
         data,
       ),
@@ -105,4 +106,7 @@ export const API = {
     getPermitted: (facilityId: string) =>
       request<FacilityModel>(`/api/v1/facility/${facilityId}`),
   },
+  users: {
+    current: () => request<UserModel>(`/api/v1/users/getcurrentuser`)
+  }
 };

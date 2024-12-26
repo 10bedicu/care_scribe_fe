@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { API } from "../api";
 import { FacilityModel } from "../../types";
-import useAuthUser from "./useAuthUser";
 export type FeatureFlag = "SCRIBE_ENABLED"; // "HCX_ENABLED" | "ABDM_ENABLED" |
 
 export interface FeatureFlagsResponse {
@@ -26,10 +25,13 @@ export const FeatureFlagsProvider = (props: { children: React.ReactNode }) => {
     facility_flags: [],
   });
 
-  const user = useAuthUser();
+  const { data: user } = useQuery({
+    queryKey: ["authuser"],
+    queryFn: API.users.current,
+  });
 
   useEffect(() => {
-    if (user.user_flags) {
+    if (user?.user_flags) {
       setFeatureFlags((ff) => ({
         ...ff,
         user_flags: [...defaultFlags, ...(user.user_flags || [])],
