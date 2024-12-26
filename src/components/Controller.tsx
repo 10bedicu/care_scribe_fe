@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
-import { getFieldsToReview, scrapeFields, SCRIBE_PROMPT_MAP } from "../utils";
+import {
+  getFieldsToReview,
+  scrapeFields,
+  SCRIBE_PROMPT_MAP,
+} from "../utils/utils";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
 import ScribeReview from "./Review";
-import useSegmentedRecording from "@/useSegmentedRecorder";
-import { useTimer } from "@/useTimer";
+import useSegmentedRecording from "@/utils/hooks/useSegmentedRecorder";
+import { useTimer } from "@/utils/hooks/useTimer";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
-import { API } from "@/api/api";
-import uploadFile from "@/uploadFile";
+import { API } from "@/utils/api";
+import uploadFile from "@/utils/uploadFile";
 
 export function Controller() {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");

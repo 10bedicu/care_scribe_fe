@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { API } from "./api/api";
-import { FacilityModel } from "./types";
+import { API } from "../api";
+import { FacilityModel } from "../../types";
 import useAuthUser from "./useAuthUser";
 export type FeatureFlag = "SCRIBE_ENABLED"; // "HCX_ENABLED" | "ABDM_ENABLED" |
 

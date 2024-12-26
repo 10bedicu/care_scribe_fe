@@ -1,4 +1,4 @@
-import { USER_TYPE_OPTIONS } from "./constants";
+import { USER_TYPE_OPTIONS } from "./utils/constants";
 
 export type UserRole = (typeof USER_TYPE_OPTIONS)[number]["id"];
 

@@ -1,5 +1,6 @@
+import { UserModel } from "@/types";
 import { createContext, useContext } from "react";
-import { UserModel } from "./types";
+
 
 export interface RequestResult<TData> {
     res: Response | undefined;

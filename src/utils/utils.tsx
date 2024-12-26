@@ -4,7 +4,9 @@ import {
   ScribeField,
   ScribeFieldSuggestion,
   ScribeFieldTypes,
-} from "./types";
+} from "../types";
+import clsx, { ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 const isVisible = (elem: HTMLElement, allowSubform: boolean) => {
   // Ignore fields that are hidden in the viewport
@@ -399,3 +401,7 @@ export const SCRIBE_PROMPT_MAP: {
     example: "42",
   },
 };
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}

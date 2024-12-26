@@ -5,7 +5,7 @@ import {
   renderFieldValue,
   sleep,
   updateFieldValue,
-} from "../utils";
+} from "../utils/utils";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useTranslation } from "react-i18next";
 

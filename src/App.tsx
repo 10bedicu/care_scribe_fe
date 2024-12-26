@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Controller } from "./components/Controller";
 import { usePath } from "raviger";
-import { useFeatureFlags } from "./featureFlags";
+import { useFeatureFlags } from "./utils/hooks/useFeatureFlags";
 
 export default function App() {
   const path = usePath();
