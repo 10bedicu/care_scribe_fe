@@ -1,0 +1,19 @@
+{
+    "voice_autofill": "Voice Autofill",
+    "hearing": "We are hearing you...",
+    "copilot_thinking": "Copilot is thinking...",
+    "could_not_autofill": "We could not autofill any fields from what you said",
+    "transcribe_again": "Transcribe Again",
+    "transcript_edit_info": "You can update this if we made an error",
+    "transcript_information": "This is what we heard",
+    "process_transcript": "Process Again",
+    "retake_recording": "Retake Recording",
+    "scribe__reviewing_field": "Reviewing field {{currentField}} / {{totalFields}}",
+    "scribe_error": "Could not autofill fields",
+    "accept": "Accept",
+    "accept_all": "Accept All",
+    "reject": "Reject",
+    "stop_recording": "Stop Recording",
+    "autofilled_fields": "Autofilled Fields",
+    "start_review": "Start Review"
+}

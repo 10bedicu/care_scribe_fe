@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Controller } from "./components/Controller";
 import { usePath } from "raviger";
 import { useFeatureFlags } from "./utils/hooks/useFeatureFlags";
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+import translation from "./locale/en.json";
 
 export default function App() {
   const path = usePath();
@@ -11,6 +14,20 @@ export default function App() {
   const [forms, setForms] = useState<NodeListOf<Element>>();
   const featureFlags = useFeatureFlags(facilityId);
   const SCRIBE_ENABLED = featureFlags.includes("SCRIBE_ENABLED");
+
+  i18n.use(initReactI18next).init({
+    resources: {
+      en: {
+        translation,
+      },
+    },
+    lng: localStorage.getItem("i18nextLng") || "en",
+    fallbackLng: "en",
+    interpolation: {
+      escapeValue: false,
+    },
+    saveMissing: false,
+  });
 
   useEffect(() => {
     if (!SCRIBE_ENABLED) return;
@@ -44,5 +61,14 @@ export default function App() {
     };
   }, [forms]);
 
-  return <div>{forms?.length && <Controller />}</div>;
+  return (
+    <div>
+      <link
+        href="https://cdn.writeroo.net/fa/css/all.min.css"
+        rel="stylesheet"
+        type="text/css"
+      />
+      {forms?.length && <Controller />}
+    </div>
+  );
 }

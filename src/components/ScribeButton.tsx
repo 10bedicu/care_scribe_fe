@@ -20,15 +20,15 @@ export default function ScribeButton(props: {
       <div
         className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-secondary-300 group-hover:bg-secondary-400"} p-4 text-xl`}
       >
-        {/* <CareIcon
-          icon={
+        <i
+          className={`fas ${
             status === "IDLE"
-              ? "l-microphone"
+              ? "fa-microphone"
               : status === "RECORDING"
-                ? "l-microphone-slash"
-                : "l-redo"
-          }
-        /> */}
+                ? "fa-microphone-slash"
+                : "fa-redo"
+          }`}
+        />
       </div>
       <div className="pl-2 pr-6 font-semibold">
         {status === "IDLE"

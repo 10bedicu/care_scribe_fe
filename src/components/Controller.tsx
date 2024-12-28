@@ -385,7 +385,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
               className="flex max-h-[50px] w-40 items-center gap-2 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white transition-all hover:bg-black/40 md:max-h-[100px]"
             >
               <div>{transcript}</div>
-              {/* <CareIcon icon="l-angle-up" className="text-xl" /> */}
+              <i className="fas fa-angle-up text-xl" />
             </button>
           )}
         <div className="flex items-center gap-2">
@@ -395,7 +395,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
               className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
               title={t("cancel")}
             >
-              {/* <CareIcon icon="l-times" /> */}
+              <i className="far fa-times" />
             </button>
           )}
           <ScribeButton

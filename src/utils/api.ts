@@ -27,7 +27,7 @@ const request = async <T extends unknown>(
 ): Promise<T> => {
   const { formdata, external, headers, auth: isAuth } = options;
 
-  let url = external ? endpoint : CARE_BASE_URL + endpoint + "/";
+  let url = external ? endpoint : CARE_BASE_URL + endpoint;
   let payload: null | string = formdata ? data : JSON.stringify(data);
 
   if (method === "GET") {
@@ -79,14 +79,14 @@ const request = async <T extends unknown>(
 export const API = {
   scribe: {
     create: (req: Partial<ScribeModel>) =>
-      request<ScribeModel>("/api/care_scribe/scribe", "POST", req),
+      request<ScribeModel>("/api/care_scribe/scribe/", "POST", req),
     get: (scribeId: string) =>
-      request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}`),
+      request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}/`),
     update: (scribeId: string, data: Partial<ScribeModel>) =>
-      request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}`, "PUT", data),
+      request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}/`, "PUT", data),
     createFileUpload: (data: CreateFileRequest) =>
       request<CreateFileResponse>(
-        "/api/care_scribe/scribe_file",
+        "/api/care_scribe/scribe_file/",
         "POST",
         data,
       ),
@@ -104,9 +104,9 @@ export const API = {
   },
   facilities: {
     getPermitted: (facilityId: string) =>
-      request<FacilityModel>(`/api/v1/facility/${facilityId}`),
+      request<FacilityModel>(`/api/v1/facility/${facilityId}/`),
   },
   users: {
-    current: () => request<UserModel>(`/api/v1/users/getcurrentuser`)
+    current: () => request<UserModel>(`/api/v1/users/getcurrentuser/`)
   }
 };

@@ -8,6 +8,7 @@ import {
 } from "../utils/utils";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useTranslation } from "react-i18next";
+import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 
 export default function ScribeReview(props: {
   toReview: ScribeFieldSuggestion[];
@@ -133,14 +134,14 @@ export default function ScribeReview(props: {
             onClick={handleAcceptAll}
             className="bg-primary-500 hover:bg-primary-600 flex w-full items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all md:w-auto"
           >
-            {/* <KeyboardShortcutKey shortcut={["E"]} /> */}
+            <KeyboardShortcutKey shortcut={["E"]} />
             {t("accept_all")}
           </button>
           <button
             onClick={() => handleForward()}
             className="hover:bg-secondary-100 flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all md:w-auto"
           >
-            {/* <KeyboardShortcutKey shortcut={["A"]} /> */}
+            <KeyboardShortcutKey shortcut={["A"]} />
             {t("start_review")}
           </button>
         </div>
@@ -177,20 +178,20 @@ export default function ScribeReview(props: {
             onClick={handleBack}
             className="flex aspect-square items-center justify-center rounded-full border border-white p-2 text-2xl font-semibold text-white"
           >
-            {/* <CareIcon icon="l-angle-left" /> */}
+            <i className="fas fa-angle-left"></i>
           </button>
           <button
             onClick={() => handleVerdict(false)}
             className="hover:bg-secondary-100 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all"
           >
-            {/* <KeyboardShortcutKey shortcut={["R"]} /> */}
+            <KeyboardShortcutKey shortcut={["R"]} />
             {t("reject")}
           </button>
           <button
             onClick={() => handleVerdict(true)}
             className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all"
           >
-            {/* <KeyboardShortcutKey shortcut={["A"]} /> */}
+            <KeyboardShortcutKey shortcut={["A"]} />
             {t("accept")}
           </button>
         </div>
