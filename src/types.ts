@@ -1,7 +1,3 @@
-import { USER_TYPE_OPTIONS } from "./utils/constants";
-
-export type UserRole = (typeof USER_TYPE_OPTIONS)[number]["id"];
-
 export type FeatureFlag = "SCRIBE_ENABLED"; // "HCX_ENABLED" | "ABDM_ENABLED" |
 
 export type UserBareMinimum = {
@@ -10,7 +6,7 @@ export type UserBareMinimum = {
     first_name: string;
     last_name: string;
     email: string;
-    user_type: UserRole;
+    user_type: unknown;
     last_login: string | undefined;
     read_profile_picture_url?: string;
     external_id: string;
@@ -77,7 +73,7 @@ export type ScribeFieldOption = {
     text: string
 }
 
-export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "cui-multi-select" | "cui-date" | "radio" | "checkbox" | "sub-form"
+export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "cui-multi-select" | "cui-date" | "radio" | "checkbox" | "sub-form" | "structured-input"
 
 export type ScribeField = {
     type: ScribeFieldTypes

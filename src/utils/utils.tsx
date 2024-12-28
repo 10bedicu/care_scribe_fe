@@ -20,7 +20,8 @@ const isVisible = (elem: HTMLElement, allowSubform: boolean) => {
     // Intentionally ignored fields
     !elem.closest('[data-scribe-ignore="true"]') &&
     // Check if field is not in a subform
-    (allowSubform ? true : !elem.closest("[data-scribe-subform]"))
+    (allowSubform ? true : !elem.closest("[data-scribe-subform]")) &&
+    !elem.closest('[data-scribe-structured-input="true"]')
   );
 };
 
@@ -35,9 +36,12 @@ export const scrapeFields = (
     throw Error(
       'Cannot find a scribeable form. Make sure to mark forms with the "data-scribe-form" attribute',
     );
+  const structuredElements = [
+    ...formElement.querySelectorAll('[data-scribe-structured-input="true"]'),
+  ] as HTMLInputElement[];
   const inputElements = [
     ...formElement.querySelectorAll(
-      'input:not([type="submit"]):not([role="combobox"])',
+      'input:not([type="submit"]):not([role="combobox"]):not([data-scribe-structured-input="true"])',
     ),
   ].filter((ele) =>
     isVisible(ele as HTMLElement, isSubform),
@@ -74,6 +78,15 @@ export const scrapeFields = (
       ? (type as ScribeField["type"])
       : "string";
 
+  const structuredInputs: ScribeField[] = structuredElements.map((ele) => ({
+    type: "structured-input",
+    fieldElement: ele,
+    label: ele.getAttribute("data-scribe-name") || "",
+    value: ele.getAttribute("data-scribe-value") || "",
+    customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
+    customExample: ele.getAttribute("data-scribe-example") || undefined,
+  }));
+
   const inputs: ScribeField[] = inputElements
     .filter(
       (ele) => !["radio", "checkbox"].includes(ele.getAttribute("type") || ""),
@@ -81,7 +94,12 @@ export const scrapeFields = (
     .map((ele) => ({
       type: getInputType(ele.getAttribute("type")),
       fieldElement: ele,
-      label: ele.labels?.[0]?.innerText || ele.name || "",
+      label:
+        ele.labels?.[0]?.innerText ||
+        (ele.previousElementSibling?.tagName === "LABEL" &&
+          ele.previousElementSibling.textContent?.trim()) ||
+        ele.name ||
+        "",
       value: ele.value,
     }));
 
@@ -128,7 +146,11 @@ export const scrapeFields = (
   const textareas: ScribeField[] = textAreaElements.map((ele) => ({
     type: "string",
     fieldElement: ele,
-    label: ele.labels?.[0]?.innerText || "",
+    label:
+      ele.labels?.[0]?.innerText ||
+      (ele.previousElementSibling?.tagName === "LABEL" &&
+        ele.previousElementSibling.textContent?.trim()) ||
+      "",
     value: ele.value,
     customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
     customExample: ele.getAttribute("data-scribe-example") || undefined,
@@ -137,7 +159,11 @@ export const scrapeFields = (
   const selects: ScribeField[] = selectElements.map((ele) => ({
     type: "select",
     fieldElement: ele,
-    label: ele.labels?.[0]?.innerText || "",
+    label:
+      ele.labels?.[0]?.innerText ||
+      (ele.previousElementSibling?.tagName === "LABEL" &&
+        ele.previousElementSibling.textContent?.trim()) ||
+      "",
     options: [...ele.querySelectorAll("option")].map((option) => ({
       value: option?.value || "",
       text: option?.innerText,
@@ -222,6 +248,7 @@ export const scrapeFields = (
     ...cuiSelects,
     ...checkBoxesAndRadios,
     ...cuiDateInput,
+    ...structuredInputs,
     //...subForms,
   ];
 
@@ -317,10 +344,9 @@ export const updateFieldValue = (
       });
       break;
 
-    case "sub-form":
-      //console.log("Subform", getSubFormValues(val));
+    case "structured-input":
+      element.setAttribute("data-scribe-value", val);
       break;
-
     default:
       const input = field.fieldElement as
         | HTMLInputElement
