@@ -10,12 +10,13 @@ import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
 import ScribeReview from "./Review";
-import useSegmentedRecording from "@/utils/hooks/useSegmentedRecorder";
-import { useTimer } from "@/utils/hooks/useTimer";
+import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
+import { useTimer } from "@/hooks/useTimer";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { API } from "@/utils/api";
 import uploadFile from "@/utils/uploadFile";
+import { useToast } from "@/hooks/use-toast";
 
 export function Controller() {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
@@ -41,6 +42,8 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
     audioBlobs,
   } = useSegmentedRecording();
 
+  const { toast } = useToast();
+
   // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
   const poller = async (
     scribeInstanceId: string,
@@ -58,7 +61,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
           ) {
             clearInterval(interval);
             if (status === "FAILED") {
-              window.alert("Transcription failed");
+              toast({ title: "Transcription failed", variant: "destructive" });
               return reject(new Error("Transcription failed"));
             }
 
@@ -104,7 +107,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
       return changedData;
     } catch (e) {
-      window.alert(t("scribe_error"));
+      toast({ title: t("scribe_error"), variant: "destructive" });
       setStatus("FAILED");
     }
   };
@@ -120,7 +123,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
       setTranscript(transcript);
       return transcript;
     } catch (error) {
-      window.alert(t("scribe_error"));
+      toast({ title: t("scribe_error"), variant: "destructive" });
       setStatus("FAILED");
     }
   };
@@ -244,7 +247,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
       timer.start();
       setStatus("RECORDING");
     } catch (error) {
-      window.alert({ msg: t("audio__permission_message") });
+      toast({ title: t("audio__permission_message") });
       setStatus("IDLE");
     }
   };
@@ -413,7 +416,10 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
           toReview={toReview}
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);
-            approved && window.alert(t("autofilled_fields"));
+            approved &&
+              toast({
+                title: t("autofilled_fields"),
+              });
             setToReview(undefined);
             setStatus("IDLE");
           }}

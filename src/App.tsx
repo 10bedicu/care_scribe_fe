@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Controller } from "./components/Controller";
 import { usePath } from "raviger";
-import { useFeatureFlags } from "./utils/hooks/useFeatureFlags";
+import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import translation from "./locale/en.json";
+import { Toaster } from "./components/ui/toaster";
 
 export default function App() {
   const path = usePath();
@@ -68,6 +69,7 @@ export default function App() {
         rel="stylesheet"
         type="text/css"
       />
+      <Toaster />
       {forms?.length && <Controller />}
     </div>
   );
