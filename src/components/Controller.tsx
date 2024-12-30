@@ -29,11 +29,18 @@ export function Controller() {
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
 
   //Use this to test scribe
-  const SCRIBE_TEST_INPUT = `The patients category is mild. The physical examination info of the patient is that the patient is wounded.
-    Blood pressure is 10 systolic and 14 diastolic. Pulse is 40 bpm. Temperature is 98. 
-    Respiratory rate is 43. Spo2 is 14 percent. Heartbeat is irregular. 
-The rhythm description is dhuk dhuk dhuk dhuk.
-Level of consciousness is alert. The action to be taken is plan for home care. Please review after 15 minutes.`;
+  const SCRIBE_TEST_INPUT = `The encounter status is on hold, the encounter class is emergency, 
+  the priority is as needed, the hospital identifier is 245, the admit source is nursing home, 
+  the diet preference is vegetarian. The team is physical therapists, 
+  start time is yesterday 12 am, end time is today 5 pm. 
+  Care plan is to bring the patient's blood pressure to a stable amount. 
+  Frequency of follow up required is 2 weekly.
+  Next visit is on 3rd January 2025. Systolic blood pressure is 20, diastolic blood pressure is 40, pulse is 84, 
+  SpO2 is 78, blood sugar level is 59, pain is mild, patient mobility is bed bound, cannot move, 
+  please add a symptom for acute left sided ulcerative colitis, clinical status is relapsed,
+  verification is differential, severity is moderate, onset date yesterday, update existing symptom to verification confirmed, 
+  please remove all diagnosis, nurse with name John Doe is fitting the form for allergy intolerance, 
+  please add allergies for isomaltose with clinical status as resolved.`;
 
   const {
     startRecording: startSegmentedRecording,
@@ -54,27 +61,34 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
         try {
           const res = await API.scribe.get(scribeInstanceId);
           const { status, transcript, ai_response } = res;
+
+          console.log(type, status, ai_response);
+
+          if (status === "FAILED") {
+            toast({ title: "Transcription failed", variant: "destructive" });
+            clearInterval(interval);
+            return reject(new Error("Transcription failed"));
+          }
+
           if (
-            status === "GENERATING_AI_RESPONSE" ||
-            status === "COMPLETED" ||
-            status === "FAILED"
+            type === "transcript" &&
+            status === "GENERATING_AI_RESPONSE" &&
+            transcript !== null
           ) {
             clearInterval(interval);
-            if (status === "FAILED") {
-              toast({ title: "Transcription failed", variant: "destructive" });
-              return reject(new Error("Transcription failed"));
-            }
-
-            if (type === "transcript" && transcript !== null) {
-              return resolve(transcript);
-            }
-
-            if (type === "ai_response" && ai_response !== null) {
-              return resolve(ai_response);
-            }
-
-            return reject(new Error(`Failed to resolve response`));
+            return resolve(transcript);
           }
+
+          if (
+            type === "ai_response" &&
+            status === "COMPLETED" &&
+            ai_response !== null
+          ) {
+            clearInterval(interval);
+            return resolve(ai_response);
+          }
+
+          // return reject(new Error(`Failed to resolve response`));
         } catch (error) {
           clearInterval(interval);
           reject(error);
@@ -341,7 +355,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 hidden text-xs"
+                  className="absolute left-2 top-2 text-xs"
                 >
                   Test
                 </button>
@@ -375,7 +389,7 @@ Level of consciousness is alert. The action to be taken is plan for home care. P
             )}
           {status === "FAILED" && (
             <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-red-500">
-              {/* <CareIcon icon="l-times-circle" className="text-4xl" /> */}
+              <i className="fas fa-times-circle text-4xl" />
               {t("scribe_error")}
             </div>
           )}

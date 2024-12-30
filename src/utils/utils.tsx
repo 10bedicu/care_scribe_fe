@@ -181,11 +181,9 @@ export const scrapeFields = (
       : "cui-select",
     fieldElement: ele,
     label:
-      (
-        ele.parentElement?.parentElement?.querySelector(
-          "label:not([data-headlessui-state])",
-        ) as HTMLLabelElement
-      )?.innerText || ele.id,
+      (ele.previousElementSibling?.tagName === "LABEL" &&
+        ele.previousElementSibling.textContent?.trim()) ||
+      ele.id,
     options: (
       JSON.parse(ele.getAttribute("data-cui-listbox-options") || "[]") as [
         string,
