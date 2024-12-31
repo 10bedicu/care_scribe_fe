@@ -29,18 +29,15 @@ export function Controller() {
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
 
   //Use this to test scribe
-  const SCRIBE_TEST_INPUT = `The encounter status is on hold, the encounter class is emergency, 
-  the priority is as needed, the hospital identifier is 245, the admit source is nursing home, 
-  the diet preference is vegetarian. The team is physical therapists, 
-  start time is yesterday 12 am, end time is today 5 pm. 
-  Care plan is to bring the patient's blood pressure to a stable amount. 
-  Frequency of follow up required is 2 weekly.
-  Next visit is on 3rd January 2025. Systolic blood pressure is 20, diastolic blood pressure is 40, pulse is 84, 
-  SpO2 is 78, blood sugar level is 59, pain is mild, patient mobility is bed bound, cannot move, 
-  please add a symptom for acute left sided ulcerative colitis, clinical status is relapsed,
-  verification is differential, severity is moderate, onset date yesterday, update existing symptom to verification confirmed, 
-  please remove all diagnosis, nurse with name John Doe is fitting the form for allergy intolerance, 
-  please add allergies for isomaltose with clinical status as resolved.`;
+  const SCRIBE_TEST_INPUT = `The patient's encounter status is currently on hold, classified as an emergency with a priority of “as needed,” 
+  under hospital identifier 245. The patient was admitted from a nursing home with a diet preference of vegetarian. The care team consists of physical therapists, 
+  and the encounter started yesterday at 12 a.m., ending today at 5 p.m. The care plan focuses on stabilizing the patient's blood pressure, 
+  with a follow-up frequency of two times weekly. The next visit is scheduled for January 3, 2025. 
+  The patient's current vital signs indicate a systolic blood pressure of 20, diastolic blood pressure of 40, pulse of 84, SpO2 at 78%, 
+  and a blood sugar level of 59. Pain is reported as mild, and the patient is bed-bound, unable to move.
+  An acute symptom of left-sided ulcerative colitis has been added, with differential verification, moderate severity, beginning yesterday. 
+  Update the existing symptom’s verification to confirmed, and all existing diagnoses should be removed. Nurse John Doe is filling the allergy intolerance form.
+  A resolved allergy to isomaltose has been detected.`;
 
   const {
     startRecording: startSegmentedRecording,
@@ -62,8 +59,6 @@ export function Controller() {
           const res = await API.scribe.get(scribeInstanceId);
           const { status, transcript, ai_response } = res;
 
-          console.log(type, status, ai_response);
-
           if (status === "FAILED") {
             toast({ title: "Transcription failed", variant: "destructive" });
             clearInterval(interval);
@@ -72,7 +67,7 @@ export function Controller() {
 
           if (
             type === "transcript" &&
-            status === "GENERATING_AI_RESPONSE" &&
+            ["GENERATING_AI_RESPONSE", "COMPLETED"].includes(status) &&
             transcript !== null
           ) {
             clearInterval(interval);
@@ -355,7 +350,7 @@ export function Controller() {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 text-xs"
+                  className="absolute left-2 top-2 hidden text-xs"
                 >
                   Test
                 </button>
@@ -364,6 +359,7 @@ export function Controller() {
                   disabled={status !== "REVIEWING"}
                   value={transcript}
                   onChange={(e) => setTranscript(e.target.value)}
+                  className="h-20 resize-none"
                   // errorClassName="hidden"
                   placeholder="Transcript"
                 />

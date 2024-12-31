@@ -73,7 +73,7 @@ export type ScribeFieldOption = {
     text: string
 }
 
-export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "cui-multi-select" | "cui-date" | "radio" | "checkbox" | "sub-form" | "structured-input"
+export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "cui-multi-select" | "cui-date" | "radio" | "checkbox" | "sub-form" | "structured-input" | "cui-checkbox"
 
 export type ScribeField = {
     type: ScribeFieldTypes

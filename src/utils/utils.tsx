@@ -59,6 +59,11 @@ export const scrapeFields = (
   const careUIDateElements = [
     ...formElement.querySelectorAll(`[data-cui-dateinput]`),
   ].filter((ele) => isVisible(ele as HTMLElement, isSubform));
+  const careUICheckBoxElements = [
+    ...formElement.querySelectorAll(`[data-cui-checkbox="true"]`),
+  ].filter((ele) =>
+    isVisible(ele as HTMLElement, isSubform),
+  ) as HTMLButtonElement[];
 
   // temp disable subforms
   // const subFormElements = scrapeSubForms(formElement);
@@ -142,6 +147,21 @@ export const scrapeFields = (
         ]),
     ).values(),
   );
+
+  const cuiCheckBoxes: ScribeField[] = careUICheckBoxElements.map((ele) => ({
+    type: "cui-checkbox",
+    fieldElement: ele,
+    label:
+      ele.labels?.[0]?.innerText ||
+      (ele.previousElementSibling?.tagName === "LABEL" &&
+        ele.previousElementSibling.textContent?.trim()) ||
+      (ele.nextElementSibling?.tagName === "LABEL" &&
+        ele.nextElementSibling.textContent?.trim()) ||
+      "",
+    value: ele.getAttribute("data-cui-checked") || "false",
+    customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
+    customExample: ele.getAttribute("data-scribe-example") || undefined,
+  }));
 
   const textareas: ScribeField[] = textAreaElements.map((ele) => ({
     type: "string",
@@ -247,6 +267,7 @@ export const scrapeFields = (
     ...checkBoxesAndRadios,
     ...cuiDateInput,
     ...structuredInputs,
+    ...cuiCheckBoxes,
     //...subForms,
   ];
 
@@ -290,7 +311,60 @@ export const renderFieldValue = (
   if (field.type === "sub-form") {
     return <div className="italic text-gray-200">Multiple Updates</div>;
   }
-  if (!["string", "number"].includes(typeof field.value)) return "N/A";
+  if (field.type === "structured-input") {
+    try {
+      const parsedValue = JSON.parse(val as string);
+      if (Array.isArray(parsedValue)) {
+        return (
+          <ul className="list-disc pl-5">
+            {parsedValue.map((item, index) => (
+              <li key={index}>
+                {typeof item === "object" && item !== null ? (
+                  <ul className="list-disc pl-5">
+                    {Object.entries(item).map(([key, value]) => (
+                      <li key={key}>
+                        <span className="font-semibold">{key}:</span>{" "}
+                        {typeof value === "string" || typeof value === "number"
+                          ? String(value)
+                          : "..."}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  String(item)
+                )}
+              </li>
+            ))}
+          </ul>
+        );
+      } else if (typeof parsedValue === "object" && parsedValue !== null) {
+        return (
+          <ul className="list-disc pl-5">
+            {Object.entries(parsedValue).map(([key, value]) => (
+              <li key={key}>
+                <span className="font-semibold">{key}:</span>{" "}
+                {typeof value === "string" || typeof value === "number"
+                  ? String(value)
+                  : "..."}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+    } catch (e) {
+      // If parsing fails, treat as a regular string
+    }
+
+    return (
+      <span>
+        {typeof val === "string" &&
+        dayjs(val.replace(/^"(.*)"$/, "$1")).isValid()
+          ? dayjs(val.replace(/^"(.*)"$/, "$1")).format("MMMM D, YYYY h:mm A")
+          : String(val)}
+      </span>
+    );
+  }
+  if (!["string", "number"].includes(typeof field.value)) return "...";
   return field.options
     ? field.options.find((o) => String(o.value) === String(val))?.text
     : (val as string | number);
@@ -340,6 +414,9 @@ export const updateFieldValue = (
           toCheck.value === e.value && e.click();
         }
       });
+      break;
+    case "cui-checkbox":
+      element.setAttribute("data-cui-checked", val);
       break;
 
     case "structured-input":
@@ -423,6 +500,14 @@ export const SCRIBE_PROMPT_MAP: {
   number: {
     prompt: "An integer value",
     example: "42",
+  },
+  checkbox: {
+    prompt: "A true or false value",
+    example: "true",
+  },
+  "cui-checkbox": {
+    prompt: "A true or false value",
+    example: "true",
   },
 };
 
