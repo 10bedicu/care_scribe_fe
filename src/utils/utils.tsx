@@ -1,12 +1,8 @@
 import dayjs from "dayjs";
-import {
-  ScribeAIResponse,
-  ScribeField,
-  ScribeFieldSuggestion,
-  ScribeFieldTypes,
-} from "../types";
+import { ScribeAIResponse, ScribeField, ScribeFieldSuggestion } from "../types";
 import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { STRUCTURED_INPUT_PROMPTS } from "./prompts";
 
 const isVisible = (elem: HTMLElement, allowSubform: boolean) => {
   // Ignore fields that are hidden in the viewport
@@ -21,7 +17,8 @@ const isVisible = (elem: HTMLElement, allowSubform: boolean) => {
     !elem.closest('[data-scribe-ignore="true"]') &&
     // Check if field is not in a subform
     (allowSubform ? true : !elem.closest("[data-scribe-subform]")) &&
-    !elem.closest('[data-scribe-structured-input="true"]')
+    !elem.closest("[data-structured-input]") &&
+    !elem.closest("[data-cui-datetime-input]")
   );
 };
 
@@ -37,7 +34,7 @@ export const scrapeFields = (
       'Cannot find a scribeable form. Make sure to mark forms with the "data-scribe-form" attribute',
     );
   const structuredElements = [
-    ...formElement.querySelectorAll('[data-scribe-structured-input="true"]'),
+    ...formElement.querySelectorAll("[data-structured-input]"),
   ] as HTMLInputElement[];
   const inputElements = [
     ...formElement.querySelectorAll(
@@ -59,6 +56,9 @@ export const scrapeFields = (
   const careUIDateElements = [
     ...formElement.querySelectorAll(`[data-cui-dateinput]`),
   ].filter((ele) => isVisible(ele as HTMLElement, isSubform));
+  const careUIDateTimeElements = [
+    ...formElement.querySelectorAll(`[data-cui-datetime-input]`),
+  ];
   const careUICheckBoxElements = [
     ...formElement.querySelectorAll(`[data-cui-checkbox="true"]`),
   ].filter((ele) =>
@@ -83,14 +83,23 @@ export const scrapeFields = (
       ? (type as ScribeField["type"])
       : "string";
 
-  const structuredInputs: ScribeField[] = structuredElements.map((ele) => ({
-    type: "structured-input",
-    fieldElement: ele,
-    label: ele.getAttribute("data-scribe-name") || "",
-    value: ele.getAttribute("data-scribe-value") || "",
-    customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
-    customExample: ele.getAttribute("data-scribe-example") || undefined,
-  }));
+  const structuredInputs = structuredElements
+    .map((ele) => {
+      const inputType = ele.getAttribute("data-structured-input") as
+        | keyof typeof STRUCTURED_INPUT_PROMPTS
+        | null;
+      if (!inputType) return;
+      const mapping = STRUCTURED_INPUT_PROMPTS[inputType];
+      return {
+        type: "structured-input",
+        fieldElement: ele,
+        label: mapping.name,
+        value: ele.getAttribute("data-injected-value") || null,
+        customPrompt: mapping.prompt,
+        customExample: JSON.stringify(mapping.example),
+      };
+    })
+    .filter((i) => !!i) as ScribeField[];
 
   const inputs: ScribeField[] = inputElements
     .filter(
@@ -231,6 +240,18 @@ export const scrapeFields = (
     customExample: ele.getAttribute("data-scribe-example") || undefined,
   }));
 
+  const cuiDateTimeInput: ScribeField[] = careUIDateTimeElements.map((ele) => ({
+    type: "cui-datetime",
+    fieldElement: ele,
+    label:
+      (ele.previousElementSibling?.tagName === "LABEL" &&
+        ele.previousElementSibling.textContent?.trim()) ||
+      ele.id,
+    value: JSON.parse(ele.getAttribute("data-injected-value") || `""`),
+    customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
+    customExample: ele.getAttribute("data-scribe-example") || undefined,
+  }));
+
   // const subForms: ScribeField[] = subFormElements.map((form) => ({
   //   type: "sub-form",
   //   fieldElement: form.element,
@@ -266,6 +287,7 @@ export const scrapeFields = (
     ...cuiSelects,
     ...checkBoxesAndRadios,
     ...cuiDateInput,
+    ...cuiDateTimeInput,
     ...structuredInputs,
     ...cuiCheckBoxes,
     //...subForms,
@@ -419,8 +441,11 @@ export const updateFieldValue = (
       element.setAttribute("data-cui-checked", val);
       break;
 
+    case "cui-datetime":
+      element.setAttribute("data-injected-value", JSON.stringify(val));
+      break;
     case "structured-input":
-      element.setAttribute("data-scribe-value", val);
+      element.setAttribute("data-injected-value", val);
       break;
     default:
       const input = field.fieldElement as
@@ -472,43 +497,6 @@ export const previewFieldUpdate = (field: ScribeFieldSuggestion) => {
 
       break;
   }
-};
-
-export const SCRIBE_PROMPT_MAP: {
-  [key in ScribeFieldTypes | "default"]?: { prompt: string; example: string };
-} = {
-  default: {
-    prompt: "A normal string value",
-    example: "A value",
-  },
-  date: {
-    prompt: "A date value",
-    example: "2003-12-21",
-  },
-  "datetime-local": {
-    prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
-    example: "2003-12-21T23:10",
-  },
-  "cui-date": {
-    prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
-    example: "2003-12-21T23:10",
-  },
-  "cui-multi-select": {
-    prompt: `An array of normal string values`,
-    example: `["an","example"]`,
-  },
-  number: {
-    prompt: "An integer value",
-    example: "42",
-  },
-  checkbox: {
-    prompt: "A true or false value",
-    example: "true",
-  },
-  "cui-checkbox": {
-    prompt: "A true or false value",
-    example: "true",
-  },
 };
 
 export function cn(...inputs: ClassValue[]) {

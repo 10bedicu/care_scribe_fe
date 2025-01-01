@@ -73,7 +73,21 @@ export type ScribeFieldOption = {
     text: string
 }
 
-export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "cui-multi-select" | "cui-date" | "radio" | "checkbox" | "sub-form" | "structured-input" | "cui-checkbox"
+export type ScribeFieldTypes =
+    | "string"
+    | "number"
+    | "date"
+    | "datetime-local"
+    | "select"
+    | "cui-select"
+    | "cui-multi-select"
+    | "cui-date"
+    | "cui-datetime"
+    | "radio"
+    | "checkbox"
+    | "sub-form"
+    | "structured-input"
+    | "cui-checkbox"
 
 export type ScribeField = {
     type: ScribeFieldTypes
@@ -87,6 +101,10 @@ export type ScribeField = {
 
 export type ScribeAIResponse = {
     [field_number: number]: unknown
+}
+
+export type ScribePromptMap = {
+    [key in ScribeFieldTypes | "default"]?: { prompt: string; example: unknown };
 }
 
 export type ScribeFieldSuggestion = ScribeField & { newValue: unknown }

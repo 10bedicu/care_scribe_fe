@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
-import {
-  getFieldsToReview,
-  scrapeFields,
-  SCRIBE_PROMPT_MAP,
-} from "../utils/utils";
+import { getFieldsToReview, scrapeFields } from "../utils/utils";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
@@ -17,6 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { API } from "@/utils/api";
 import uploadFile from "@/utils/uploadFile";
 import { useToast } from "@/hooks/use-toast";
+import { SCRIBE_PROMPT_MAP } from "@/utils/prompts";
 
 export function Controller() {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");

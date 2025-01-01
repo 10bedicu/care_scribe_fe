@@ -7,7 +7,10 @@ import { initReactI18next } from "react-i18next";
 import translation from "./locale/en.json";
 import { Toaster } from "./components/ui/toaster";
 
-export default function App() {
+export default function App(props: {
+  formState: unknown;
+  setFormState: unknown;
+}) {
   const path = usePath();
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
@@ -47,7 +50,7 @@ export default function App() {
 
   useEffect(() => {
     if (!forms || forms.length === 0) return;
-
+    console.log(props);
     const pageElement = document.querySelector(
       '[data-cui-page="true"]',
     ) as HTMLElement;

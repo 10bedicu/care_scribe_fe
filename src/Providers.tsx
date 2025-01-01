@@ -4,11 +4,14 @@ import { FeatureFlagsProvider } from "./hooks/useFeatureFlags";
 
 const queryClient = new QueryClient();
 
-export default function Providers() {
+export default function Providers(props: {
+  formState: unknown;
+  setFormState: unknown;
+}) {
   return (
     <QueryClientProvider client={queryClient}>
       <FeatureFlagsProvider>
-        <App />
+        <App {...props} />
       </FeatureFlagsProvider>
     </QueryClientProvider>
   );
