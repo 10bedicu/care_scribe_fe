@@ -357,7 +357,7 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 text-xs"
+                  className="absolute left-2 top-2 hidden text-xs"
                 >
                   Test
                 </button>
