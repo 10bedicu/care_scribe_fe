@@ -476,7 +476,6 @@ export const updateFieldValue = (
             : response,
         ),
       }));
-      console.log(formQuestionnaire);
       setFormState(formQuestionnaire);
       break;
     default:

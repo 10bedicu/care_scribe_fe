@@ -50,7 +50,6 @@ export default function App(props: {
 
   useEffect(() => {
     if (!forms || forms.length === 0) return;
-    console.log(props);
     const pageElement = document.querySelector(
       '[data-cui-page="true"]',
     ) as HTMLElement;
