@@ -14,6 +14,11 @@ import { API } from "@/utils/api";
 import uploadFile from "@/utils/uploadFile";
 import { useToast } from "@/hooks/use-toast";
 import { SCRIBE_PROMPT_MAP } from "@/utils/prompts";
+import {
+  ChevronUpIcon,
+  Cross1Icon,
+  CrossCircledIcon,
+} from "@radix-ui/react-icons";
 
 export function Controller(props: {
   formState: unknown;
@@ -192,6 +197,8 @@ export function Controller(props: {
       const data = await API.scribe.create({
         status: "CREATED",
         form_data: hfields as any,
+        // system_prompt: "...",
+        // json_prompt: "...",
       });
 
       await Promise.all(
@@ -385,7 +392,7 @@ export function Controller(props: {
             )}
           {status === "FAILED" && (
             <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-red-500">
-              <i className="fas fa-times-circle text-4xl" />
+              <CrossCircledIcon className="text-4xl" />
               {t("scribe_error")}
             </div>
           )}
@@ -398,7 +405,7 @@ export function Controller(props: {
               className="flex max-h-[50px] w-40 items-center gap-2 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white transition-all hover:bg-black/40 md:max-h-[100px]"
             >
               <div>{transcript}</div>
-              <i className="fas fa-angle-up text-xl" />
+              <ChevronUpIcon className="text-xl" />
             </button>
           )}
         <div className="flex items-center gap-2">
@@ -408,7 +415,7 @@ export function Controller(props: {
               className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
               title={t("cancel")}
             >
-              <i className="far fa-times" />
+              <Cross1Icon />
             </button>
           )}
           <ScribeButton

@@ -9,6 +9,7 @@ import {
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useTranslation } from "react-i18next";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
+import { ChevronLeftIcon } from "@radix-ui/react-icons";
 
 export default function ScribeReview(props: {
   formState: unknown;
@@ -181,7 +182,7 @@ export default function ScribeReview(props: {
             onClick={handleBack}
             className="flex aspect-square items-center justify-center rounded-full border border-white p-2 text-2xl font-semibold text-white"
           >
-            <i className="fas fa-angle-left"></i>
+            <ChevronLeftIcon />
           </button>
           <button
             onClick={() => handleVerdict(false)}

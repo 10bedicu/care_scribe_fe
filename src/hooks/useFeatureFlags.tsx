@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { API } from "../utils/api";
 import { FacilityModel } from "../types";
-export type FeatureFlag = "SCRIBE_ENABLED"; // "HCX_ENABLED" | "ABDM_ENABLED" |
+export type FeatureFlag = "SCRIBE_ENABLED";
 
 export interface FeatureFlagsResponse {
   user_flags: FeatureFlag[];
@@ -62,6 +62,7 @@ export const useFeatureFlags = (facility?: FacilityModel | string) => {
     queryKey: ["facility", facility],
     queryFn: () =>
       API.facilities.getPermitted(typeof facility === "string" ? facility : ""),
+    enabled: false,
   });
 
   useEffect(() => {
