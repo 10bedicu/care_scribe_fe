@@ -64,11 +64,6 @@ export default function App() {
 
   return (
     <div>
-      <link
-        href="https://cdn.writeroo.net/fa/css/all.min.css"
-        rel="stylesheet"
-        type="text/css"
-      />
       <Toaster />
       {forms?.length && <Controller />}
     </div>

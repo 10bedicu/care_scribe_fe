@@ -1,6 +1,8 @@
+import { ReloadIcon } from "@radix-ui/react-icons";
 import { ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
 import useKeyboardShortcut from "use-keyboard-shortcut";
+import { MicrophoneIcon, MicrophoneSlashIcon } from "@/utils/icons";
 
 export default function ScribeButton(props: {
   status: ScribeStatus;
@@ -20,15 +22,13 @@ export default function ScribeButton(props: {
       <div
         className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-secondary-300 group-hover:bg-secondary-400"} p-4 text-xl`}
       >
-        <i
-          className={`fas ${
-            status === "IDLE"
-              ? "fa-microphone"
-              : status === "RECORDING"
-                ? "fa-microphone-slash"
-                : "fa-redo"
-          }`}
-        />
+        {status === "IDLE" ? (
+          <MicrophoneIcon className="w-4 invert" />
+        ) : status === "RECORDING" ? (
+          <MicrophoneSlashIcon className="w-5" />
+        ) : (
+          <ReloadIcon />
+        )}
       </div>
       <div className="pl-2 pr-6 font-semibold">
         {status === "IDLE"
