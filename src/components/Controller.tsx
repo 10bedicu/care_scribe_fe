@@ -197,6 +197,8 @@ export function Controller() {
       const data = await API.scribe.create({
         status: "CREATED",
         form_data: hfields as any,
+        // system_prompt: "...",
+        // json_prompt: "...",
       });
 
       await Promise.all(
