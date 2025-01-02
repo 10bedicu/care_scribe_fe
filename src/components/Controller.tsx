@@ -248,7 +248,7 @@ export function Controller(props: {
       throw Error("Error updating Scribe Instance");
     }
     setStatus("THINKING");
-    const fields = scrapeFields(null, false);
+    const fields = scrapeFields(null, false, props.formState);
     const aiResponse = await getAIResponse(instanceId, fields);
     if (!aiResponse) return;
     setStatus("REVIEWING");
@@ -273,7 +273,7 @@ export function Controller(props: {
     timer.reset();
     setStatus("UPLOADING");
     stopSegmentedRecording();
-    const fields = scrapeFields(null, false);
+    const fields = scrapeFields(null, false, props.formState);
     const instanceId = await createScribeInstance(fields);
     setInstanceId(instanceId);
     setStatus("TRANSCRIBING");
@@ -357,7 +357,7 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 hidden text-xs"
+                  className="absolute left-2 top-2 text-xs"
                 >
                   Test
                 </button>

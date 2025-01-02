@@ -68,7 +68,7 @@ export default function App(props: {
   return (
     <div>
       <Toaster />
-      {forms?.length && <Controller {...props} />}
+      {!!forms?.length && <Controller {...props} />}
     </div>
   );
 }

@@ -41,8 +41,8 @@ const CUI_INPUT_PROMPTS: ScribePromptMap = {
         example: "2003-12-21T23:10",
     },
     "cui-datetime": {
-        prompt: `A date in ISO format, minus 5 hour 30 minutes. Current time for your reference is ${new Date().toISOString()}`,
-        example: new Date().toISOString(),
+        prompt: `A date in ISO format, minus 5 hour 30 minutes in the following format : {date: datestring}. Current time for your reference is ${new Date().toISOString()}`,
+        example: { date: new Date().toISOString() },
     },
     "cui-multi-select": {
         prompt: `An array of normal string values`,
@@ -57,7 +57,7 @@ const CUI_INPUT_PROMPTS: ScribePromptMap = {
 export const STRUCTURED_INPUT_PROMPTS = {
     "qn-medication-request": {
         name: "Medication Request",
-        prompt: `An array of objects of the following type: {
+        prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
           status?: "active" | "on-hold" | "ended" | "stopped" | "completed" | "cancelled" | "entered-in-error" | "draft" | "unknown",
           intent?: "proposal" | "plan" | "order" | "original_order" | "reflex_order" | "filler_order" | "instance_order",
           category?:  "inpatient" | "outpatient" | "community" | "discharge",
@@ -202,7 +202,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "qn-medication-statement": {
         name: "Medication Statement",
-        prompt: `An array of objects of the following type: {
+        prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses {
           status?: ${MEDICATION_STATEMENT_STATUS.join(" | ")},
           dosage_text?: string,
           information_source?: "patient" | "user" | "related_person"
@@ -239,16 +239,16 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "qn-symptoms": {
         name: "Symptoms",
-        prompt: `An array of objects of the following type: {
-          code?: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
-          clinical_status?: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
-          verification_status?: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
+        prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable symptoms: {
+          code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
+          clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
+          verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
           severity?: "severe" | "moderate" | "mild",
           onset?: {
             onset_datetime: YYYY-MM-DD string
           },
           note?: string
-        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()}`,
+        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()} Default onset_datetime to today unless otherwise specified`,
         example: [
             {
                 code: {
@@ -268,15 +268,15 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "qn-diagnoses": {
         name: "Diagnoses",
-        prompt: `An array of objects of the following type: {
-          code?: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
-          clinical_status?: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
-          verification_status?: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
-          onset?: {
+        prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses: {
+          code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
+          clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
+          verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
+          onset: {
             onset_datetime: YYYY-MM-DD string
           },
           note?: string
-        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()}`,
+        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()} Default onset_datetime to today unless otherwise specified`,
         example: [
             {
                 code: {
@@ -295,7 +295,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "qn-allergies": {
         name: "Allergies",
-        prompt: `An array of objects of the following type: {
+        prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
           code: {
             code: string,
             display: string,

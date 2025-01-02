@@ -25,6 +25,7 @@ const isVisible = (elem: HTMLElement, allowSubform: boolean) => {
 export const scrapeFields = (
   initFormElement: HTMLElement | null,
   isSubform: boolean,
+  formState: any,
 ) => {
   const formElement =
     initFormElement ||
@@ -90,11 +91,21 @@ export const scrapeFields = (
         | null;
       if (!inputType) return;
       const mapping = STRUCTURED_INPUT_PROMPTS[inputType];
+      const questionId = ele.getAttribute("data-structured-input-id");
+      const currentValue = formState
+        .find((qn: any) =>
+          qn.responses.some(
+            (response: any) => response.question_id === questionId,
+          ),
+        )
+        ?.responses.find((response: any) => response.question_id === questionId)
+        ?.values?.[0]?.value;
+
       return {
         type: "structured-input",
         fieldElement: ele,
         label: mapping.name,
-        value: ele.getAttribute("data-injected-value") || null,
+        value: JSON.stringify(currentValue || null),
         customPrompt: mapping.prompt,
         customExample: JSON.stringify(mapping.example),
       };
@@ -296,25 +307,25 @@ export const scrapeFields = (
   return fields;
 };
 
-export const scrapeSubForms = (formElement: HTMLElement) => {
-  const subforms = [
-    ...formElement.querySelectorAll("[data-scribe-subform]"),
-  ] as HTMLElement[];
-  const subformsData = subforms.map((form) => ({
-    element: form,
-    label: form.getAttribute("data-scribe-subform") || "Sub Form",
-    entries: (
-      [
-        ...form.querySelectorAll(`[data-scribe-subform-entry="true"]`),
-      ] as HTMLElement[]
-    ).map((entry) => scrapeFields(entry, true)),
-    creator: scrapeFields(
-      form.querySelector(`[data-scribe-subform-creator="true"]`) as HTMLElement,
-      true,
-    ),
-  }));
-  return subformsData;
-};
+// export const scrapeSubForms = (formElement: HTMLElement) => {
+//   const subforms = [
+//     ...formElement.querySelectorAll("[data-scribe-subform]"),
+//   ] as HTMLElement[];
+//   const subformsData = subforms.map((form) => ({
+//     element: form,
+//     label: form.getAttribute("data-scribe-subform") || "Sub Form",
+//     entries: (
+//       [
+//         ...form.querySelectorAll(`[data-scribe-subform-entry="true"]`),
+//       ] as HTMLElement[]
+//     ).map((entry) => scrapeFields(entry, true)),
+//     creator: scrapeFields(
+//       form.querySelector(`[data-scribe-subform-creator="true"]`) as HTMLElement,
+//       true,
+//     ),
+//   }));
+//   return subformsData;
+// };
 
 export const getFieldsToReview = (
   aiResponse: ScribeAIResponse,
@@ -456,7 +467,7 @@ export const updateFieldValue = (
           response.question_id === qId
             ? {
                 ...response,
-                values: response.values
+                values: response.values.length
                   ? response.values.map((v: any, i: number) =>
                       i === 0 ? { ...v, value: JSON.parse(val) } : v,
                     )
