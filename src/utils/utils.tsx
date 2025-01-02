@@ -403,6 +403,8 @@ export const sleep = async (seconds: number) => {
 export const updateFieldValue = (
   field: ScribeFieldSuggestion,
   useNewValue?: boolean,
+  formState?: any,
+  setFormState?: any,
 ) => {
   const val = (useNewValue ? field.newValue : field.value) as string;
   const element = field.fieldElement as HTMLElement;
@@ -445,7 +447,26 @@ export const updateFieldValue = (
       element.setAttribute("data-injected-value", JSON.stringify(val));
       break;
     case "structured-input":
-      element.setAttribute("data-injected-value", val);
+      //element.setAttribute("data-injected-value", val);
+      const qId = element.getAttribute("data-structured-input-id");
+      // Going forward, we need to remove structured inputs in favor of sub-forms.
+      const formQuestionnaire = formState.map((qn: any) => ({
+        ...qn,
+        responses: qn.responses.map((response: any) =>
+          response.question_id === qId
+            ? {
+                ...response,
+                values: response.values
+                  ? response.values.map((v: any, i: number) =>
+                      i === 0 ? { ...v, value: JSON.parse(val) } : v,
+                    )
+                  : [{ value: JSON.parse(val) }],
+              }
+            : response,
+        ),
+      }));
+      console.log(formQuestionnaire);
+      setFormState(formQuestionnaire);
       break;
     default:
       const input = field.fieldElement as

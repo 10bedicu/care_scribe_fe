@@ -11,10 +11,12 @@ import { useTranslation } from "react-i18next";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 
 export default function ScribeReview(props: {
+  formState: unknown;
+  setFormState: unknown;
   toReview: ScribeFieldSuggestion[];
   onReviewComplete: (accepted: ScribeFieldReviewedSuggestion[]) => void;
 }) {
-  const { toReview, onReviewComplete } = props;
+  const { toReview, onReviewComplete, formState, setFormState } = props;
   const initialReviewIndex = toReview.length > 1 ? -1 : 0;
   const [reviewIndex, setReviewIndex] = useState(initialReviewIndex);
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<
@@ -76,7 +78,8 @@ export default function ScribeReview(props: {
         suggestionIndex: reviewIndex,
       },
     ];
-    if (!approved && reviewingField) updateFieldValue(reviewingField);
+    if (!approved && reviewingField)
+      updateFieldValue(reviewingField, false, formState, setFormState);
     await sleep(150);
     setAcceptedSuggestions(accepted);
     handleForward(accepted);
@@ -90,7 +93,7 @@ export default function ScribeReview(props: {
     }));
     for (const f of toReview) {
       await sleep(100);
-      updateFieldValue(f, true);
+      updateFieldValue(f, true, formState, setFormState);
     }
     setAcceptedSuggestions(accepted);
     handleReviewComplete(accepted);
@@ -98,7 +101,7 @@ export default function ScribeReview(props: {
 
   useEffect(() => {
     if (reviewingField) {
-      updateFieldValue(reviewingField, true);
+      updateFieldValue(reviewingField, true, formState, setFormState);
       previewFieldUpdate(reviewingField);
     }
   }, [reviewingField]);

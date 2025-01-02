@@ -15,7 +15,10 @@ import uploadFile from "@/utils/uploadFile";
 import { useToast } from "@/hooks/use-toast";
 import { SCRIBE_PROMPT_MAP } from "@/utils/prompts";
 
-export function Controller() {
+export function Controller(props: {
+  formState: unknown;
+  setFormState: unknown;
+}) {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
   const { t } = useTranslation();
   const [transcript, setTranscript] = useState<string>();
@@ -420,6 +423,7 @@ export function Controller() {
       </div>
       {!!toReview && !!toReview.length && (
         <ScribeReview
+          {...props}
           toReview={toReview}
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);

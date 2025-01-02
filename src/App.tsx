@@ -73,7 +73,7 @@ export default function App(props: {
         type="text/css"
       />
       <Toaster />
-      {forms?.length && <Controller />}
+      {forms?.length && <Controller {...props} />}
     </div>
   );
 }
