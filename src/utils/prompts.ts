@@ -41,12 +41,12 @@ const CUI_INPUT_PROMPTS: ScribePromptMap = {
         example: "2003-12-21T23:10",
     },
     "cui-datetime": {
-        prompt: `A date in ISO format, minus 5 hour 30 minutes in the following format : {date: datestring}. Current time for your reference is ${new Date().toISOString()}`,
-        example: { date: new Date().toISOString() },
+        prompt: `A date in ISO format, minus 5 hour 30 minutes in the following JSON format : {date: datestring}. Current time for your reference is ${new Date().toISOString()}`,
+        example: JSON.stringify({ date: new Date().toISOString() }),
     },
     "cui-multi-select": {
         prompt: `An array of normal string values`,
-        example: ["an", "example"],
+        example: JSON.stringify(["an", "example"]),
     },
     "cui-checkbox": {
         prompt: "A true or false value",

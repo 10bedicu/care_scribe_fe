@@ -455,7 +455,7 @@ export const updateFieldValue = (
       break;
 
     case "cui-datetime":
-      element.setAttribute("data-injected-value", JSON.stringify(val));
+      element.setAttribute("data-injected-value", val);
       break;
     case "structured-input":
       //element.setAttribute("data-injected-value", val);

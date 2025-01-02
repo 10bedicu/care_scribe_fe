@@ -47,9 +47,9 @@ export const FeatureFlagsProvider = (props: { children: React.ReactNode }) => {
 };
 
 export const useFeatureFlags = (facility?: FacilityModel | string) => {
-  const [facilityObject, setFacilityObject] = useState<
-    FacilityModel | undefined
-  >(typeof facility === "string" ? undefined : facility);
+  const [facilityObject] = useState<FacilityModel | undefined>(
+    typeof facility === "string" ? undefined : facility,
+  );
 
   const context = useContext(FeatureFlagsContext);
   if (context === undefined) {
@@ -58,22 +58,21 @@ export const useFeatureFlags = (facility?: FacilityModel | string) => {
     );
   }
 
-  const facilityQuery = useQuery({
-    queryKey: ["facility", facility],
-    queryFn: () =>
-      API.facilities.getPermitted(typeof facility === "string" ? facility : ""),
-    enabled: false,
-  });
+  // const facilityQuery = useQuery({
+  //   queryKey: ["facility", facility],
+  //   queryFn: () =>
+  //     API.facilities.getPermitted(typeof facility === "string" ? facility : ""),
+  // });
 
-  useEffect(() => {
-    facilityQuery.data && setFacilityObject(facilityQuery.data);
-  }, [facilityQuery.data]);
+  // useEffect(() => {
+  //   facilityQuery.data && setFacilityObject(facilityQuery.data);
+  // }, [facilityQuery.data]);
 
   const facilityFlags = facilityObject?.facility_flags || [];
 
-  useEffect(() => {
-    facilityQuery.refetch();
-  }, [facility]);
+  // useEffect(() => {
+  //   facilityQuery.refetch();
+  // }, [facility]);
 
   return [...context.user_flags, ...facilityFlags];
 };
