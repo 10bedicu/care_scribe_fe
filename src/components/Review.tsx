@@ -121,7 +121,9 @@ export default function ScribeReview(props: {
                 key={index}
                 className="flex flex-col items-start rounded-lg bg-black/20 px-4 py-2"
               >
-                <div className="text-secondary-400 text-xs">{field.label}</div>
+                <div className="text-secondary-400 text-xs">
+                  {field.question.text}
+                </div>
                 <div className="font-bold">{renderFieldValue(field, true)}</div>
               </div>
             ))}

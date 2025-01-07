@@ -14,20 +14,20 @@ const MEDICATION_STATEMENT_STATUS = [
 
 const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
     default: {
-        prompt: "A normal string value",
-        example: "A value",
+        prompt: "A normal string value JSON encoded",
+        example: "A value"
     },
     integer: {
-        prompt: "An integer value",
-        example: "42",
+        prompt: "An integer value JSON encoded",
+        example: 42,
     },
     date: {
-        prompt: "A date value",
+        prompt: `A date value JSON encoded. Current date : ${dayjs(new Date()).format("YYYY-MM-DD")}`,
         example: "2003-12-21",
     },
     boolean: {
-        prompt: "A true or false value",
-        example: "true",
+        prompt: "A true or false value JSON encoded",
+        example: true,
     },
     dateTime: {
         prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
@@ -37,7 +37,6 @@ const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
 
 export const STRUCTURED_INPUT_PROMPTS = {
     "encounter": {
-        name: "Encounter",
         prompt: `An object of the following schema. Everything in brackets is for your information and is not part of the schema. : {
             status?: "planned" | "in_progress" | "on_hold" | "discharged" | "completed" | "cancelled" | "discontinued" | "entered_in_error" | "unknown",
             encounter_class? : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health),'
@@ -66,10 +65,9 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 discharge_disposition: "home",
                 diet_preference: "nut_free"
             }
-        }
+        },
     },
     "medication_request": {
-        name: "Medication Request",
         prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
           status?: "active" | "on-hold" | "ended" | "stopped" | "completed" | "cancelled" | "entered-in-error" | "draft" | "unknown",
           intent?: "proposal" | "plan" | "order" | "original_order" | "reflex_order" | "filler_order" | "instance_order",
@@ -214,7 +212,6 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "medication_statement": {
-        name: "Medication Statement",
         prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses {
           status?: ${MEDICATION_STATEMENT_STATUS.join(" | ")},
           dosage_text?: string,
@@ -250,8 +247,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
         ]
     },
-    "symptoms": {
-        name: "Symptoms",
+    "symptom": {
         prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable symptoms: {
           code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
           clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
@@ -279,8 +275,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
         ]
     },
-    "diagnoses": {
-        name: "Diagnoses",
+    "diagnosis": {
         prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses: {
           code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
           clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
@@ -306,8 +301,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
         ]
     },
-    "allergies": {
-        name: "Allergies",
+    "allergy_intolerance": {
         prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
           code: {
             code: string,
@@ -335,6 +329,14 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 note: "212",
             },
         ]
+    },
+    "follow_up_appointment": {
+        prompt: `An object of the following type : {
+            reason_for_visit: string
+        }. Update the existing data on the will of the user.`,
+        example: {
+            reason_for_visit: "No change in condition"
+        }
     }
 }
 

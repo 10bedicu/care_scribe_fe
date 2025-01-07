@@ -13,7 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { API } from "@/utils/api";
 import uploadFile from "@/utils/uploadFile";
 import { useToast } from "@/hooks/use-toast";
-import { SCRIBE_PROMPT_MAP } from "@/utils/prompts";
+import { SCRIBE_PROMPT_MAP, STRUCTURED_INPUT_PROMPTS } from "@/utils/prompts";
 import {
   ChevronUpIcon,
   Cross1Icon,
@@ -119,6 +119,7 @@ export function Controller(props: {
         })
         .map(([k, v]) => ({ [k]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
+      console.log(changedData);
       return changedData;
     } catch (e) {
       toast({ title: t("scribe_error"), variant: "destructive" });
@@ -192,44 +193,57 @@ export function Controller(props: {
 
   // Sets up a scribe instance with the available recordings. Returns the instance ID.
   const createScribeInstance = async (fields: ScribeField[]) => {
-    try {
-      const hfields = await getHydratedFields(fields);
-      const data = await API.scribe.create({
-        status: "CREATED",
-        form_data: hfields as any,
-        // system_prompt: "...",
-        // json_prompt: "...",
-      });
+    const hfields = await getHydratedFields(fields);
+    const data = await API.scribe.create({
+      status: "CREATED",
+      form_data: hfields as any,
+      // system_prompt: "...",
+      // json_prompt: "...",
+    });
 
-      await Promise.all(
-        audioBlobs.map((blob) => uploadAudio(blob, data?.external_id ?? "")),
-      );
+    await Promise.all(
+      audioBlobs.map((blob) => uploadAudio(blob, data?.external_id ?? "")),
+    );
 
-      return data.external_id;
-    } catch {
-      throw Error("Error creating scribe instance");
-    }
+    return data.external_id;
   };
 
   const getHydratedFields = async (fields: ScribeField[]) => {
-    return fields.map((field, i) => ({
-      friendlyName: field.label || "Unlabled Field",
-      current: field.value,
-      id: `${i}`,
-      description:
-        field.customPrompt ||
-        SCRIBE_PROMPT_MAP[field.type]?.prompt ||
-        SCRIBE_PROMPT_MAP["default"]?.prompt,
-      type: "string",
-      example:
-        field.customExample ||
-        SCRIBE_PROMPT_MAP[field.type]?.example ||
-        SCRIBE_PROMPT_MAP["default"]?.example,
-      options: field.options?.map((opt) => ({
-        id: opt.value || "NONE",
-        text: opt.text,
-      })),
-    }));
+    return fields.map((field, i) => {
+      const structuredType = field.question.structured_type;
+
+      const structuredPrompt =
+        structuredType &&
+        Object.keys(STRUCTURED_INPUT_PROMPTS).includes(structuredType)
+          ? STRUCTURED_INPUT_PROMPTS[
+              structuredType as keyof typeof STRUCTURED_INPUT_PROMPTS
+            ]
+          : undefined;
+
+      return {
+        friendlyName: field.question.text || "Unlabled Field",
+        current: field.value,
+        id: `${i}`,
+        description:
+          structuredPrompt?.prompt ||
+          SCRIBE_PROMPT_MAP[field.question.type]?.prompt ||
+          SCRIBE_PROMPT_MAP["default"]?.prompt,
+        type: typeof (
+          structuredPrompt?.example ||
+          SCRIBE_PROMPT_MAP[field.question.type]?.example ||
+          SCRIBE_PROMPT_MAP["default"]?.example
+        ),
+        example: JSON.stringify(
+          structuredPrompt?.example ||
+            SCRIBE_PROMPT_MAP[field.question.type]?.example ||
+            SCRIBE_PROMPT_MAP["default"]?.example,
+        ),
+        options: field.question.answer_option?.map((opt) => ({
+          id: opt.value,
+          text: opt.value,
+        })),
+      };
+    });
   };
 
   // updates the transcript and fetches a new AI response

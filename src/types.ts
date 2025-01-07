@@ -76,13 +76,9 @@ export type ScribeFieldOption = {
 }
 
 export type ScribeField = {
-    type: QuestionType,
+    question: FormQuestion,
     fieldElement: Element,
-    label: string;
-    options?: ScribeFieldOption[];
     value: string | null;
-    customPrompt?: string,
-    customExample?: string
 }
 
 export type ScribeAIResponse = {
@@ -183,5 +179,4 @@ export interface FormQuestion {
     text: string;
     required?: boolean;
     type: QuestionType
-    [key: string]: unknown;
 }

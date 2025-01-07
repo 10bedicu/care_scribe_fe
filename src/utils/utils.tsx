@@ -7,7 +7,6 @@ import {
 } from "../types";
 import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { STRUCTURED_INPUT_PROMPTS } from "./prompts";
 
 export const getQuestionInputs: (formState: any) => ScribeField[] = (
   formState: any,
@@ -23,33 +22,7 @@ export const getQuestionInputs: (formState: any) => ScribeField[] = (
       const question = findQuestion(formState, questionId || "");
 
       if (!question) throw Error("No Question Found");
-      let customPrompt;
-      let customExample;
-      let options;
-      switch (question.type) {
-        case "structured": {
-          const structuredType = question?.structured_type;
-
-          if (!structuredType) throw Error("No structured type");
-
-          if (Object.keys(STRUCTURED_INPUT_PROMPTS).includes(structuredType)) {
-            const mapping =
-              STRUCTURED_INPUT_PROMPTS[
-                structuredType as keyof typeof STRUCTURED_INPUT_PROMPTS
-              ];
-            customPrompt = mapping.prompt;
-            customExample = mapping.example;
-          }
-          break;
-        }
-        case "choice": {
-          options = question.answer_option;
-          break;
-        }
-
-        default:
-          break;
-      }
+      console.log(question);
 
       const currentValue = formState
         .find((qn: any) =>
@@ -61,13 +34,9 @@ export const getQuestionInputs: (formState: any) => ScribeField[] = (
         ?.values?.[0]?.value;
 
       return {
-        type: question.type,
+        question,
         fieldElement: ele,
-        label: question?.text,
-        options,
         value: JSON.stringify(currentValue || null),
-        customPrompt,
-        customExample: JSON.stringify(customExample),
       } as ScribeField;
     })
     .filter((i) => !!i);
@@ -87,63 +56,54 @@ export const renderFieldValue = (
   useNewValue?: boolean,
 ) => {
   const val = useNewValue ? field.newValue : field.value;
-  if (field.type === "structured") {
-    try {
-      const parsedValue = JSON.parse(val as string);
-      if (Array.isArray(parsedValue)) {
-        return (
-          <ul className="list-disc pl-5">
-            {parsedValue.map((item, index) => (
-              <li key={index}>
-                {typeof item === "object" && item !== null ? (
-                  <ul className="list-disc pl-5">
-                    {Object.entries(item).map(([key, value]) => (
-                      <li key={key}>
-                        <span className="font-semibold">{key}:</span>{" "}
-                        {typeof value === "string" || typeof value === "number"
-                          ? String(value)
-                          : "..."}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  String(item)
-                )}
-              </li>
-            ))}
-          </ul>
-        );
-      } else if (typeof parsedValue === "object" && parsedValue !== null) {
-        return (
-          <ul className="list-disc pl-5">
-            {Object.entries(parsedValue).map(([key, value]) => (
-              <li key={key}>
-                <span className="font-semibold">{key}:</span>{" "}
-                {typeof value === "string" || typeof value === "number"
-                  ? String(value)
-                  : "..."}
-              </li>
-            ))}
-          </ul>
-        );
-      }
-    } catch (e) {
-      // If parsing fails, treat as a regular string
-    }
-
+  const parsedValue = JSON.parse(val as string);
+  if (Array.isArray(parsedValue)) {
     return (
-      <span>
-        {typeof val === "string" &&
-        dayjs(val.replace(/^"(.*)"$/, "$1")).isValid()
-          ? dayjs(val.replace(/^"(.*)"$/, "$1")).format("MMMM D, YYYY h:mm A")
-          : String(val)}
-      </span>
+      <ul className="list-disc pl-5">
+        {parsedValue.map((item, index) => (
+          <li key={index}>
+            {typeof item === "object" && item !== null ? (
+              <ul className="list-disc pl-5">
+                {Object.entries(item).map(([key, value]) => (
+                  <li key={key}>
+                    <span className="font-semibold">{key}:</span>{" "}
+                    {typeof value === "string" || typeof value === "number"
+                      ? String(value)
+                      : "..."}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              String(item)
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  } else if (typeof parsedValue === "object" && parsedValue !== null) {
+    return (
+      <ul className="list-disc pl-5">
+        {Object.entries(parsedValue).map(([key, value]) => (
+          <li key={key}>
+            <span className="font-semibold">{key}:</span>{" "}
+            {typeof value === "string" || typeof value === "number"
+              ? String(value)
+              : "..."}
+          </li>
+        ))}
+      </ul>
     );
   }
-  if (!["string", "number"].includes(typeof field.value)) return "...";
-  return field.options
-    ? field.options.find((o) => String(o.value) === String(val))?.text
-    : (val as string | number);
+  return (
+    <span>
+      {typeof parsedValue === "string" &&
+      dayjs(parsedValue.replace(/^"(.*)"$/, "$1")).isValid()
+        ? dayjs(parsedValue.replace(/^"(.*)"$/, "$1")).format(
+            "MMMM D, YYYY h:mm A",
+          )
+        : String(parsedValue)}
+    </span>
+  );
 };
 
 export const sleep = async (seconds: number) => {
@@ -160,7 +120,10 @@ export const updateFieldValue = (
   formState?: any,
   setFormState?: any,
 ) => {
-  const val = (useNewValue ? field.newValue : field.value) as string;
+  let val = (useNewValue ? field.newValue : field.value) as string;
+  try {
+    val = JSON.parse(val);
+  } catch (error) {}
   const element = field.fieldElement as HTMLElement;
 
   const qId = element.getAttribute("data-question-id");
@@ -172,9 +135,9 @@ export const updateFieldValue = (
             ...response,
             values: response.values.length
               ? response.values.map((v: any, i: number) =>
-                  i === 0 ? { ...v, value: JSON.parse(val) } : v,
+                  i === 0 ? { ...v, value: val } : v,
                 )
-              : [{ value: JSON.parse(val) }],
+              : [{ value: val }],
           }
         : response,
     ),
@@ -191,7 +154,9 @@ function isFormQuestion(value: unknown): value is FormQuestion {
     typeof value === "object" &&
     value !== null &&
     "id" in value &&
-    typeof (value as { id: unknown }).id === "string"
+    "text" in value &&
+    typeof (value as { id: unknown }).id === "string" &&
+    typeof (value as { text: unknown }).text === "string"
   );
 }
 
