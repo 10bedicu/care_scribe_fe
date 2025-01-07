@@ -22,7 +22,6 @@ export const getQuestionInputs: (formState: any) => ScribeField[] = (
       const question = findQuestion(formState, questionId || "");
 
       if (!question) throw Error("No Question Found");
-      console.log(question);
 
       const currentValue = formState
         .find((qn: any) =>
@@ -120,13 +119,24 @@ export const updateFieldValue = (
   formState?: any,
   setFormState?: any,
 ) => {
-  let val = (useNewValue ? field.newValue : field.value) as string;
+  let val = (useNewValue ? field.newValue : field.value) as any;
   try {
     val = JSON.parse(val);
   } catch (error) {}
   const element = field.fieldElement as HTMLElement;
 
   const qId = element.getAttribute("data-question-id");
+
+  // just incase scribe does not include previous data
+  if (qId === "encounter") {
+    val = [
+      {
+        ...JSON.parse(field.value as any)[0],
+        ...val[0],
+      },
+    ];
+  }
+
   const formQuestionnaire = formState.map((qn: any) => ({
     ...qn,
     responses: qn.responses.map((response: any) =>
@@ -135,9 +145,19 @@ export const updateFieldValue = (
             ...response,
             values: response.values.length
               ? response.values.map((v: any, i: number) =>
-                  i === 0 ? { ...v, value: val } : v,
+                  i === 0
+                    ? {
+                        ...v,
+                        value: val,
+                      }
+                    : v,
                 )
-              : [{ value: val }],
+              : [
+                  {
+                    type: field.question.structured_type || typeof val,
+                    value: val,
+                  },
+                ],
           }
         : response,
     ),

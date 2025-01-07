@@ -37,7 +37,7 @@ const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
 
 export const STRUCTURED_INPUT_PROMPTS = {
     "encounter": {
-        prompt: `An object of the following schema. Everything in brackets is for your information and is not part of the schema. : {
+        prompt: `An array of only one object of the following schema. Everything in brackets is for your information and is not part of the schema. : {
             status?: "planned" | "in_progress" | "on_hold" | "discharged" | "completed" | "cancelled" | "discontinued" | "entered_in_error" | "unknown",
             encounter_class? : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health),'
             priority?: "ASAP" | "callback_results" | "callback_for_scheduling" | "elective" | "emergency" | "preop" | "as_needed" | "routine" | "rush_reporting" | "stat" | "timing_critical" | "use_as_directed" | "urgent";
@@ -53,8 +53,9 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 discharge_disposition?: "home" (Home) | "alt_home" (Alternate Home) | "other_hcf" (Other Healthcare Facility) | "hosp" (Hospice) | "long" (Long Term Care) | "aadvice" (Left Against Advice) | "exp" (Expired) | "psy" (Psychiatric Hospital) | "rehab" (Rehabilitation) | "snf" (Skilled Nursing Facility) | "oth" (Other);
             };
             
-        }. Update the existing data on the will of the user.`,
-        example: {
+            ...other data that is READ ONLY
+        }. Make sure to only update the existing data of the user and not remove or update any data that was not explicitly told to be updated. Return ONLY the original data with requested updates.`,
+        example: [{
             status: "in_progress",
             encounter_class: "imp",
             priority: "callback_for_scheduling",
@@ -64,8 +65,9 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 admit_source: "outp",
                 discharge_disposition: "home",
                 diet_preference: "nut_free"
-            }
-        },
+            },
+            "...other_data": "keep other data as is"
+        }],
     },
     "medication_request": {
         prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {

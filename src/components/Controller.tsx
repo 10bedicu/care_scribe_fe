@@ -119,7 +119,6 @@ export function Controller(props: {
         })
         .map(([k, v]) => ({ [k]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
-      console.log(changedData);
       return changedData;
     } catch (e) {
       toast({ title: t("scribe_error"), variant: "destructive" });
@@ -371,7 +370,7 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 text-xs"
+                  className="absolute left-2 top-2 hidden text-xs"
                 >
                   Test
                 </button>
