@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
-import { getFieldsToReview, scrapeFields } from "../utils/utils";
+import { getFieldsToReview, getQuestionInputs } from "../utils/utils";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
@@ -41,7 +41,7 @@ export function Controller(props: {
   The patient's current vital signs indicate a systolic blood pressure of 20, diastolic blood pressure of 40, pulse of 84, SpO2 at 78%, 
   and a blood sugar level of 59. Pain is reported as mild, and the patient is bed-bound, unable to move.
   An acute symptom of left-sided ulcerative colitis has been added, with differential verification, moderate severity, beginning yesterday. 
-  Update the existing symptom’s verification to confirmed, and all existing diagnoses should be removed. Nurse John Doe is filling the allergy intolerance form.
+  Update the existing symptom's verification to confirmed, and all existing diagnoses should be removed. Nurse John Doe is filling the allergy intolerance form.
   A resolved allergy to isomaltose has been detected.`;
 
   const {
@@ -248,7 +248,7 @@ export function Controller(props: {
       throw Error("Error updating Scribe Instance");
     }
     setStatus("THINKING");
-    const fields = scrapeFields(null, false, props.formState);
+    const fields = getQuestionInputs(props.formState);
     const aiResponse = await getAIResponse(instanceId, fields);
     if (!aiResponse) return;
     setStatus("REVIEWING");
@@ -273,7 +273,7 @@ export function Controller(props: {
     timer.reset();
     setStatus("UPLOADING");
     stopSegmentedRecording();
-    const fields = scrapeFields(null, false, props.formState);
+    const fields = getQuestionInputs(props.formState);
     const instanceId = await createScribeInstance(fields);
     setInstanceId(instanceId);
     setStatus("TRANSCRIBING");
@@ -357,7 +357,7 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 hidden text-xs"
+                  className="absolute left-2 top-2 text-xs"
                 >
                   Test
                 </button>

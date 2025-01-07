@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Controller } from "./components/Controller";
 import { usePath } from "raviger";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
@@ -15,7 +15,6 @@ export default function App(props: {
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
-  const [forms, setForms] = useState<NodeListOf<Element>>();
   const featureFlags = useFeatureFlags(facilityId);
   const SCRIBE_ENABLED = featureFlags.includes("SCRIBE_ENABLED");
 
@@ -35,21 +34,6 @@ export default function App(props: {
 
   useEffect(() => {
     if (!SCRIBE_ENABLED) return;
-    const observer = new MutationObserver((mutationsList) => {
-      for (const mutation of mutationsList) {
-        if (mutation.type === "childList") {
-          const forms = document.querySelectorAll('[data-scribe-form="true"]');
-          setForms(forms);
-        }
-      }
-    });
-    const config = { childList: true, subtree: true };
-    observer.observe(document.body, config);
-    return () => observer.disconnect();
-  }, [SCRIBE_ENABLED]);
-
-  useEffect(() => {
-    if (!forms || forms.length === 0) return;
     const pageElement = document.querySelector(
       '[data-cui-page="true"]',
     ) as HTMLElement;
@@ -62,12 +46,12 @@ export default function App(props: {
         pageElement.style.paddingBottom = "";
       }
     };
-  }, [forms]);
+  }, []);
 
   return (
     <div>
       <Toaster />
-      {!!forms?.length && <Controller {...props} />}
+      {SCRIBE_ENABLED && <Controller {...props} />}
     </div>
   );
 }

@@ -17,7 +17,7 @@ const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
         prompt: "A normal string value",
         example: "A value",
     },
-    number: {
+    integer: {
         prompt: "An integer value",
         example: "42",
     },
@@ -25,37 +25,50 @@ const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
         prompt: "A date value",
         example: "2003-12-21",
     },
-    checkbox: {
+    boolean: {
         prompt: "A true or false value",
         example: "true",
     },
-    "datetime-local": {
+    dateTime: {
         prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
         example: "2003-12-21T23:10",
-    },
-}
-
-const CUI_INPUT_PROMPTS: ScribePromptMap = {
-    "cui-date": {
-        prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
-        example: "2003-12-21T23:10",
-    },
-    "cui-datetime": {
-        prompt: `A date in ISO format, minus 5 hour 30 minutes in the following JSON format : {date: datestring}. Current time for your reference is ${new Date().toISOString()}`,
-        example: JSON.stringify({ date: new Date().toISOString() }),
-    },
-    "cui-multi-select": {
-        prompt: `An array of normal string values`,
-        example: JSON.stringify(["an", "example"]),
-    },
-    "cui-checkbox": {
-        prompt: "A true or false value",
-        example: "true",
     },
 }
 
 export const STRUCTURED_INPUT_PROMPTS = {
-    "qn-medication-request": {
+    "encounter": {
+        name: "Encounter",
+        prompt: `An object of the following schema. Everything in brackets is for your information and is not part of the schema. : {
+            status?: "planned" | "in_progress" | "on_hold" | "discharged" | "completed" | "cancelled" | "discontinued" | "entered_in_error" | "unknown",
+            encounter_class? : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health),'
+            priority?: "ASAP" | "callback_results" | "callback_for_scheduling" | "elective" | "emergency" | "preop" | "as_needed" | "routine" | "rush_reporting" | "stat" | "timing_critical" | "use_as_directed" | "urgent";
+            external_identifier (ip/op/obs/emr number)?: string;
+            
+            (This will only be applicable if encounter_class is "imp", "absenc", or "emer")
+            hospitalization?: {
+                re_admission?: boolean;
+                admit_source?: "hosp_trans" (Hospital Transfer) | "emd" (Emergency Department) | "outp" (Outpatient Department) | "born" (Born) | "gp" (General Practitioner) | "mp" (Medical Practitioner) | "nursing" (Nursing Home) | "psych" (Psychiatric Hospital) | "rehab" (Rehabilitation Facility) | "other" (Other);
+                diet_preference?: "vegetarian" (Vegetarian) | "diary_free" (Dairy Free) | "nut_free" (Nut Free) | "gluten_free" (Gluten Free) | "vegan" (Vegan) | "halal" (Halal) | "kosher" (Kosher) | "none" (None);
+                
+                (only applicable if status is "completed")
+                discharge_disposition?: "home" (Home) | "alt_home" (Alternate Home) | "other_hcf" (Other Healthcare Facility) | "hosp" (Hospice) | "long" (Long Term Care) | "aadvice" (Left Against Advice) | "exp" (Expired) | "psy" (Psychiatric Hospital) | "rehab" (Rehabilitation) | "snf" (Skilled Nursing Facility) | "oth" (Other);
+            };
+            
+        }. Update the existing data on the will of the user.`,
+        example: {
+            status: "in_progress",
+            encounter_class: "imp",
+            priority: "callback_for_scheduling",
+            external_identifier: "1212",
+            hospitalization: {
+                re_admission: true,
+                admit_source: "outp",
+                discharge_disposition: "home",
+                diet_preference: "nut_free"
+            }
+        }
+    },
+    "medication_request": {
         name: "Medication Request",
         prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
           status?: "active" | "on-hold" | "ended" | "stopped" | "completed" | "cancelled" | "entered-in-error" | "draft" | "unknown",
@@ -200,7 +213,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
         ]
     },
-    "qn-medication-statement": {
+    "medication_statement": {
         name: "Medication Statement",
         prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses {
           status?: ${MEDICATION_STATEMENT_STATUS.join(" | ")},
@@ -237,7 +250,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
         ]
     },
-    "qn-symptoms": {
+    "symptoms": {
         name: "Symptoms",
         prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable symptoms: {
           code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
@@ -266,7 +279,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
         ]
     },
-    "qn-diagnoses": {
+    "diagnoses": {
         name: "Diagnoses",
         prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses: {
           code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
@@ -293,7 +306,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
         ]
     },
-    "qn-allergies": {
+    "allergies": {
         name: "Allergies",
         prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
           code: {
@@ -328,5 +341,4 @@ export const STRUCTURED_INPUT_PROMPTS = {
 
 export const SCRIBE_PROMPT_MAP: ScribePromptMap = {
     ...ARBITRARY_INPUT_PROMPTS,
-    ...CUI_INPUT_PROMPTS,
 };

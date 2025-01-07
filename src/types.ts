@@ -75,24 +75,8 @@ export type ScribeFieldOption = {
     text: string
 }
 
-export type ScribeFieldTypes =
-    | "string"
-    | "number"
-    | "date"
-    | "datetime-local"
-    | "select"
-    | "cui-select"
-    | "cui-multi-select"
-    | "cui-date"
-    | "cui-datetime"
-    | "radio"
-    | "checkbox"
-    | "sub-form"
-    | "structured-input"
-    | "cui-checkbox"
-
 export type ScribeField = {
-    type: ScribeFieldTypes
+    type: QuestionType,
     fieldElement: Element,
     label: string;
     options?: ScribeFieldOption[];
@@ -106,7 +90,7 @@ export type ScribeAIResponse = {
 }
 
 export type ScribePromptMap = {
-    [key in ScribeFieldTypes | "default"]?: { prompt: string; example: unknown };
+    [key in QuestionType | "default"]?: { prompt: string; example: unknown };
 }
 
 export type ScribeFieldSuggestion = ScribeField & { newValue: unknown }
@@ -174,4 +158,30 @@ export interface FacilityModel {
     kasp_empanelled?: boolean;
     patient_count?: number;
     bed_count?: number;
+}
+
+export type QuestionType =
+    | "group"
+    | "display"
+    | "boolean"
+    | "decimal"
+    | "integer"
+    | "date"
+    | "dateTime"
+    | "time"
+    | "string"
+    | "text"
+    | "url"
+    | "choice"
+    | "quantity"
+    | "structured";
+
+export interface FormQuestion {
+    id: string;
+    structured_type?: string;
+    answer_option?: { value: string }[];
+    text: string;
+    required?: boolean;
+    type: QuestionType
+    [key: string]: unknown;
 }

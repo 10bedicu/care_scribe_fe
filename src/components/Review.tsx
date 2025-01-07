@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScribeFieldReviewedSuggestion, ScribeFieldSuggestion } from "../types";
-import {
-  previewFieldUpdate,
-  renderFieldValue,
-  sleep,
-  updateFieldValue,
-} from "../utils/utils";
+import { renderFieldValue, sleep, updateFieldValue } from "../utils/utils";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useTranslation } from "react-i18next";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
@@ -103,7 +98,6 @@ export default function ScribeReview(props: {
   useEffect(() => {
     if (reviewingField) {
       updateFieldValue(reviewingField, true, formState, setFormState);
-      previewFieldUpdate(reviewingField);
     }
   }, [reviewingField]);
 
