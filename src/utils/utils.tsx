@@ -55,7 +55,12 @@ export const renderFieldValue = (
   useNewValue?: boolean,
 ) => {
   const val = useNewValue ? field.newValue : field.value;
-  const parsedValue = JSON.parse(val as string);
+  let parsedValue;
+  try {
+    parsedValue = JSON.parse(val as string); // Support edge cases where scribe does not return JSON
+  } catch (error) {
+    parsedValue = val;
+  }
   if (Array.isArray(parsedValue)) {
     return (
       <ul className="list-disc pl-5">
