@@ -1,6 +1,7 @@
 import App from "@/App";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FeatureFlagsProvider } from "./hooks/useFeatureFlags";
+import "./style/index.css";
 
 const queryClient = new QueryClient();
 
