@@ -1,4 +1,3 @@
-import dayjs from "dayjs";
 import {
   FormQuestion,
   ScribeAIResponse,
@@ -98,16 +97,7 @@ export const renderFieldValue = (
       </ul>
     );
   }
-  return (
-    <span>
-      {typeof parsedValue === "string" &&
-      dayjs(parsedValue.replace(/^"(.*)"$/, "$1")).isValid()
-        ? dayjs(parsedValue.replace(/^"(.*)"$/, "$1")).format(
-            "MMMM D, YYYY h:mm A",
-          )
-        : String(parsedValue)}
-    </span>
-  );
+  return <span>{String(parsedValue)}</span>;
 };
 
 export const sleep = async (seconds: number) => {
