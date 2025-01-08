@@ -1,21 +1,18 @@
 import { useEffect, useState } from "react";
 import { ScribeFieldReviewedSuggestion, ScribeFieldSuggestion } from "../types";
-import CareIcon from "@/CAREUI/icons/CareIcon";
-import {
-  previewFieldUpdate,
-  renderFieldValue,
-  sleep,
-  updateFieldValue,
-} from "../utils";
+import { renderFieldValue, sleep, updateFieldValue } from "../utils/utils";
 import useKeyboardShortcut from "use-keyboard-shortcut";
-import { KeyboardShortcutKey } from "@/CAREUI/interactive/KeyboardShortcut";
 import { useTranslation } from "react-i18next";
+import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
+import { ChevronLeftIcon } from "@radix-ui/react-icons";
 
 export default function ScribeReview(props: {
+  formState: unknown;
+  setFormState: unknown;
   toReview: ScribeFieldSuggestion[];
   onReviewComplete: (accepted: ScribeFieldReviewedSuggestion[]) => void;
 }) {
-  const { toReview, onReviewComplete } = props;
+  const { toReview, onReviewComplete, formState, setFormState } = props;
   const initialReviewIndex = toReview.length > 1 ? -1 : 0;
   const [reviewIndex, setReviewIndex] = useState(initialReviewIndex);
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<
@@ -77,7 +74,8 @@ export default function ScribeReview(props: {
         suggestionIndex: reviewIndex,
       },
     ];
-    if (!approved && reviewingField) updateFieldValue(reviewingField);
+    if (!approved && reviewingField)
+      updateFieldValue(reviewingField, false, formState, setFormState);
     await sleep(150);
     setAcceptedSuggestions(accepted);
     handleForward(accepted);
@@ -91,7 +89,7 @@ export default function ScribeReview(props: {
     }));
     for (const f of toReview) {
       await sleep(100);
-      updateFieldValue(f, true);
+      updateFieldValue(f, true, formState, setFormState);
     }
     setAcceptedSuggestions(accepted);
     handleReviewComplete(accepted);
@@ -99,8 +97,7 @@ export default function ScribeReview(props: {
 
   useEffect(() => {
     if (reviewingField) {
-      updateFieldValue(reviewingField, true);
-      previewFieldUpdate(reviewingField);
+      updateFieldValue(reviewingField, true, formState, setFormState);
     }
   }, [reviewingField]);
 
@@ -124,7 +121,9 @@ export default function ScribeReview(props: {
                 key={index}
                 className="flex flex-col items-start rounded-lg bg-black/20 px-4 py-2"
               >
-                <div className="text-xs text-secondary-400">{field.label}</div>
+                <div className="text-secondary-400 text-xs">
+                  {field.question.text}
+                </div>
                 <div className="font-bold">{renderFieldValue(field, true)}</div>
               </div>
             ))}
@@ -133,14 +132,14 @@ export default function ScribeReview(props: {
         <div className="flex flex-col gap-2 md:flex-row">
           <button
             onClick={handleAcceptAll}
-            className="flex w-full items-center gap-2 rounded-full bg-primary-500 px-4 py-2 text-lg font-semibold transition-all hover:bg-primary-600 md:w-auto"
+            className="bg-primary-500 hover:bg-primary-600 flex w-full items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all md:w-auto"
           >
             <KeyboardShortcutKey shortcut={["E"]} />
             {t("accept_all")}
           </button>
           <button
             onClick={() => handleForward()}
-            className="flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-secondary-100 md:w-auto"
+            className="hover:bg-secondary-100 flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all md:w-auto"
           >
             <KeyboardShortcutKey shortcut={["A"]} />
             {t("start_review")}
@@ -179,18 +178,18 @@ export default function ScribeReview(props: {
             onClick={handleBack}
             className="flex aspect-square items-center justify-center rounded-full border border-white p-2 text-2xl font-semibold text-white"
           >
-            <CareIcon icon="l-angle-left" />
+            <ChevronLeftIcon />
           </button>
           <button
             onClick={() => handleVerdict(false)}
-            className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-secondary-100"
+            className="hover:bg-secondary-100 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all"
           >
             <KeyboardShortcutKey shortcut={["R"]} />
             {t("reject")}
           </button>
           <button
             onClick={() => handleVerdict(true)}
-            className="flex items-center gap-2 rounded-full bg-primary-500 px-4 py-2 text-lg font-semibold transition-all hover:bg-primary-600"
+            className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all"
           >
             <KeyboardShortcutKey shortcut={["A"]} />
             {t("accept")}
@@ -203,7 +202,7 @@ export default function ScribeReview(props: {
           })}
         </div>
         <div className="flex items-center gap-4">
-          {toReview.map((r, i) => (
+          {toReview.map((_, i) => (
             <button
               key={i}
               className={`aspect-square w-4 rounded-full ${acceptedSuggestions.find((s) => s.suggestionIndex === i)?.approved === true ? "bg-primary-500" : acceptedSuggestions.find((s) => s.suggestionIndex === i)?.approved === false ? "bg-red-500" : "bg-white"} ${reviewIndex === i ? "opacity-100" : "opacity-50"} transition-all`}
