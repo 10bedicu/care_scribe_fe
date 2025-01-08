@@ -112,21 +112,20 @@ export const STRUCTURED_INPUT_PROMPTS = {
              * - If \`type\` is \`ordered\`, \`dose_quantity\` must be present.
              * - If \`type\` is \`calculated\`, \`dose_range\` must be present. This is used for titrated medications.
              */
-            dose_and_rate?: (
-              | {
-                  type?: "ordered";
-                  dose_quantity?: DosageQuantity;
-                  dose_range?: undefined;
+            dose_and_rate?:
+                | {
+                    type?: "ordered";
+                    dose_quantity?: DosageQuantity;
+                    dose_range?: undefined;
                 }
-              | {
-                  type: "calculated";
-                  dose_range?: {
-                    low: DosageQuantity;
-                    high: DosageQuantity;
-                  };
-                  dose_quantity?: undefined;
-                }
-            )[];
+                | {
+                    type: "calculated";
+                    dose_range?: {
+                        low: DosageQuantity;
+                        high: DosageQuantity;
+                    };
+                    dose_quantity?: undefined;
+                };
             max_dose_per_period?: {
               low: DosageQuantity;
               high: DosageQuantity;
@@ -146,71 +145,61 @@ export const STRUCTURED_INPUT_PROMPTS = {
           system: "http://snomed.info/sct"
         }
         
-        Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()}`,
+        Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current date is ${new Date().toLocaleDateString()}`,
         example: [
             {
-                status: "active",
-                intent: "original_order",
-                category: "inpatient",
-                priority: "urgent",
-                do_not_perform: false,
-                medication: {
-                    code: "1214771000202109",
-                    display:
-                        "Ciprofloxacin and fluocinolone only product in otic dose form",
-                    system: "http://snomed.info/sct",
+                "status": "active",
+                "intent": "order",
+                "category": "inpatient",
+                "priority": "urgent",
+                "do_not_perform": false,
+                "medication": {
+                    "code": "407828006",
+                    "display": "Senna 15 mg oral tablet",
+                    "system": "http://snomed.info/sct"
                 },
-                authored_on: "2024-12-29T22:16:45.404Z",
-                dosage_instruction: [
+                "authored_on": "2025-01-08T14:09:46.569Z",
+                "dosage_instruction": [
                     {
-                        dose_and_rate: [
+                        "dose_and_rate": {
+                            "type": "ordered",
+                            "dose_quantity": {
+                                "value": 1,
+                                "unit": "mg"
+                            }
+                        },
+                        "route": {
+                            "code": "66621000052103",
+                            "display": "Sublabial route",
+                            "system": "http://snomed.info/sct"
+                        },
+                        "method": {
+                            "code": "1231460007",
+                            "display": "Dialysis system",
+                            "system": "http://snomed.info/sct"
+                        },
+                        "site": {
+                            "code": "16226271000119107",
+                            "display": "Structure of product of conception of ectopic pregnancy",
+                            "system": "http://snomed.info/sct"
+                        },
+                        "timing": {
+                            "repeat": {
+                                "frequency": 1,
+                                "period": 1,
+                                "period_unit": "d"
+                            }
+                        },
+                        "additional_instruction": [
                             {
-                                type: "ordered",
-                                dose_quantity: {
-                                    unit: "g",
-                                    value: 11,
-                                },
-                            },
-                        ],
-                        route: {
-                            code: "58831000052108",
-                            display: "Subretinal route",
-                            system: "http://snomed.info/sct",
-                        },
-                        method: {
-                            code: "1231460007",
-                            display: "Dialysis system",
-                            system: "http://snomed.info/sct",
-                        },
-                        site: {
-                            code: "16217661000119109",
-                            display: "Structure of right deltoid muscle",
-                            system: "http://snomed.info/sct",
-                        },
-                        as_needed_boolean: true,
-                        timing: {
-                            repeat: {
-                                frequency: 1,
-                                period: 1,
-                                period_unit: "d",
-                            },
-                        },
-                        additional_instruction: [
-                            {
-                                code: "421984009",
-                                display: "Until finished",
-                                system: "http://snomed.info/sct",
-                            },
-                        ],
-                        as_needed_for: {
-                            code: "972604701000119104",
-                            display:
-                                "Acquired arteriovenous malformation of vascular structure of gastrointestinal tract",
-                            system: "http://snomed.info/sct",
-                        },
-                    },
-                ],
-            },
+                                "code": "421484000",
+                                "display": "Then discontinue",
+                                "system": "http://snomed.info/sct"
+                            }
+                        ]
+                    }
+                ]
+            }
         ]
     },
     "medication_statement": {
