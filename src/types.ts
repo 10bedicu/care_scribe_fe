@@ -179,4 +179,5 @@ export interface FormQuestion {
     text: string;
     required?: boolean;
     type: QuestionType
+    repeats?: boolean;
 }

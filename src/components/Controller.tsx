@@ -13,7 +13,11 @@ import { Textarea } from "./ui/textarea";
 import { API } from "@/utils/api";
 import uploadFile from "@/utils/uploadFile";
 import { useToast } from "@/hooks/use-toast";
-import { SCRIBE_PROMPT_MAP, STRUCTURED_INPUT_PROMPTS } from "@/utils/prompts";
+import {
+  SCRIBE_PROMPT_MAP,
+  SCRIBE_REPEAT_PROMPT_MAP,
+  STRUCTURED_INPUT_PROMPTS,
+} from "@/utils/prompts";
 import {
   ChevronUpIcon,
   Cross1Icon,
@@ -219,23 +223,27 @@ export function Controller(props: {
             ]
           : undefined;
 
+      const promptMap = field.question.repeats
+        ? SCRIBE_REPEAT_PROMPT_MAP
+        : SCRIBE_PROMPT_MAP;
+
       return {
         friendlyName: field.question.text || "Unlabled Field",
         current: field.value,
         id: `${i}`,
         description:
           structuredPrompt?.prompt ||
-          SCRIBE_PROMPT_MAP[field.question.type]?.prompt ||
-          SCRIBE_PROMPT_MAP["default"]?.prompt,
+          promptMap[field.question.type]?.prompt ||
+          promptMap["default"]?.prompt,
         type: typeof (
           structuredPrompt?.example ||
-          SCRIBE_PROMPT_MAP[field.question.type]?.example ||
-          SCRIBE_PROMPT_MAP["default"]?.example
+          promptMap[field.question.type]?.example ||
+          promptMap["default"]?.example
         ),
         example: JSON.stringify(
           structuredPrompt?.example ||
-            SCRIBE_PROMPT_MAP[field.question.type]?.example ||
-            SCRIBE_PROMPT_MAP["default"]?.example,
+            promptMap[field.question.type]?.example ||
+            promptMap["default"]?.example,
         ),
         options: field.question.answer_option?.map((opt) => ({
           id: opt.value,

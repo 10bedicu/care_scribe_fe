@@ -35,6 +35,25 @@ const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
     },
 }
 
+export const SCRIBE_REPEAT_PROMPT_MAP: ScribePromptMap = {
+    default: {
+        prompt: "An array of strings JSON encoded",
+        example: ["A value"]
+    },
+    integer: {
+        prompt: "An array of integers JSON encoded",
+        example: [42],
+    },
+    date: {
+        prompt: `An array of date values JSON encoded. Current date : ${dayjs(new Date()).format("YYYY-MM-DD")}`,
+        example: ["2003-12-21"],
+    },
+    boolean: {
+        prompt: "An array of true or false values JSON encoded",
+        example: [true],
+    },
+}
+
 export const STRUCTURED_INPUT_PROMPTS = {
     "encounter": {
         prompt: `An array of only one object of the following schema. Everything in brackets is for your information and is not part of the schema. : {

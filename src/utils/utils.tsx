@@ -138,21 +138,26 @@ export const updateFieldValue = (
       response.question_id === qId
         ? {
             ...response,
-            values: response.values.length
-              ? response.values.map((v: any, i: number) =>
-                  i === 0
-                    ? {
-                        ...v,
-                        value: val,
-                      }
-                    : v,
-                )
-              : [
-                  {
-                    type: field.question.structured_type || typeof val,
-                    value: val,
-                  },
-                ],
+            values: !field.question.repeats
+              ? response.values.length
+                ? response.values.map((v: any, i: number) =>
+                    i === 0
+                      ? {
+                          ...v,
+                          value: val,
+                        }
+                      : v,
+                  )
+                : [
+                    {
+                      type: field.question.structured_type || typeof val,
+                      value: val,
+                    },
+                  ]
+              : val.map((v: any) => ({
+                  type: field.question.structured_type || typeof v,
+                  value: v,
+                })),
           }
         : response,
     ),
