@@ -101,7 +101,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             primary: true
           };
           authored_on?: ISO time string,
-          dosage_instruction: {
+          dosage_instruction: [{
             sequence?: number;
             text?: string;
             additional_instruction?:[{
@@ -109,10 +109,22 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 code_search_type: "system-additional-instruction",
             }];
             patient_instruction?: string;
+            
             timing?: {
               repeat?: {
+                (
+                 	•	Twice daily means frequency is 2 and period is 1 day and period_unit is “d”.
+                    •	Night only means frequency is 1 and period is 1 day and period_unit is “d”.
+                    •	Once daily means frequency is 1 and period is 1 day and period_unit is “d”.
+                    •	4th hourly means frequency is 4 and period is 1 hour and period_unit is “h”.
+                    •	6th hourly means frequency is 6 and period is 1 hour and period_unit is “h”.
+                    •	Alternate day means frequency is 2 and period is 1 day and period_unit is “d”.
+                    •	Once a week means frequency is 1 and period is 1 week and period_unit is “wk”.
+                    •	Immediately means frequency is 1 and period is 1 second and period_unit is “s”.
+                    •	8th hourly means frequency is 8 and period is 1 hour and period_unit is “h”.
+                )
                 frequency?: number;
-                period: number; // number of units (ex. 12 days would mean 12 with unit "d")
+                period: number; // number of units (ex. 12 days would mean 12 with unit "d");
                 period_unit: "s" | "min" | "h" | "d" | "wk" | "mo" | "a";
               };
             };
@@ -164,9 +176,9 @@ export const STRUCTURED_INPUT_PROMPTS = {
               low: DosageQuantity;
               high: DosageQuantity;
             };
-          }[];
+          }];
           note?: string
-        }. 
+        }
         
         DosageQuantity {
           value?: number;
