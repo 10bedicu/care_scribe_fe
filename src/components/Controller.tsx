@@ -150,7 +150,9 @@ export function Controller(props: {
               .forEach((m) => {
                 toast({
                   title: t("scribe_no_match", {
-                    valueType: VALUESET_SYSTEM_NAMES[m.code_search_type],
+                    valueType:
+                      VALUESET_SYSTEM_NAMES[m.code_search_type].toLowerCase(),
+                    query: m.code_search_query,
                   }),
                   variant: "destructive",
                 });
