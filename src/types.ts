@@ -181,3 +181,27 @@ export interface FormQuestion {
     type: QuestionType
     repeats?: boolean;
 }
+
+export type ValueSetSystem =
+    | "system-allergy-code"
+    | "system-condition-code"
+    | "system-medication"
+    | "system-additional-instruction"
+    | "system-administration-method"
+    | "system-as-needed-reason"
+    | "system-body-site"
+    | "system-route"
+    | "system-observation"
+    | "system-body-site-observation"
+    | "system-collection-method"
+    | "system-ucum-units";
+
+export interface CodeSearchQuery {
+    code_search_type: ValueSetSystem,
+    code_search_query: string,
+}
+export interface Code {
+    system: string;
+    code: string;
+    display?: string;
+}

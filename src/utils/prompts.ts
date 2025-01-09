@@ -89,22 +89,24 @@ export const STRUCTURED_INPUT_PROMPTS = {
         }],
     },
     "medication_request": {
-        prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
+        prompt: `An array of objects of the following type: {
           status?: "active" | "on-hold" | "ended" | "stopped" | "completed" | "cancelled" | "entered-in-error" | "draft" | "unknown",
           intent?: "proposal" | "plan" | "order" | "original_order" | "reflex_order" | "filler_order" | "instance_order",
           category?:  "inpatient" | "outpatient" | "community" | "discharge",
           priority?: "stat" | "urgent" | "asap" | "routine"
           do_not_perform?: boolean;
-          medication? : CodeType;
+          medication? : {
+            code_search_query: string,
+            code_search_type: "system-medication",
+          };
           authored_on?: ISO time string,
           dosage_instruction: {
             sequence?: number;
             text?: string;
-            additional_instruction?: {
-              system: string;
-              code: string;
-              display?: string;
-            }[];
+            additional_instruction?:[{
+                code_search_query: string,
+                code_search_type: "system-additional-instruction",
+            }];
             patient_instruction?: string;
             timing?: {
               repeat?: {
@@ -120,10 +122,22 @@ export const STRUCTURED_INPUT_PROMPTS = {
             /**
              * If it is a PRN medication (as_needed_boolean is true), the indicator.
              */
-            as_needed_for?: CodeType;
-            site?: CodeType;
-            route?: CodeType;
-            method?: CodeType;
+            as_needed_for?: {
+                code_search_query: string,
+                code_search_type: "system-as-needed-reason",
+            };
+            site?: {
+                code_search_query: string,
+                code_search_type: "system-body-site",
+            };
+            route?: {
+                code_search_query: string,
+                code_search_type: "system-route",
+            };
+            method?: {
+                code_search_query: string,
+                code_search_type: "system-administration-method",
+            };
             /**
              * One of \`dose_quantity\` or \`dose_range\` must be present.
              * \`type\` is optional and defaults to \`ordered\`.
@@ -157,12 +171,6 @@ export const STRUCTURED_INPUT_PROMPTS = {
           value?: number;
           unit?: "mg" | "g" | "ml" | "drop(s)" | "ampule(s)" | "tsp" | "mcg" | "unit(s)"
         }
-
-        CodeType {
-          code: string,
-          display: string,
-          system: "http://snomed.info/sct"
-        }
         
         Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current date is ${new Date().toLocaleDateString()}`,
         example: [
@@ -173,9 +181,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 "priority": "urgent",
                 "do_not_perform": false,
                 "medication": {
-                    "code": "407828006",
-                    "display": "Senna 15 mg oral tablet",
-                    "system": "http://snomed.info/sct"
+                    "code_search_type": "system-medication",
+                    "code_search_query": "Senna 15 mg oral tablet",
                 },
                 "authored_on": "2025-01-08T14:09:46.569Z",
                 "dosage_instruction": [
@@ -188,19 +195,16 @@ export const STRUCTURED_INPUT_PROMPTS = {
                             }
                         },
                         "route": {
-                            "code": "66621000052103",
-                            "display": "Sublabial route",
-                            "system": "http://snomed.info/sct"
+                            "code_search_type": "system-route",
+                            "code_search_query": "Sublabial route",
                         },
                         "method": {
-                            "code": "1231460007",
-                            "display": "Dialysis system",
-                            "system": "http://snomed.info/sct"
+                            "code_search_type": "system-administration-method",
+                            "code_search_query": "Dialysis System",
                         },
                         "site": {
-                            "code": "16226271000119107",
-                            "display": "Structure of product of conception of ectopic pregnancy",
-                            "system": "http://snomed.info/sct"
+                            "code_search_type": "system-body-site",
+                            "code_search_query": "Structure of left deltoid muscle",
                         },
                         "timing": {
                             "repeat": {
@@ -211,9 +215,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
                         },
                         "additional_instruction": [
                             {
-                                "code": "421484000",
-                                "display": "Then discontinue",
-                                "system": "http://snomed.info/sct"
+                                "code_search_type": "system-additional-instruction",
+                                "code_search_query": "Then Discontinue",
                             }
                         ]
                     }
@@ -222,14 +225,13 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "medication_statement": {
-        prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses {
+        prompt: `An array of objects of the following type {
           status?: ${MEDICATION_STATEMENT_STATUS.join(" | ")},
           dosage_text?: string,
           information_source?: "patient" | "user" | "related_person"
           medication?: {
-            code: string,
-            display: string,
-            system: "http://snomed.info/sct"
+            code_search_type: "system-medication",
+            code_search_query: string,
           },
           note?: string,
           reason?: string,
@@ -244,9 +246,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 dosage_text: "10 ml",
                 information_source: "patient",
                 medication: {
-                    code: "1213681000202103",
-                    display: "Cabotegravir only product in oral dose form",
-                    system: "http://snomed.info/sct",
+                    code_search_type: "system-medication",
+                    code_search_query: "Senna 15 mg oral tablet",
                 },
                 note: "a note",
                 reason: "patient was feeling dizzy",
@@ -258,8 +259,11 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "symptom": {
-        prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable symptoms: {
-          code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
+        prompt: `An array of objects of the following type {
+          code: {
+                code_search_type: "system-condition-code",
+                code_search_query: string,
+            },
           clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
           verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
           severity?: "severe" | "moderate" | "mild",
@@ -271,9 +275,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
         example: [
             {
                 code: {
-                    code: "972900701000119109",
-                    display: "Venous ulcer of toe of left foot",
-                    system: "http://snomed.info/sct",
+                    code_search_type: "system-condition-code",
+                    code_search_query: "Venous ulcer of toe of left foot"
                 },
                 clinical_status: "recurrence",
                 verification_status: "provisional",
@@ -286,8 +289,11 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "diagnosis": {
-        prompt: `An array of objects of the following type, based on the SNOMED CT Code for the applicable diagnoses: {
-          code: {"code" : string, "display" : string, "system" : "http://snomed.info/sct"},
+        prompt: `An array of objects of the following type: {
+          code: {
+                code_search_type: "system-condition-code",
+                code_search_query: string,
+            },
           clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
           verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
           onset: {
@@ -298,9 +304,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
         example: [
             {
                 code: {
-                    code: "972900701000119109",
-                    display: "Venous ulcer of toe of left foot",
-                    system: "http://snomed.info/sct",
+                    code_search_type: "system-condition-code",
+                    code_search_query: "Venous ulcer of toe of left foot"
                 },
                 clinical_status: "recurrence",
                 verification_status: "provisional",
@@ -312,12 +317,11 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "allergy_intolerance": {
-        prompt: `An array of objects of the following type based on the SNOMED CT Code for the applicable diagnoses: {
+        prompt: `An array of objects of the following type: {
           code: {
-            code: string,
-            display: string,
-            system: "http://snomed.info/sct"
-          },
+            code_search_type: "system-allergy-code",
+            code_search_query:  string   
+            },
           clinical_status?: "active" | "inactive" | "resolved",
           category?: "food" | "medication" | "environment" | "biologic",
           criticality?: "low" | "high" | "unable-to-assess",
@@ -328,9 +332,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
         example: [
             {
                 code: {
-                    code: "842825221000119100",
-                    display: "Anifrolumab",
-                    system: "http://snomed.info/sct",
+                    code_search_type: "system-allergy-code",
+                    code_search_query: "Anifrolumab"
                 },
                 clinical_status: "inactive",
                 category: "environment",

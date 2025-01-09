@@ -1,4 +1,5 @@
 import {
+  CodeSearchQuery,
   FormQuestion,
   ScribeAIResponse,
   ScribeField,
@@ -6,6 +7,7 @@ import {
 } from "../types";
 import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { API } from "./api";
 
 export const getQuestionInputs: (formState: any) => ScribeField[] = (
   formState: any,
@@ -214,4 +216,76 @@ export function findQuestion(
   }
 
   return undefined;
+}
+
+/**
+ * A type guard to check if the given value is a CodeSearchQuery object.
+ */
+function isCodeSearchQuery(value: any): value is CodeSearchQuery {
+  return (
+    value &&
+    typeof value === "object" &&
+    "code_search_type" in value &&
+    "code_search_query" in value
+  );
+}
+
+/**
+ * Recursively transforms an object by finding CodeSearchQuery objects and
+ * replacing them using the provided async transform function.
+ */
+async function transformObjectAsync<T>(
+  input: T,
+  transformFn: (codeSearchQuery: CodeSearchQuery) => Promise<any>,
+): Promise<T> {
+  // If it's an array, transform each element.
+  if (Array.isArray(input)) {
+    const transformedArray = await Promise.all(
+      input.map(async (item) => transformObjectAsync(item, transformFn)),
+    );
+    return transformedArray as unknown as T;
+  }
+
+  // If it's a non-null object, examine its properties.
+  if (input !== null && typeof input === "object") {
+    // Check if it's a CodeSearchQuery; if so, transform it.
+    if (isCodeSearchQuery(input)) {
+      // Transform and return the result of the transform function.
+      return (await transformFn(input)) as T;
+    } else {
+      // Otherwise, recurse through each property of the object.
+      const output: Record<string, any> = { ...input };
+      const keys = Object.keys(output);
+
+      for (const key of keys) {
+        output[key] = await transformObjectAsync(output[key], transformFn);
+      }
+      return output as T;
+    }
+  }
+
+  // If it's a primitive (string, number, boolean, null, undefined), just return as-is.
+  return input;
+}
+
+export async function replaceCodeSearchQueriesInObjectAsync<T>(
+  obj: T,
+): Promise<T> {
+  return transformObjectAsync(obj, async (codeSearchQuery) => {
+    const valuesets = await API.valuesets.expand(
+      codeSearchQuery.code_search_type,
+      codeSearchQuery.code_search_query,
+    );
+    const validCode = valuesets.results[0];
+
+    if (!validCode) {
+      return undefined;
+    }
+
+    return {
+      system: validCode.system,
+      code: validCode.code,
+      display: validCode.display,
+    };
+  });
 }

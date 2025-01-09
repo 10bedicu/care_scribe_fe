@@ -1,4 +1,5 @@
 import {
+  Code,
   CreateFileRequest,
   CreateFileResponse,
   FacilityModel,
@@ -108,5 +109,12 @@ export const API = {
   },
   users: {
     current: () => request<UserModel>(`/api/v1/users/getcurrentuser/`)
+  },
+  valuesets: {
+    expand: (system: string, query: string) =>
+      request<{ results: Code[] }>(`/api/v1/valueset/${system}/expand/`, "POST", {
+        search: query,
+        count: 10
+      }),
   }
 };

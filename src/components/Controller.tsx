@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
-import { getFieldsToReview, getQuestionInputs } from "../utils/utils";
+import {
+  getFieldsToReview,
+  getQuestionInputs,
+  replaceCodeSearchQueriesInObjectAsync,
+} from "../utils/utils";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
@@ -123,8 +127,30 @@ export function Controller(props: {
         })
         .map(([k, v]) => ({ [k]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
-      return changedData;
+      const replacedData = await Promise.all(
+        Object.entries(changedData).map(async ([index, data]) => {
+          let parsedData;
+          try {
+            parsedData = JSON.parse(data as string);
+          } catch (e) {
+            parsedData = data;
+          }
+          const replacedData =
+            await replaceCodeSearchQueriesInObjectAsync(parsedData);
+
+          console.log(replacedData);
+          return { index, data: JSON.stringify(replacedData) };
+        }),
+      );
+
+      const replacedDataMap = replacedData.reduce(
+        (acc, curr) => ({ ...acc, [curr.index]: curr.data }),
+        {},
+      );
+
+      return replacedDataMap;
     } catch (e) {
+      console.error(e);
       toast({ title: t("scribe_error"), variant: "destructive" });
       setStatus("FAILED");
     }
