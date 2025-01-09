@@ -124,8 +124,6 @@ export const updateFieldValue = (
 
   const qId = element.getAttribute("data-question-id");
 
-  console.log(field);
-
   // just incase scribe does not include previous data
   if (qId === "encounter") {
     val = [
