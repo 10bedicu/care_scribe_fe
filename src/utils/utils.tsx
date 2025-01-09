@@ -124,6 +124,8 @@ export const updateFieldValue = (
 
   const qId = element.getAttribute("data-question-id");
 
+  console.log(field);
+
   // just incase scribe does not include previous data
   if (qId === "encounter") {
     val = [
@@ -218,9 +220,6 @@ export function findQuestion(
   return undefined;
 }
 
-/**
- * A type guard to check if the given value is a CodeSearchQuery object.
- */
 function isCodeSearchQuery(value: any): value is CodeSearchQuery {
   return (
     value &&
@@ -270,22 +269,28 @@ async function transformObjectAsync<T>(
 
 export async function replaceCodeSearchQueriesInObjectAsync<T>(
   obj: T,
-): Promise<T> {
-  return transformObjectAsync(obj, async (codeSearchQuery) => {
-    const valuesets = await API.valuesets.expand(
-      codeSearchQuery.code_search_type,
-      codeSearchQuery.code_search_query,
-    );
-    const validCode = valuesets.results[0];
+): Promise<{ transformed: T; noMatches: CodeSearchQuery[] }> {
+  const noMatches: CodeSearchQuery[] = [];
+  const transformed = await transformObjectAsync(
+    obj,
+    async (codeSearchQuery) => {
+      const valuesets = await API.valuesets.expand(
+        codeSearchQuery.code_search_type,
+        codeSearchQuery.code_search_query,
+      );
+      const validCode = valuesets.results[0];
 
-    if (!validCode) {
-      return undefined;
-    }
+      if (!validCode) {
+        noMatches.push(codeSearchQuery);
+        return undefined;
+      }
 
-    return {
-      system: validCode.system,
-      code: validCode.code,
-      display: validCode.display,
-    };
-  });
+      return {
+        system: validCode.system,
+        code: validCode.code,
+        display: validCode.display,
+      };
+    },
+  );
+  return { transformed, noMatches };
 }

@@ -196,9 +196,25 @@ export type ValueSetSystem =
     | "system-collection-method"
     | "system-ucum-units";
 
+export const VALUESET_SYSTEM_NAMES: { [key in ValueSetSystem]: string } = {
+    "system-allergy-code": "Allergy",
+    "system-condition-code": "Condition",
+    "system-medication": "Medication",
+    "system-additional-instruction": "Additional Instruction",
+    "system-administration-method": "Administration Method",
+    "system-as-needed-reason": "As Needed Reason",
+    "system-body-site": "Body Site",
+    "system-route": "Route",
+    "system-observation": "Observation",
+    "system-body-site-observation": "Body Site Observation",
+    "system-collection-method": "Collection Method",
+    "system-ucum-units": "UCUM Units",
+};
+
 export interface CodeSearchQuery {
     code_search_type: ValueSetSystem,
     code_search_query: string,
+    primary?: boolean;
 }
 export interface Code {
     system: string;

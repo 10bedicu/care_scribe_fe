@@ -98,6 +98,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
           medication? : {
             code_search_query: string,
             code_search_type: "system-medication",
+            primary: true
           };
           authored_on?: ISO time string,
           dosage_instruction: {
@@ -175,48 +176,49 @@ export const STRUCTURED_INPUT_PROMPTS = {
         Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current date is ${new Date().toLocaleDateString()}`,
         example: [
             {
-                "status": "active",
-                "intent": "order",
-                "category": "inpatient",
-                "priority": "urgent",
-                "do_not_perform": false,
-                "medication": {
-                    "code_search_type": "system-medication",
-                    "code_search_query": "Senna 15 mg oral tablet",
+                status: "active",
+                intent: "order",
+                category: "inpatient",
+                priority: "urgent",
+                do_not_perform: false,
+                medication: {
+                    code_search_type: "system-medication",
+                    ode_search_query: "Senna 15 mg oral tablet",
+                    primary: true
                 },
-                "authored_on": "2025-01-08T14:09:46.569Z",
-                "dosage_instruction": [
+                authored_on: "2025-01-08T14:09:46.569Z",
+                dosage_instruction: [
                     {
-                        "dose_and_rate": {
-                            "type": "ordered",
-                            "dose_quantity": {
-                                "value": 1,
-                                "unit": "mg"
+                        dose_and_rate: {
+                            type: "ordered",
+                            dose_quantity: {
+                                value: 1,
+                                unit: "mg"
                             }
                         },
-                        "route": {
-                            "code_search_type": "system-route",
-                            "code_search_query": "Sublabial route",
+                        route: {
+                            code_search_type: "system-route",
+                            code_search_query: "Sublabial route",
                         },
-                        "method": {
-                            "code_search_type": "system-administration-method",
-                            "code_search_query": "Dialysis System",
+                        method: {
+                            code_search_type: "system-administration-method",
+                            code_search_query: "Dialysis System",
                         },
-                        "site": {
-                            "code_search_type": "system-body-site",
-                            "code_search_query": "Structure of left deltoid muscle",
+                        site: {
+                            code_search_type: "system-body-site",
+                            code_search_query: "Structure of left deltoid muscle",
                         },
-                        "timing": {
-                            "repeat": {
-                                "frequency": 1,
-                                "period": 1,
-                                "period_unit": "d"
+                        timing: {
+                            repeat: {
+                                frequency: 1,
+                                period: 1,
+                                period_unit: "d"
                             }
                         },
-                        "additional_instruction": [
+                        additional_instruction: [
                             {
-                                "code_search_type": "system-additional-instruction",
-                                "code_search_query": "Then Discontinue",
+                                code_search_type: "system-additional-instruction",
+                                code_search_query: "Then Discontinue",
                             }
                         ]
                     }
@@ -232,6 +234,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
           medication?: {
             code_search_type: "system-medication",
             code_search_query: string,
+            primary: true
           },
           note?: string,
           reason?: string,
@@ -248,6 +251,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 medication: {
                     code_search_type: "system-medication",
                     code_search_query: "Senna 15 mg oral tablet",
+                    primary: true
                 },
                 note: "a note",
                 reason: "patient was feeling dizzy",
@@ -263,6 +267,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
           code: {
                 code_search_type: "system-condition-code",
                 code_search_query: string,
+                primary: true
             },
           clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
           verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
@@ -276,7 +281,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
             {
                 code: {
                     code_search_type: "system-condition-code",
-                    code_search_query: "Venous ulcer of toe of left foot"
+                    code_search_query: "Venous ulcer of toe of left foot",
+                    primary: true
                 },
                 clinical_status: "recurrence",
                 verification_status: "provisional",
@@ -293,6 +299,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
           code: {
                 code_search_type: "system-condition-code",
                 code_search_query: string,
+                primary: true
             },
           clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
           verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
@@ -305,7 +312,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
             {
                 code: {
                     code_search_type: "system-condition-code",
-                    code_search_query: "Venous ulcer of toe of left foot"
+                    code_search_query: "Venous ulcer of toe of left foot",
+                    primary: true
                 },
                 clinical_status: "recurrence",
                 verification_status: "provisional",
@@ -320,7 +328,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
         prompt: `An array of objects of the following type: {
           code: {
             code_search_type: "system-allergy-code",
-            code_search_query:  string   
+            code_search_query:  string,
+            primary: true
             },
           clinical_status?: "active" | "inactive" | "resolved",
           category?: "food" | "medication" | "environment" | "biologic",
@@ -333,7 +342,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
             {
                 code: {
                     code_search_type: "system-allergy-code",
-                    code_search_query: "Anifrolumab"
+                    code_search_query: "Anifrolumab",
+                    primary: true
                 },
                 clinical_status: "inactive",
                 category: "environment",

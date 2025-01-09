@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
+import {
+  ScribeField,
+  ScribeFieldSuggestion,
+  ScribeStatus,
+  VALUESET_SYSTEM_NAMES,
+} from "../types";
 import { useTranslation } from "react-i18next";
 import {
   getFieldsToReview,
@@ -135,16 +140,30 @@ export function Controller(props: {
           } catch (e) {
             parsedData = data;
           }
+
           const replacedData =
             await replaceCodeSearchQueriesInObjectAsync(parsedData);
 
-          console.log(replacedData);
-          return { index, data: JSON.stringify(replacedData) };
+          if (replacedData.noMatches.some((m) => m.primary === true)) {
+            replacedData.noMatches
+              .filter((m) => m.primary === true)
+              .forEach((m) => {
+                toast({
+                  title: t("scribe_no_match", {
+                    valueType: VALUESET_SYSTEM_NAMES[m.code_search_type],
+                  }),
+                  variant: "destructive",
+                });
+              });
+            return null;
+          }
+
+          return { index, data: JSON.stringify(replacedData.transformed) };
         }),
       );
 
       const replacedDataMap = replacedData.reduce(
-        (acc, curr) => ({ ...acc, [curr.index]: curr.data }),
+        (acc, curr) => (curr ? { ...acc, [curr.index]: curr.data } : acc),
         {},
       );
 
