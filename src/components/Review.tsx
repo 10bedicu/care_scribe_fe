@@ -29,19 +29,11 @@ export default function ScribeReview(props: {
 
   useEffect(() => {
     if (!reviewingField) return;
-
-    const fieldRect = reviewingField.fieldElement.getBoundingClientRect();
-    const windowCenter = window.innerHeight / 2;
-    const fieldCenter = fieldRect.top + fieldRect.height / 2;
-    const distanceFromCenter = Math.abs(windowCenter - fieldCenter);
-
-    if (distanceFromCenter > 300) {
-      reviewingField.fieldElement.scrollIntoView({
-        behavior: "instant",
-        block: "center",
-        inline: "center",
-      });
-    }
+    reviewingField.fieldElement.scrollIntoView({
+      behavior: "instant",
+      block: "center",
+      inline: "center",
+    });
   }, [reviewingField]);
 
   useEffect(() => {
