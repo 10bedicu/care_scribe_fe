@@ -16,8 +16,6 @@ type options = {
   headers?: any;
   auth?: boolean;
 };
-
-const CARE_BASE_URL = import.meta.env.VITE_CARE_API_URL || "";
 const CARE_ACCESS_TOKEN_LOCAL_STORAGE_KEY = "care_access_token";
 
 const request = async <T extends unknown>(
@@ -26,6 +24,9 @@ const request = async <T extends unknown>(
   data: any = {},
   options: options = {},
 ): Promise<T> => {
+
+  const CARE_BASE_URL = window.CARE_API_URL;
+
   const { formdata, external, headers, auth: isAuth } = options;
 
   let url = external ? endpoint : CARE_BASE_URL + endpoint;
