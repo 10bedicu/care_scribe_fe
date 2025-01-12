@@ -106,7 +106,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
           intent: "order",
           category: "inpatient",
           priority: "urgent",
-          do_not_perform?: boolean;
+          do_not_perform?: false;
           medication? : {
             code_search_query: string,
             code_search_type: "system-medication",
