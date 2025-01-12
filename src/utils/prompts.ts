@@ -1,6 +1,18 @@
 import { ScribePromptMap } from "@/types";
 import dayjs from "dayjs";
 
+export const BOUNDS_DURATION_UNITS = [
+    // TODO: Are these smaller units required?
+    // "ms",
+    // "s,
+    // "min",
+    "h",
+    "d",
+    "wk",
+    "mo",
+    "a",
+] as const;
+
 const MEDICATION_STATEMENT_STATUS = [
     "active",
     "on_hold",
@@ -90,17 +102,17 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "medication_request": {
         prompt: `An array of objects of the following type: {
-          status?: "active" | "on-hold" | "ended" | "stopped" | "completed" | "cancelled" | "entered-in-error" | "draft" | "unknown",
-          intent?: "proposal" | "plan" | "order" | "original_order" | "reflex_order" | "filler_order" | "instance_order",
-          category?:  "inpatient" | "outpatient" | "community" | "discharge",
-          priority?: "stat" | "urgent" | "asap" | "routine"
+          status: "active",
+          intent: "order",
+          category: "inpatient",
+          priority: "urgent",
           do_not_perform?: boolean;
           medication? : {
             code_search_query: string,
             code_search_type: "system-medication",
             primary: true
           };
-          authored_on?: ISO time string,
+          authored_on?: ${new Date().toISOString()},
           dosage_instruction: [{
             sequence?: number;
             text?: string;
@@ -113,19 +125,39 @@ export const STRUCTURED_INPUT_PROMPTS = {
             timing?: {
               repeat?: {
                 (
-                 	•	Twice daily means frequency is 2 and period is 1 day and period_unit is “d”.
-                    •	Night only means frequency is 1 and period is 1 day and period_unit is “d”.
-                    •	Once daily means frequency is 1 and period is 1 day and period_unit is “d”.
-                    •	4th hourly means frequency is 4 and period is 1 hour and period_unit is “h”.
-                    •	6th hourly means frequency is 6 and period is 1 hour and period_unit is “h”.
-                    •	Alternate day means frequency is 2 and period is 1 day and period_unit is “d”.
-                    •	Once a week means frequency is 1 and period is 1 week and period_unit is “wk”.
-                    •	Immediately means frequency is 1 and period is 1 second and period_unit is “s”.
-                    •	8th hourly means frequency is 8 and period is 1 hour and period_unit is “h”.
+                 		•	Two times a day means frequency is 2 and period is 1 day and period_unit is “d”.
+                        •	Three times a day means frequency is 3 and period is 1 day and period_unit is “d”.
+                        •	Four times a day means frequency is 4 and period is 1 day and period_unit is “d”.
+                        •	Every morning means frequency is 1 and period is 1 day and period_unit is “d”.
+                        •	Every afternoon means frequency is 1 and period is 1 day and period_unit is “d”.
+                        •	Every day means frequency is 1 and period is 1 day and period_unit is “d”.
+                        •	Every other day means frequency is 1 and period is 2 days and period_unit is “d”.
+                        •	Every hour means frequency is 24 and period is 1 day and period_unit is “d”.
+                        •	Every 2 hours means frequency is 12 and period is 1 day and period_unit is “d”.
+                        •	Every 3 hours means frequency is 8 and period is 1 day and period_unit is “d”.
+                        •	Every 4 hours means frequency is 6 and period is 1 day and period_unit is “d”.
+                        •	Every 6 hours means frequency is 4 and period is 1 day and period_unit is “d”.
+                        •	Every 8 hours means frequency is 3 and period is 1 day and period_unit is “d”.
+                        •	At bedtime means frequency is 1 and period is 1 day and period_unit is “d”.
+                        •	Weekly means frequency is 1 and period is 1 week and period_unit is “wk”.
+                        •	Monthly means frequency is 1 and period is 1 month and period_unit is “mo”.
+                        •	Immediately means frequency is 1 and period is 1 second and period_unit is “s”.
                 )
                 frequency?: number;
                 period: number; // number of units (ex. 12 days would mean 12 with unit "d");
                 period_unit: "s" | "min" | "h" | "d" | "wk" | "mo" | "a";
+                bounds_duration?: {
+                (
+                    For medicine duration of
+                    •	10 days -> the bounds_duration.value will be 10 and bounds_duration.unit will be “d”.
+                    •	2 weeks -> the bounds_duration.value will be 2 and bounds_duration.unit will be “wk”.
+                    •	3 months -> the bounds_duration.value will be 3 and bounds_duration.unit will be “mo”.
+                    •	1 year -> the bounds_duration.value will be 1 and bounds_duration.unit will be “a”.
+                    ... and so on.
+                )
+                    value: number;
+                    unit: ${BOUNDS_DURATION_UNITS.join(" | ")};
+                };
               };
             };
             /**
@@ -195,10 +227,10 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 do_not_perform: false,
                 medication: {
                     code_search_type: "system-medication",
-                    ode_search_query: "Senna 15 mg oral tablet",
+                    code_search_query: "Senna 15 mg oral tablet",
                     primary: true
                 },
-                authored_on: "2025-01-08T14:09:46.569Z",
+                authored_on: new Date().toLocaleDateString(),
                 dosage_instruction: [
                     {
                         dose_and_rate: {
@@ -224,13 +256,64 @@ export const STRUCTURED_INPUT_PROMPTS = {
                             repeat: {
                                 frequency: 1,
                                 period: 1,
-                                period_unit: "d"
+                                period_unit: "d",
+                                bounds_duration: {
+                                    value: 12,
+                                    unit: "wk"
+                                }
                             }
                         },
                         additional_instruction: [
                             {
                                 code_search_type: "system-additional-instruction",
                                 code_search_query: "Then Discontinue",
+                            }
+                        ]
+                    },
+                    {
+                        status: "active",
+                        intent: "order",
+                        category: "inpatient",
+                        priority: "urgent",
+                        do_not_perform: false,
+                        medication: {
+                            code_search_type: "system-medication",
+                            code_search_query: "Zinc 50 mg oral capsule",
+                            primary: true
+                        },
+                        authored_on: new Date().toLocaleDateString(),
+                        dosage_instruction: [
+                            {
+                                dose_and_rate: {
+                                    type: "ordered",
+                                    dose_quantity: {
+                                        value: 21,
+                                        unit: "mg"
+                                    }
+                                },
+                                as_needed_boolean: true,
+                                as_needed_for: {
+                                    code_search_type: "system-as-needed-reason",
+                                    code_search_query: "Chronic nontraumatic intracranial subdural haematoma",
+                                },
+                                additional_instruction: [
+                                    {
+                                        code_search_type: "system-additional-instruction",
+                                        code_search_query: "Until symptoms improve",
+                                    }
+                                ],
+                                route: {
+                                    code_search_type: "system-route",
+                                    code_search_query: "Sublabial route",
+                                },
+                                method: {
+                                    code_search_type: "system-administration-method",
+                                    code_search_query: "Dialysis System",
+                                },
+                                site: {
+                                    code_search_type: "system-body-site",
+                                    code_search_query: "Structure of left deltoid muscle",
+                                },
                             }
                         ]
                     }
