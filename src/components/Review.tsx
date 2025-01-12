@@ -7,12 +7,11 @@ import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
 
 export default function ScribeReview(props: {
-  formState: unknown;
   setFormState: unknown;
   toReview: ScribeFieldSuggestion[];
   onReviewComplete: (accepted: ScribeFieldReviewedSuggestion[]) => void;
 }) {
-  const { toReview, onReviewComplete, formState, setFormState } = props;
+  const { toReview, onReviewComplete, setFormState } = props;
   const initialReviewIndex = toReview.length > 1 ? -1 : 0;
   const [reviewIndex, setReviewIndex] = useState(initialReviewIndex);
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<
@@ -67,7 +66,7 @@ export default function ScribeReview(props: {
       },
     ];
     if (!approved && reviewingField)
-      updateFieldValue(reviewingField, false, formState, setFormState);
+      updateFieldValue(reviewingField, false, setFormState);
     await sleep(150);
     setAcceptedSuggestions(accepted);
     handleForward(accepted);
@@ -81,7 +80,7 @@ export default function ScribeReview(props: {
     }));
     for (const f of toReview) {
       await sleep(100);
-      updateFieldValue(f, true, formState, setFormState);
+      updateFieldValue(f, true, setFormState);
     }
     setAcceptedSuggestions(accepted);
     handleReviewComplete(accepted);
@@ -89,7 +88,7 @@ export default function ScribeReview(props: {
 
   useEffect(() => {
     if (reviewingField) {
-      updateFieldValue(reviewingField, true, formState, setFormState);
+      updateFieldValue(reviewingField, true, setFormState);
     }
   }, [reviewingField]);
 
