@@ -113,7 +113,6 @@ export const sleep = async (seconds: number) => {
 export const updateFieldValue = (
   field: ScribeFieldSuggestion,
   useNewValue?: boolean,
-  formState?: any,
   setFormState?: any,
 ) => {
   let val = (useNewValue ? field.newValue : field.value) as any;
@@ -134,37 +133,38 @@ export const updateFieldValue = (
     ];
   }
 
-  const formQuestionnaire = formState.map((qn: any) => ({
-    ...qn,
-    responses: qn.responses.map((response: any) =>
-      response.question_id === qId
-        ? {
-            ...response,
-            values: !field.question.repeats
-              ? response.values.length
-                ? response.values.map((v: any, i: number) =>
-                    i === 0
-                      ? {
-                          ...v,
-                          value: val,
-                        }
-                      : v,
-                  )
-                : [
-                    {
-                      type: field.question.structured_type || typeof val,
-                      value: val,
-                    },
-                  ]
-              : val.map((v: any) => ({
-                  type: field.question.structured_type || typeof v,
-                  value: v,
-                })),
-          }
-        : response,
-    ),
-  }));
-  setFormState(formQuestionnaire);
+  setFormState((formState: any) =>
+    formState.map((qn: any) => ({
+      ...qn,
+      responses: qn.responses.map((response: any) =>
+        response.question_id === qId
+          ? {
+              ...response,
+              values: !field.question.repeats
+                ? response.values.length
+                  ? response.values.map((v: any, i: number) =>
+                      i === 0
+                        ? {
+                            ...v,
+                            value: val,
+                          }
+                        : v,
+                    )
+                  : [
+                      {
+                        type: field.question.structured_type || typeof val,
+                        value: val,
+                      },
+                    ]
+                : val.map((v: any) => ({
+                    type: field.question.structured_type || typeof v,
+                    value: v,
+                  })),
+            }
+          : response,
+      ),
+    })),
+  );
 };
 
 export function cn(...inputs: ClassValue[]) {
