@@ -360,6 +360,8 @@ export function Controller(props: {
 
   return (
     <>
+      {/* placeholder */}
+      <div className="h-10" />
       <div
         className={`fixed bottom-5 right-5 z-40 flex flex-col items-end gap-4 transition-all`}
       >
