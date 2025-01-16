@@ -5,6 +5,7 @@ import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useTranslation } from "react-i18next";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
+import { useScribePosition } from "@/utils/controller-position";
 
 export default function ScribeReview(props: {
   setFormState: unknown;
@@ -17,6 +18,7 @@ export default function ScribeReview(props: {
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<
     ScribeFieldReviewedSuggestion[]
   >([]);
+  const [controllerPosition] = useScribePosition();
 
   const { t } = useTranslation();
 
@@ -163,7 +165,9 @@ export default function ScribeReview(props: {
         </div>
         <div className="flex-1 bg-black/50 transition-all" />
       </div>
-      <div className="absolute inset-x-0 bottom-32 flex flex-col items-center justify-center gap-4 p-4 text-white md:bottom-0">
+      <div
+        className={`absolute inset-x-0 ${controllerPosition.includes("bottom") ? "bottom-32" : "bottom-0"} flex flex-col items-center justify-center gap-4 p-4 text-white md:bottom-0`}
+      >
         <div className="flex items-center gap-2">
           <button
             onClick={handleBack}

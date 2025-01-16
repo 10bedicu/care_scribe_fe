@@ -32,6 +32,7 @@ import {
   Cross1Icon,
   CrossCircledIcon,
 } from "@radix-ui/react-icons";
+import { useScribePosition } from "@/utils/controller-position";
 
 export function Controller(props: {
   formState: unknown;
@@ -45,6 +46,7 @@ export function Controller(props: {
   const [instanceId, setInstanceId] = useState<string>();
   const [toReview, setToReview] = useState<ScribeFieldSuggestion[]>();
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
+  const [controllerPosition] = useScribePosition();
 
   //Use this to test scribe
   const SCRIBE_TEST_INPUT = `The patient's encounter status is currently on hold, classified as an emergency with a priority of “as needed,” 
@@ -360,8 +362,10 @@ export function Controller(props: {
 
   return (
     <>
+      {/* placeholder */}
+      <div className="h-10" />
       <div
-        className={`fixed bottom-5 right-5 z-40 flex flex-col items-end gap-4 transition-all`}
+        className={`fixed z-40 flex ${controllerPosition.includes("top") ? "top-5 flex-col-reverse" : "bottom-5 flex-col"} ${controllerPosition.includes("right") ? "right-5 items-end" : "left-5 items-start"} gap-4 transition-all`}
       >
         <div
           className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-secondary-400 border"} bg-white transition-all delay-100`}
@@ -450,7 +454,7 @@ export function Controller(props: {
                 </Button>
                 {!(toReview && !toReview.length) && (
                   <button
-                    className="absolute -top-6 right-4 text-xs text-gray-100 hover:text-gray-200"
+                    className={`absolute ${controllerPosition.includes("top") ? "-bottom-6" : "-top-6"} right-4 text-xs text-gray-100 hover:text-gray-200`}
                     onClick={() => setOpenEditTranscript(false)}
                   >
                     {t("close")}
