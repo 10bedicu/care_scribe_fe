@@ -24,6 +24,28 @@ const MEDICATION_STATEMENT_STATUS = [
     "intended",
 ] as const;
 
+export const MEDICATION_REQUEST_INTENT = [
+    "proposal",
+    "plan",
+    "order",
+    "original_order",
+    "reflex_order",
+    "filler_order",
+    "instance_order",
+] as const;
+
+export const MEDICATION_REQUEST_STATUS = [
+    "active",
+    "on-hold",
+    "ended",
+    "stopped",
+    "completed",
+    "cancelled",
+    "entered_in_error",
+    "draft",
+    "unknown",
+] as const;
+
 const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
     default: {
         prompt: "A normal string value JSON encoded",
@@ -102,11 +124,11 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "medication_request": {
         prompt: `An array of objects of the following type: {
-          status: "active",
-          intent: "order",
-          category: "inpatient",
-          priority: "urgent",
-          do_not_perform?: false;
+          status: ${MEDICATION_REQUEST_STATUS.join(" | ")},
+          intent?: ${MEDICATION_REQUEST_INTENT.join(" | ")},
+          category: "inpatient" | "outpatient" | "community" | "discharge",
+          priority: "stat" | "urgent" | "asap" | "routine",
+          do_not_perform: false;
           medication? : {
             code_search_query: string,
             code_search_type: "system-medication",
@@ -163,7 +185,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             /**
              * True if it is a PRN medication
              */
-            as_needed_boolean?: boolean;
+            as_needed_boolean: boolean;
             /**
              * If it is a PRN medication (as_needed_boolean is true), the indicator.
              */
@@ -190,20 +212,14 @@ export const STRUCTURED_INPUT_PROMPTS = {
              * - If \`type\` is \`ordered\`, \`dose_quantity\` must be present.
              * - If \`type\` is \`calculated\`, \`dose_range\` must be present. This is used for titrated medications.
              */
-            dose_and_rate?:
-                | {
-                    type?: "ordered";
-                    dose_quantity?: DosageQuantity;
-                    dose_range?: undefined;
-                }
-                | {
-                    type: "calculated";
-                    dose_range?: {
-                        low: DosageQuantity;
-                        high: DosageQuantity;
-                    };
-                    dose_quantity?: undefined;
+            dose_and_rate?: {
+                type: "ordered" | "calculated";
+                dose_range?: {
+                    low: DosageQuantity;
+                    high: DosageQuantity;
                 };
+                dose_range?: DoseRange;
+            };
             max_dose_per_period?: {
               low: DosageQuantity;
               high: DosageQuantity;
@@ -324,7 +340,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "medication_statement": {
         prompt: `An array of objects of the following type {
-          status?: ${MEDICATION_STATEMENT_STATUS.join(" | ")},
+          status: ${MEDICATION_STATEMENT_STATUS.join(" | ")},
           dosage_text?: string,
           information_source?: "patient" | "user" | "related_person"
           medication?: {
@@ -371,6 +387,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
           onset?: {
             onset_datetime: YYYY-MM-DD string
           },
+          recorded_date?: datestring;
           note?: string
         }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()} Default onset_datetime to today unless otherwise specified`,
         example: [
@@ -399,9 +416,10 @@ export const STRUCTURED_INPUT_PROMPTS = {
             },
           clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
           verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
-          onset: {
+          onset?: {
             onset_datetime: YYYY-MM-DD string
           },
+          recorded_date?: datestring;
           note?: string
         }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()} Default onset_datetime to today unless otherwise specified`,
         example: [
@@ -430,7 +448,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
           clinical_status?: "active" | "inactive" | "resolved",
           category?: "food" | "medication" | "environment" | "biologic",
           criticality?: "low" | "high" | "unable-to-assess",
-          verification?: "unconfirmed" | "presumed" | "confirmed" | "refuted" | "entered-in-error"
+          verification_status?: "unconfirmed" | "presumed" | "confirmed" | "refuted" | "entered-in-error"
           last_occurrence?: YYYY-MM-DD string,
           note?: string
         }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()}`,
