@@ -69,15 +69,15 @@ export const SCRIBE_REPEAT_PROMPT_MAP: ScribePromptMap = {
 export const STRUCTURED_INPUT_PROMPTS = {
     "encounter": {
         prompt: `An array of only one object of the following schema. Everything in brackets is for your information and is not part of the schema. : {
-            status?: "planned" | "in_progress" | "on_hold" | "discharged" | "completed" | "cancelled" | "discontinued" | "entered_in_error" | "unknown",
-            encounter_class? : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health),'
-            priority?: "ASAP" | "callback_results" | "callback_for_scheduling" | "elective" | "emergency" | "preop" | "as_needed" | "routine" | "rush_reporting" | "stat" | "timing_critical" | "use_as_directed" | "urgent";
+            status: "planned" | "in_progress" | "on_hold" | "discharged" | "completed" | "cancelled" | "discontinued" | "entered_in_error" | "unknown",
+            encounter_class : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health),'
+            priority: "ASAP" | "callback_results" | "callback_for_scheduling" | "elective" | "emergency" | "preop" | "as_needed" | "routine" | "rush_reporting" | "stat" | "timing_critical" | "use_as_directed" | "urgent";
             external_identifier (ip/op/obs/emr number)?: string;
             
             (This will only be applicable if encounter_class is "imp", "absenc", or "emer")
             hospitalization?: {
-                re_admission?: boolean;
-                admit_source?: "hosp_trans" (Hospital Transfer) | "emd" (Emergency Department) | "outp" (Outpatient Department) | "born" (Born) | "gp" (General Practitioner) | "mp" (Medical Practitioner) | "nursing" (Nursing Home) | "psych" (Psychiatric Hospital) | "rehab" (Rehabilitation Facility) | "other" (Other);
+                re_admission: boolean;
+                admit_source: "hosp_trans" (Hospital Transfer) | "emd" (Emergency Department) | "outp" (Outpatient Department) | "born" (Born) | "gp" (General Practitioner) | "mp" (Medical Practitioner) | "nursing" (Nursing Home) | "psych" (Psychiatric Hospital) | "rehab" (Rehabilitation Facility) | "other" (Other);
                 diet_preference?: "vegetarian" (Vegetarian) | "diary_free" (Dairy Free) | "nut_free" (Nut Free) | "gluten_free" (Gluten Free) | "vegan" (Vegan) | "halal" (Halal) | "kosher" (Kosher) | "none" (None);
                 
                 (only applicable if status is "completed")
@@ -270,52 +270,53 @@ export const STRUCTURED_INPUT_PROMPTS = {
                             }
                         ]
                     },
+
+                ]
+            },
+            {
+                status: "active",
+                intent: "order",
+                category: "inpatient",
+                priority: "urgent",
+                do_not_perform: false,
+                medication: {
+                    code_search_type: "system-medication",
+                    code_search_query: "Zinc 50 mg oral capsule",
+                    primary: true
+                },
+                authored_on: new Date().toLocaleDateString(),
+                dosage_instruction: [
                     {
-                        status: "active",
-                        intent: "order",
-                        category: "inpatient",
-                        priority: "urgent",
-                        do_not_perform: false,
-                        medication: {
-                            code_search_type: "system-medication",
-                            code_search_query: "Zinc 50 mg oral capsule",
-                            primary: true
-                        },
-                        authored_on: new Date().toLocaleDateString(),
-                        dosage_instruction: [
-                            {
-                                dose_and_rate: {
-                                    type: "ordered",
-                                    dose_quantity: {
-                                        value: 21,
-                                        unit: "mg"
-                                    }
-                                },
-                                as_needed_boolean: true,
-                                as_needed_for: {
-                                    code_search_type: "system-as-needed-reason",
-                                    code_search_query: "Chronic nontraumatic intracranial subdural haematoma",
-                                },
-                                additional_instruction: [
-                                    {
-                                        code_search_type: "system-additional-instruction",
-                                        code_search_query: "Until symptoms improve",
-                                    }
-                                ],
-                                route: {
-                                    code_search_type: "system-route",
-                                    code_search_query: "Sublabial route",
-                                },
-                                method: {
-                                    code_search_type: "system-administration-method",
-                                    code_search_query: "Dialysis System",
-                                },
-                                site: {
-                                    code_search_type: "system-body-site",
-                                    code_search_query: "Structure of left deltoid muscle",
-                                },
+                        dose_and_rate: {
+                            type: "ordered",
+                            dose_quantity: {
+                                value: 21,
+                                unit: "mg"
                             }
-                        ]
+                        },
+                        as_needed_boolean: true,
+                        as_needed_for: {
+                            code_search_type: "system-as-needed-reason",
+                            code_search_query: "Chronic nontraumatic intracranial subdural haematoma",
+                        },
+                        additional_instruction: [
+                            {
+                                code_search_type: "system-additional-instruction",
+                                code_search_query: "Until symptoms improve",
+                            }
+                        ],
+                        route: {
+                            code_search_type: "system-route",
+                            code_search_query: "Sublabial route",
+                        },
+                        method: {
+                            code_search_type: "system-administration-method",
+                            code_search_query: "Dialysis System",
+                        },
+                        site: {
+                            code_search_type: "system-body-site",
+                            code_search_query: "Structure of left deltoid muscle",
+                        },
                     }
                 ]
             }
