@@ -149,7 +149,7 @@ export function Controller(props: {
             } catch (error) {
               parsedV = v;
             }
-            const validation = prompt.safeParse(parsedV);
+            const validation = prompt(true).safeParse(parsedV);
             if (!validation.success) {
               console.error("Validation error", parsedV, validation);
               return false;
@@ -302,7 +302,7 @@ export function Controller(props: {
         : SCRIBE_PROMPT_MAP;
 
       let structuredPromptText = structuredPrompt
-        ? `A structure of type ${printNode(zodToTs(structuredPrompt.prompt).node)}. Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current datetime is ${new Date().toISOString()}`
+        ? `A structure of type ${printNode(zodToTs(structuredPrompt.prompt()).node)}. Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current datetime is ${new Date().toISOString()}`
         : undefined;
 
       return {
