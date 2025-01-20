@@ -1,5 +1,6 @@
-import { ScribePromptMap } from "@/types";
+import { ScribePromptMap, ValueSetSystem } from "@/types";
 import dayjs from "dayjs";
+import z from "zod"
 
 export const BOUNDS_DURATION_UNITS = [
     // TODO: Are these smaller units required?
@@ -46,6 +47,22 @@ export const MEDICATION_REQUEST_STATUS = [
     "unknown",
 ] as const;
 
+export const ENCOUNTER_PRIORITY = [
+    "ASAP",
+    "callback_results",
+    "callback_for_scheduling",
+    "elective",
+    "emergency",
+    "preop",
+    "as_needed",
+    "routine",
+    "rush_reporting",
+    "stat",
+    "timing_critical",
+    "use_as_directed",
+    "urgent",
+] as const;
+
 const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
     default: {
         prompt: "A normal string value JSON encoded",
@@ -88,26 +105,62 @@ export const SCRIBE_REPEAT_PROMPT_MAP: ScribePromptMap = {
     },
 }
 
+const codeStructure = (type: ValueSetSystem, primary?: boolean) => z.object({
+    code_search_query: z.string().describe("The query"),
+    code_search_type: z.literal(type).describe("This field must not be changed"),
+    ...(primary ? { primary: z.literal(true).describe("This field must always be true") } : {})
+})
+
+const doseQuantity = z.object({
+    value: z.number(),
+    unit: codeStructure("system-body-site") // TODO: fix this
+})
+
+const doseRange = z.object({
+    low: doseQuantity,
+    high: doseQuantity
+})
+
 export const STRUCTURED_INPUT_PROMPTS = {
     "encounter": {
-        prompt: `An array of only one object of the following schema. Everything in brackets is for your information and is not part of the schema. : {
-            status: "planned" | "in_progress" | "on_hold" | "discharged" | "completed" | "cancelled" | "discontinued" | "entered_in_error" | "unknown",
-            encounter_class : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health),'
-            priority: "ASAP" | "callback_results" | "callback_for_scheduling" | "elective" | "emergency" | "preop" | "as_needed" | "routine" | "rush_reporting" | "stat" | "timing_critical" | "use_as_directed" | "urgent";
-            external_identifier (ip/op/obs/emr number)?: string;
-            
-            (This will only be applicable if encounter_class is "imp", "absenc", or "emer")
-            hospitalization?: {
-                re_admission: boolean;
-                admit_source: "hosp_trans" (Hospital Transfer) | "emd" (Emergency Department) | "outp" (Outpatient Department) | "born" (Born) | "gp" (General Practitioner) | "mp" (Medical Practitioner) | "nursing" (Nursing Home) | "psych" (Psychiatric Hospital) | "rehab" (Rehabilitation Facility) | "other" (Other);
-                diet_preference?: "vegetarian" (Vegetarian) | "diary_free" (Dairy Free) | "nut_free" (Nut Free) | "gluten_free" (Gluten Free) | "vegan" (Vegan) | "halal" (Halal) | "kosher" (Kosher) | "none" (None);
-                
-                (only applicable if status is "completed")
-                discharge_disposition?: "home" (Home) | "alt_home" (Alternate Home) | "other_hcf" (Other Healthcare Facility) | "hosp" (Hospice) | "long" (Long Term Care) | "aadvice" (Left Against Advice) | "exp" (Expired) | "psy" (Psychiatric Hospital) | "rehab" (Rehabilitation) | "snf" (Skilled Nursing Facility) | "oth" (Other);
-            };
-            
-            ...other data that is READ ONLY
-        }. Make sure to only update the existing data of the user and not remove or update any data that was not explicitly told to be updated. Return ONLY the original data with requested updates.`,
+        prompt: z.object({
+            status: z.enum(["planned", "in_progress", "on_hold", "discharged", "completed", "cancelled", "discontinued", "entered_in_error", "unknown"]).describe("Status of the encounter"),
+            encounter_class: z.enum(["imp", "amb", "obsenc", "emer", "vr", "hh"]).describe(`Class of the encounter : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health)`),
+            priority: z.enum(ENCOUNTER_PRIORITY).describe("Priority of the encounter"),
+            external_identifier: z.string().optional().describe("ip/op/obs/emr number"),
+            hospitalization: z.object({
+                re_admission: z.boolean().describe("Encounter is a readmission"),
+                admit_source: z.enum(["hosp_trans"
+                    , "emd"
+                    , "outp"
+                    , "born"
+                    , "gp"
+                    , "mp"
+                    , "nursing"
+                    , "psych"
+                    , "rehab"
+                    , "other"]).describe(`Admission source out of : "hosp_trans" (Hospital Transfer) | "emd" (Emergency Department) | "outp" (Outpatient Department) | "born" (Born) | "gp" (General Practitioner) | "mp" (Medical Practitioner) | "nursing" (Nursing Home) | "psych" (Psychiatric Hospital) | "rehab" (Rehabilitation Facility) | "other" (Other)`),
+                diet_preference: z.enum(["vegetarian"
+                    , "diary_free"
+                    , "nut_free"
+                    , "gluten_free"
+                    , "vegan"
+                    , "halal"
+                    , "kosher"
+                    , "none"]).optional().describe("Dietary preference of the patient"),
+                discharge_disposition: z.enum(["home"
+                    , "alt_home"
+                    , "other_hcf"
+                    , "hosp"
+                    , "long"
+                    , "aadvice"
+                    , "exp"
+                    , "psy"
+                    , "rehab"
+                    , "snf"
+                    , "oth"]).optional().describe(`Only applicable if status is "completed". Choose from "home" (Home) | "alt_home" (Alternate Home) | "other_hcf" (Other Healthcare Facility) | "hosp" (Hospice) | "long" (Long Term Care) | "aadvice" (Left Against Advice) | "exp" (Expired) | "psy" (Psychiatric Hospital) | "rehab" (Rehabilitation) | "snf" (Skilled Nursing Facility) | "oth" (Other)`)
+            }).optional().describe(`This will only be applicable if encounter_class is "imp", "absenc", or "emer"`)
+        }),
         example: [{
             status: "in_progress",
             encounter_class: "imp",
@@ -123,31 +176,38 @@ export const STRUCTURED_INPUT_PROMPTS = {
         }],
     },
     "medication_request": {
-        prompt: `An array of objects of the following type: {
-          status: ${MEDICATION_REQUEST_STATUS.join(" | ")},
-          intent?: ${MEDICATION_REQUEST_INTENT.join(" | ")},
-          category: "inpatient" | "outpatient" | "community" | "discharge",
-          priority: "stat" | "urgent" | "asap" | "routine",
-          do_not_perform: false;
-          medication? : {
-            code_search_query: string,
-            code_search_type: "system-medication",
-            primary: true
-          };
-          authored_on?: ${new Date().toISOString()},
-          dosage_instruction: [{
-            sequence?: number;
-            text?: string;
-            additional_instruction?:[{
-                code_search_query: string,
-                code_search_type: "system-additional-instruction",
-            }];
-            patient_instruction?: string;
-            
-            timing?: {
-              repeat?: {
-                (
-                 		•	Two times a day means frequency is 2 and period is 1 day and period_unit is “d”.
+        prompt: z.array(z.object({
+            status: z.enum(MEDICATION_REQUEST_STATUS).describe("Status of the medication"),
+            intent: z.enum(MEDICATION_REQUEST_INTENT).optional().describe("Intent of the medication request"),
+            category: z.enum(["inpatient", "outpatient", "community", "discharge"]).describe("Category of the medication request"),
+            priority: z.enum(["stat", "urgent", "asap", "routine"]).describe("Priority of the medication request"),
+            do_not_perform: z.literal(false),
+            medication: codeStructure("system-medication", true),
+            authored_on: z.literal(new Date().toISOString()),
+            dosage_instruction: z.array(z.object({
+                sequence: z.number().optional(),
+                text: z.string().optional(),
+                additional_instruction: z.array(codeStructure("system-additional-instruction")).optional(),
+                patient_instruction: z.string().optional(),
+                timing: z.object({
+                    repeat: z.object({
+                        frequency: z.number().optional(),
+                        period: z.number().describe("number of units (ex. 12 days would mean 12 with unit 'd')"),
+                        period_unit: z.enum(["s", "min", "h", "d", "wk", "mo", "a"]),
+                        bounds_duration: z.object({
+                            value: z.number(),
+                            unit: z.enum(BOUNDS_DURATION_UNITS)
+                        }).optional().describe(`
+                            For medicine duration of
+                                •	10 days -> the bounds_duration.value will be 10 and bounds_duration.unit will be “d”.
+                                •	2 weeks -> the bounds_duration.value will be 2 and bounds_duration.unit will be “wk”.
+                                •	3 months -> the bounds_duration.value will be 3 and bounds_duration.unit will be “mo”.
+                                •	1 year -> the bounds_duration.value will be 1 and bounds_duration.unit will be “a”.
+                                ... and so on.
+                            `)
+
+                    }).optional().describe(`
+                        •	Two times a day means frequency is 2 and period is 1 day and period_unit is “d”.
                         •	Three times a day means frequency is 3 and period is 1 day and period_unit is “d”.
                         •	Four times a day means frequency is 4 and period is 1 day and period_unit is “d”.
                         •	Every morning means frequency is 1 and period is 1 day and period_unit is “d”.
@@ -164,76 +224,29 @@ export const STRUCTURED_INPUT_PROMPTS = {
                         •	Weekly means frequency is 1 and period is 1 week and period_unit is “wk”.
                         •	Monthly means frequency is 1 and period is 1 month and period_unit is “mo”.
                         •	Immediately means frequency is 1 and period is 1 second and period_unit is “s”.
-                )
-                frequency?: number;
-                period: number; // number of units (ex. 12 days would mean 12 with unit "d");
-                period_unit: "s" | "min" | "h" | "d" | "wk" | "mo" | "a";
-                bounds_duration?: {
-                (
-                    For medicine duration of
-                    •	10 days -> the bounds_duration.value will be 10 and bounds_duration.unit will be “d”.
-                    •	2 weeks -> the bounds_duration.value will be 2 and bounds_duration.unit will be “wk”.
-                    •	3 months -> the bounds_duration.value will be 3 and bounds_duration.unit will be “mo”.
-                    •	1 year -> the bounds_duration.value will be 1 and bounds_duration.unit will be “a”.
-                    ... and so on.
-                )
-                    value: number;
-                    unit: ${BOUNDS_DURATION_UNITS.join(" | ")};
-                };
-              };
-            };
-            /**
-             * True if it is a PRN medication
-             */
-            as_needed_boolean: boolean;
-            /**
-             * If it is a PRN medication (as_needed_boolean is true), the indicator.
-             */
-            as_needed_for?: {
-                code_search_query: string,
-                code_search_type: "system-as-needed-reason",
-            };
-            site?: {
-                code_search_query: string,
-                code_search_type: "system-body-site",
-            };
-            route?: {
-                code_search_query: string,
-                code_search_type: "system-route",
-            };
-            method?: {
-                code_search_query: string,
-                code_search_type: "system-administration-method",
-            };
-            /**
-             * One of \`dose_quantity\` or \`dose_range\` must be present.
-             * \`type\` is optional and defaults to \`ordered\`.
-             *
-             * - If \`type\` is \`ordered\`, \`dose_quantity\` must be present.
-             * - If \`type\` is \`calculated\`, \`dose_range\` must be present. This is used for titrated medications.
-             */
-            dose_and_rate?: {
-                type: "ordered" | "calculated";
-                dose_range?: {
-                    low: DosageQuantity;
-                    high: DosageQuantity;
-                };
-                dose_range?: DoseRange;
-            };
-            max_dose_per_period?: {
-              low: DosageQuantity;
-              high: DosageQuantity;
-            };
-          }];
-          note?: string
-        }
-        
-        DosageQuantity {
-          value?: number;
-          unit?: "mg" | "g" | "ml" | "drop(s)" | "ampule(s)" | "tsp" | "mcg" | "unit(s)"
-        }
-        
-        Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current date is ${new Date().toLocaleDateString()}`,
+                        `)
+                }).optional(),
+                as_needed_boolean: z.boolean().describe("True if the prescription is PRN"),
+
+                as_needed_for: codeStructure("system-as-needed-reason").optional().describe("If it is a PRN medication (as_needed_boolean is true), the indicator"),
+                site: codeStructure("system-body-site").optional().describe("The site the medication should be administered at"),
+                route: codeStructure("system-route").optional().describe("The route of the medicine"),
+                method: codeStructure("system-administration-method").optional().describe("The method in which the medicine should be administered"),
+                dose_and_rate: z.object({
+                    type: z.enum(["ordered", "calculated"]),
+                    dosage_quantity: doseQuantity.optional(),
+                    dose_range: doseRange.optional(),
+                }).optional().describe(`
+                One of \`dose_quantity\` or \`dose_range\` must be present.
+                \`type\` is optional and defaults to \`ordered\`.
+             
+                - If \`type\` is \`ordered\`, \`dose_quantity\` must be present.
+                - If \`type\` is \`calculated\`, \`dose_range\` must be present. This is used for titrated medications.
+                `),
+                max_dose_per_period: doseRange.optional()
+            })),
+            note: z.string().optional().describe("Additional Notes")
+        })),
         example: [
             {
                 status: "active",
@@ -339,22 +352,18 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "medication_statement": {
-        prompt: `An array of objects of the following type {
-          status: ${MEDICATION_STATEMENT_STATUS.join(" | ")},
-          dosage_text?: string,
-          information_source?: "patient" | "user" | "related_person"
-          medication?: {
-            code_search_type: "system-medication",
-            code_search_query: string,
-            primary: true
-          },
-          note?: string,
-          reason?: string,
-          effective_period?: {
-            start: ISO date string,
-            end: ISO date string
-          }
-        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()}`,
+        prompt: z.array(z.object({
+            status: z.enum(MEDICATION_STATEMENT_STATUS).describe("Status of the medication"),
+            dosage_text: z.string().optional().describe("Text to support the dosage"),
+            information_source: z.string().optional().describe("The information source of the medication"),
+            medication: codeStructure("system-medication", true),
+            note: z.string().optional().describe("Additional notes on the medication"),
+            reason: z.string().optional().describe("Reason for medication"),
+            effective_period: z.object({
+                start: z.date(),
+                end: z.date()
+            }).optional().describe("Medication effective period")
+        })),
         example: [
             {
                 status: "completed",
@@ -375,21 +384,15 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "symptom": {
-        prompt: `An array of objects of the following type {
-          code: {
-                code_search_type: "system-condition-code",
-                code_search_query: string,
-                primary: true
-            },
-          clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
-          verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
-          severity?: "severe" | "moderate" | "mild",
-          onset?: {
-            onset_datetime: YYYY-MM-DD string
-          },
-          recorded_date?: datestring;
-          note?: string
-        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()} Default onset_datetime to today unless otherwise specified`,
+        prompt: z.array(z.object({
+            code: codeStructure("system-condition-code", true),
+            clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]).describe("Clinical Status of the symptom"),
+            verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]).describe("Verification status of the symptom"),
+            severity: z.enum(["severe", "moderate", "mild"]).optional().describe("Severity of the symptom"),
+            onset: z.object({ onset_datetime: z.date() }).default({ onset_datetime: new Date() }).describe("Onset date of the symptom"),
+            recorded_date: z.date().optional().describe("Date the symptom was recorded"),
+            note: z.string().optional().describe("Additional notes")
+        })),
         example: [
             {
                 code: {
@@ -408,20 +411,14 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "diagnosis": {
-        prompt: `An array of objects of the following type: {
-          code: {
-                code_search_type: "system-condition-code",
-                code_search_query: string,
-                primary: true
-            },
-          clinical_status: "active" | "recurrence" | "relapse" | "inactive" | "remission" | "resolved",
-          verification_status: "unconfirmed" | "provisional" | "differential" | "confirmed" | "refuted" | "entered-in-error",
-          onset?: {
-            onset_datetime: YYYY-MM-DD string
-          },
-          recorded_date?: datestring;
-          note?: string
-        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()} Default onset_datetime to today unless otherwise specified`,
+        prompt: z.array(z.object({
+            code: codeStructure("system-condition-code", true),
+            clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]).describe("Clincal Status of the diagnosis"),
+            verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]).describe("Verification Status of the diagnosis"),
+            onset: z.object({ onset_datetime: z.date() }).default({ onset_datetime: new Date() }).describe("Onset date of the symptom"),
+            recorded_date: z.date().optional().describe("Date the diagnosis was recorded"),
+            note: z.string().optional().describe("Additional notes")
+        })),
         example: [
             {
                 code: {
@@ -439,19 +436,15 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "allergy_intolerance": {
-        prompt: `An array of objects of the following type: {
-          code: {
-            code_search_type: "system-allergy-code",
-            code_search_query:  string,
-            primary: true
-            },
-          clinical_status?: "active" | "inactive" | "resolved",
-          category?: "food" | "medication" | "environment" | "biologic",
-          criticality?: "low" | "high" | "unable-to-assess",
-          verification_status?: "unconfirmed" | "presumed" | "confirmed" | "refuted" | "entered-in-error"
-          last_occurrence?: YYYY-MM-DD string,
-          note?: string
-        }. Update existing data, delete existing data or append to the existing list as per the will of the user. Current date is ${new Date().toLocaleDateString()}`,
+        prompt: z.array(z.object({
+            code: codeStructure("system-allergy-code", true),
+            clinical_status: z.enum(["active", "inactive", "resolved"]).optional().describe("Clincal status of the allergy"),
+            category: z.enum(["food", "medication", "environment", "biologic"]).optional().describe("Category of the allergy"),
+            criticality: z.enum(["low", "high", "unable-to-assess"]).optional().describe("How critical is the allergy"),
+            verification_status: z.enum(["unconfirmed", "presumed", "confirmed", "refuted", "entered-in-error"]).optional().describe("Verification Status of the allergy"),
+            last_occurence: z.date().optional().describe("The last occurance of the allergy"),
+            note: z.string().optional().describe("Additional Notes")
+        })),
         example: [
             {
                 code: {
@@ -468,9 +461,9 @@ export const STRUCTURED_INPUT_PROMPTS = {
         ]
     },
     "follow_up_appointment": {
-        prompt: `An object of the following type : {
-            reason_for_visit: string
-        }. Update the existing data on the will of the user.`,
+        prompt: z.object({
+            reason_for_visit: z.string().describe("The reason for the appointment")
+        }),
         example: {
             reason_for_visit: "No change in condition"
         }

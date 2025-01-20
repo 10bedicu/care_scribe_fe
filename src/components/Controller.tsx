@@ -33,6 +33,7 @@ import {
   CrossCircledIcon,
 } from "@radix-ui/react-icons";
 import { useScribePosition } from "@/utils/controller-position";
+import { printNode, zodToTs } from "zod-to-ts";
 
 export function Controller(props: {
   formState: unknown;
@@ -276,12 +277,16 @@ export function Controller(props: {
         ? SCRIBE_REPEAT_PROMPT_MAP
         : SCRIBE_PROMPT_MAP;
 
+      let structuredPromptText = structuredPrompt
+        ? `A structure of type ${printNode(zodToTs(structuredPrompt.prompt).node)}. Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current datetime is ${new Date().toISOString()}`
+        : undefined;
+
       return {
         friendlyName: field.question.text || "Unlabled Field",
         current: field.value,
         id: `${i}`,
         description:
-          structuredPrompt?.prompt ||
+          (structuredPrompt ? structuredPromptText : undefined) ||
           promptMap[field.question.type]?.prompt ||
           promptMap["default"]?.prompt,
         type: typeof (
@@ -429,7 +434,7 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 hidden text-xs"
+                  className="absolute left-2 top-2 text-xs"
                 >
                   Test
                 </button>
