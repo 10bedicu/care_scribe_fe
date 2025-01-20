@@ -121,6 +121,11 @@ const doseRange = z.object({
     high: doseQuantity
 })
 
+const isoDateTime = z.string().regex(
+    /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[\+\-]\d{2}:\d{2})?)?$/,
+    "Invalid ISO date format"
+);
+
 export const STRUCTURED_INPUT_PROMPTS = {
     "encounter": {
         prompt: z.object({
@@ -360,8 +365,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
             note: z.string().optional().describe("Additional notes on the medication"),
             reason: z.string().optional().describe("Reason for medication"),
             effective_period: z.object({
-                start: z.date(),
-                end: z.date()
+                start: isoDateTime,
+                end: isoDateTime
             }).optional().describe("Medication effective period")
         })),
         example: [
@@ -389,8 +394,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
             clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]).describe("Clinical Status of the symptom"),
             verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]).describe("Verification status of the symptom"),
             severity: z.enum(["severe", "moderate", "mild"]).optional().describe("Severity of the symptom"),
-            onset: z.object({ onset_datetime: z.date() }).default({ onset_datetime: new Date() }).describe("Onset date of the symptom"),
-            recorded_date: z.date().optional().describe("Date the symptom was recorded"),
+            onset: z.object({ onset_datetime: isoDateTime }).default({ onset_datetime: new Date().toISOString() }).describe("Onset date of the symptom"),
+            recorded_date: isoDateTime.optional().describe("Date the symptom was recorded"),
             note: z.string().optional().describe("Additional notes")
         })),
         example: [
@@ -415,8 +420,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
             code: codeStructure("system-condition-code", true),
             clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]).describe("Clincal Status of the diagnosis"),
             verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]).describe("Verification Status of the diagnosis"),
-            onset: z.object({ onset_datetime: z.date() }).default({ onset_datetime: new Date() }).describe("Onset date of the symptom"),
-            recorded_date: z.date().optional().describe("Date the diagnosis was recorded"),
+            onset: z.object({ onset_datetime: isoDateTime }).default({ onset_datetime: new Date().toISOString() }).describe("Onset date of the symptom"),
+            recorded_date: isoDateTime.optional().describe("Date the diagnosis was recorded. In ISO format"),
             note: z.string().optional().describe("Additional notes")
         })),
         example: [
@@ -442,7 +447,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
             category: z.enum(["food", "medication", "environment", "biologic"]).optional().describe("Category of the allergy"),
             criticality: z.enum(["low", "high", "unable-to-assess"]).optional().describe("How critical is the allergy"),
             verification_status: z.enum(["unconfirmed", "presumed", "confirmed", "refuted", "entered-in-error"]).optional().describe("Verification Status of the allergy"),
-            last_occurence: z.date().optional().describe("The last occurance of the allergy"),
+            last_occurence: isoDateTime.optional().describe("The last occurance of the allergy"),
             note: z.string().optional().describe("Additional Notes")
         })),
         example: [

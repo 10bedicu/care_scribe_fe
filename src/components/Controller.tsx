@@ -129,8 +129,32 @@ export function Controller(props: {
       const changedData = Object.entries(parsedFormData)
         .filter(([k, v]) => {
           const f = hfields.find((f) => f.id === k);
+          const ogF = fields.find((_, i) => i === Number(f?.id));
           if (!f) return false;
           if (v === f.current) return false;
+          if (
+            ogF?.question.structured_type &&
+            ogF.question.structured_type !== "encounter"
+          ) {
+            const prompt =
+              STRUCTURED_INPUT_PROMPTS[
+                ogF.question
+                  .structured_type as keyof typeof STRUCTURED_INPUT_PROMPTS
+              ].prompt;
+
+            let parsedV = v;
+
+            try {
+              parsedV = JSON.parse(v as string);
+            } catch (error) {
+              parsedV = v;
+            }
+            const validation = prompt.safeParse(parsedV);
+            if (!validation.success) {
+              console.error("Validation error", parsedV, validation);
+              return false;
+            }
+          }
           return true;
         })
         .map(([k, v]) => ({ [k]: v }))
