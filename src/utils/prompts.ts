@@ -271,8 +271,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
                         •	Immediately means frequency is 1 and period is 1 and period_unit is “s”.
                         `)
                 }).optional(),
-                as_needed_boolean: z.boolean().describe("True if the prescription is PRN").default(false),
-
+                as_needed_boolean: z.boolean().describe("True if the prescription is PRN, else false. Do not ommit this.").default(false),
                 as_needed_for: codeStructure(isRes, "system-as-needed-reason").optional().describe("If it is a PRN medication (as_needed_boolean is true), the indicator"),
                 site: codeStructure(isRes, "system-body-site").optional().describe("The site the medication should be administered at"),
                 route: codeStructure(isRes, "system-route").optional().describe("The route of the medicine"),
