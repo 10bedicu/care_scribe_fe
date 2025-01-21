@@ -1,95 +1,7 @@
 import { ScribePromptMap, ValueSetSystem } from "@/types";
 import dayjs from "dayjs";
 import z from "zod"
-
-export const BOUNDS_DURATION_UNITS = [
-    // TODO: Are these smaller units required?
-    // "ms",
-    // "s,
-    // "min",
-    "h",
-    "d",
-    "wk",
-    "mo",
-    "a",
-] as const;
-
-const MEDICATION_STATEMENT_STATUS = [
-    "active",
-    "on_hold",
-    "completed",
-    "stopped",
-    "unknown",
-    "entered_in_error",
-    "not_taken",
-    "intended",
-] as const;
-
-export const MEDICATION_REQUEST_INTENT = [
-    "proposal",
-    "plan",
-    "order",
-    "original_order",
-    "reflex_order",
-    "filler_order",
-    "instance_order",
-] as const;
-
-export const MEDICATION_REQUEST_STATUS = [
-    "active",
-    "on-hold",
-    "ended",
-    "stopped",
-    "completed",
-    "cancelled",
-    "entered_in_error",
-    "draft",
-    "unknown",
-] as const;
-
-export const ENCOUNTER_PRIORITY = [
-    "ASAP",
-    "callback_results",
-    "callback_for_scheduling",
-    "elective",
-    "emergency",
-    "preop",
-    "as_needed",
-    "routine",
-    "rush_reporting",
-    "stat",
-    "timing_critical",
-    "use_as_directed",
-    "urgent",
-] as const;
-
-export const DOSAGE_UNITS_CODES: { code: string, display: string, system: string }[] = [
-    {
-        code: "mg",
-        display: "Milligram",
-        system: "http://unitsofmeasure.org",
-    },
-    {
-        code: "g",
-        display: "Gram",
-        system: "http://unitsofmeasure.org",
-    },
-    {
-        code: "mL",
-        display: "Milliliter",
-        system: "http://unitsofmeasure.org",
-    },
-    {
-        code: "[drp]",
-        display: "Drop",
-        system: "http://unitsofmeasure.org",
-    },
-    {
-        code: "{tbl}",
-        display: "Tablets",
-        system: "http://unitsofmeasure.org",
-    },
-];
+import { BOUNDS_DURATION_UNITS, DOSAGE_UNITS_CODES, ENCOUNTER_PRIORITY, MEDICATION_REQUEST_INTENT, MEDICATION_REQUEST_STATUS, MEDICATION_REQUEST_TIMING_OPTIONS, MEDICATION_STATEMENT_STATUS } from "./constants";
 
 const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
     default: {
@@ -262,35 +174,27 @@ export const STRUCTURED_INPUT_PROMPTS = {
                             `)
 
                     }).optional().describe(`
-                        •	Two times a day means frequency is 2 and period is 1 and period_unit is “d”.
-                        •	Three times a day means frequency is 3 and period is 1 and period_unit is “d”.
-                        •	Four times a day means frequency is 4 and period is 1 and period_unit is “d”.
-                        •	Every morning means frequency is 1 and period is 1 and period_unit is “d”.
-                        •	Every afternoon means frequency is 1 and period is 1 and period_unit is “d”.
-                        •	Every day means frequency is 1 and period is 1 and period_unit is “d”.
-                        •	Every other day means frequency is 1 and period is 2 and period_unit is “d”.
-                        •	Every hour means frequency is 24 and period is 1 and period_unit is “d”.
-                        •	Every 2 hours means frequency is 12 and period is 1 and period_unit is “d”.
-                        •	Every 3 hours means frequency is 8 and period is 1 and period_unit is “d”.
-                        •	Every 4 hours means frequency is 6 and period is 1 and period_unit is “d”.
-                        •	Every 6 hours means frequency is 4 and period is 1 and period_unit is “d”.
-                        •	Every 8 hours means frequency is 3 and period is 1 and period_unit is “d”.
-                        •	At bedtime means frequency is 1 and period is 1 and period_unit is “d”.
-                        •	Weekly means frequency is 1 and period is 1 and period_unit is “wk”.
-                        •	Monthly means frequency is 1 and period is 1 and period_unit is “mo”.
-                        •	Immediately means frequency is 1 and period is 1 and period_unit is “s”.
-                        `)
+                        ${Object.entries(MEDICATION_REQUEST_TIMING_OPTIONS).map(([, timing]) => `•	${timing.timing.code.display} (${timing.display}) means frequency is ${timing.timing.repeat.frequency}, period is ${timing.timing.repeat.period}, period_unit is ${timing.timing.repeat.period_unit} and code is ${timing.timing.code.code}`)}
+                    `),
+                    code: z.object({
+                        code: z.enum(Object.values(MEDICATION_REQUEST_TIMING_OPTIONS).map(timing => timing.timing.code.code) as [string]),
+                        display: z.enum(Object.values(MEDICATION_REQUEST_TIMING_OPTIONS).map(timing => timing.timing.code.display) as [string]),
+                        system: z.literal("http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation")
+                    }),
                 }).optional(),
+
                 as_needed_boolean: withFallback(z.boolean().describe("True if the prescription is PRN, else false. Do not ommit this.").default(false), false),
                 as_needed_for: codeStructure(isRes, "system-as-needed-reason").optional().describe("If it is a PRN medication (as_needed_boolean is true), the indicator"),
                 site: codeStructure(isRes, "system-body-site").optional().describe("The site the medication should be administered at"),
                 route: codeStructure(isRes, "system-route").optional().describe("The route of the medicine"),
                 method: codeStructure(isRes, "system-administration-method").optional().describe("The method in which the medicine should be administered"),
-                dose_and_rate: z.object({
-                    type: z.enum(["ordered", "calculated"]),
-                    dosage_quantity: doseQuantity.optional(),
-                    dose_range: doseRange.optional(),
-                }).optional().describe(`
+                dose_and_rate: z.union([z.object({
+                    type: z.literal("ordered"),
+                    dose_quantity: doseQuantity,
+                }), z.object({
+                    type: z.literal("calculated"),
+                    dose_range: doseRange,
+                })]).optional().describe(`
                 One of \`dose_quantity\` or \`dose_range\` must be present.
                 \`type\` is optional and defaults to \`ordered\`.
              
@@ -343,10 +247,15 @@ export const STRUCTURED_INPUT_PROMPTS = {
                             repeat: {
                                 frequency: 1,
                                 period: 1,
-                                period_unit: "d",
+                                period_unit: "h",
                                 bounds_duration: {
                                     value: 12,
                                     unit: "wk"
+                                },
+                                code: {
+                                    code: "Q1H",
+                                    display: "Every 1 hour",
+                                    system: "http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation"
                                 }
                             }
                         },
