@@ -127,11 +127,11 @@ export function Controller(props: {
       const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
       // run type validations
       const changedData = Object.entries(parsedFormData)
-        .filter(([k, v]) => {
+        .map(([k, v]) => {
           const f = hfields.find((f) => f.id === k);
           const ogF = fields.find((_, i) => i === Number(f?.id));
-          if (!f) return false;
-          if (v === f.current) return false;
+          if (!f) return [k, null];
+          if (v === f.current) return [k, null];
           if (
             ogF?.question.structured_type &&
             ogF.question.structured_type !== "encounter"
@@ -143,21 +143,29 @@ export function Controller(props: {
               ].prompt;
 
             let parsedV = v;
+            let jsonParsed = false;
 
             try {
               parsedV = JSON.parse(v as string);
+              jsonParsed = true;
             } catch (error) {
               parsedV = v;
             }
             const validation = prompt(true).safeParse(parsedV);
             if (!validation.success) {
-              console.error("Validation error", parsedV, validation);
-              return false;
+              console.error("Validation error", parsedV, validation.error);
+              return [k, null];
+            } else {
+              return [
+                k,
+                jsonParsed ? JSON.stringify(validation.data) : validation.data,
+              ];
             }
           }
-          return true;
+          return [k, v];
         })
-        .map(([k, v]) => ({ [k]: v }))
+        .filter(([, v]) => !!v)
+        .map(([k, v]) => ({ [k as string]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
       const replacedData = await Promise.all(
         Object.entries(changedData).map(async ([index, data]) => {
@@ -458,7 +466,7 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 text-xs"
+                  className="absolute left-2 top-2 hidden text-xs"
                 >
                   Test
                 </button>
