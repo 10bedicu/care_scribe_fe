@@ -252,11 +252,11 @@ export const STRUCTURED_INPUT_PROMPTS = {
                                     value: 12,
                                     unit: "wk"
                                 },
-                                code: {
-                                    code: "Q1H",
-                                    display: "Every 1 hour",
-                                    system: "http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation"
-                                }
+                            },
+                            code: {
+                                code: "Q1H",
+                                display: "Every 1 hour",
+                                system: "http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation"
                             }
                         },
                         additional_instruction: [
