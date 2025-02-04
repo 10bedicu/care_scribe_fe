@@ -33,6 +33,7 @@ import {
   CrossCircledIcon,
 } from "@radix-ui/react-icons";
 import { useScribePosition } from "@/utils/controller-position";
+import { printNode, zodToTs } from "zod-to-ts";
 
 export function Controller(props: {
   formState: unknown;
@@ -126,13 +127,45 @@ export function Controller(props: {
       const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
       // run type validations
       const changedData = Object.entries(parsedFormData)
-        .filter(([k, v]) => {
+        .map(([k, v]) => {
           const f = hfields.find((f) => f.id === k);
-          if (!f) return false;
-          if (v === f.current) return false;
-          return true;
+          const ogF = fields.find((_, i) => i === Number(f?.id));
+          if (!f) return [k, null];
+          if (v === f.current) return [k, null];
+          if (
+            ogF?.question.structured_type &&
+            ogF.question.structured_type !== "encounter"
+          ) {
+            const prompt =
+              STRUCTURED_INPUT_PROMPTS[
+                ogF.question
+                  .structured_type as keyof typeof STRUCTURED_INPUT_PROMPTS
+              ].prompt;
+
+            let parsedV = v;
+            let jsonParsed = false;
+
+            try {
+              parsedV = JSON.parse(v as string);
+              jsonParsed = true;
+            } catch (error) {
+              parsedV = v;
+            }
+            const validation = prompt(true).safeParse(parsedV);
+            if (!validation.success) {
+              console.error("Validation error", parsedV, validation.error);
+              return [k, null];
+            } else {
+              return [
+                k,
+                jsonParsed ? JSON.stringify(validation.data) : validation.data,
+              ];
+            }
+          }
+          return [k, v];
         })
-        .map(([k, v]) => ({ [k]: v }))
+        .filter(([, v]) => !!v)
+        .map(([k, v]) => ({ [k as string]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
       const replacedData = await Promise.all(
         Object.entries(changedData).map(async ([index, data]) => {
@@ -276,12 +309,16 @@ export function Controller(props: {
         ? SCRIBE_REPEAT_PROMPT_MAP
         : SCRIBE_PROMPT_MAP;
 
+      let structuredPromptText = structuredPrompt
+        ? `A structure of type ${printNode(zodToTs(structuredPrompt.prompt()).node)}. Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current datetime is ${new Date().toISOString()}`
+        : undefined;
+
       return {
         friendlyName: field.question.text || "Unlabled Field",
         current: field.value,
         id: `${i}`,
         description:
-          structuredPrompt?.prompt ||
+          (structuredPrompt ? structuredPromptText : undefined) ||
           promptMap[field.question.type]?.prompt ||
           promptMap["default"]?.prompt,
         type: typeof (
