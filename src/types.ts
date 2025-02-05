@@ -56,8 +56,7 @@ export type ScribeModel = {
     | "GENERATING_AI_RESPONSE"
     | "COMPLETED"
     | "FAILED";
-    system_prompt?: string;
-    json_prompt?: string;
+    prompt?: string;
 };
 
 export type ScribeStatus =
