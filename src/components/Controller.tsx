@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ScribeField,
   ScribeFieldSuggestion,
+  ScribeFileType,
   ScribeStatus,
   VALUESET_SYSTEM_NAMES,
 } from "../types";
@@ -31,9 +32,11 @@ import {
   ChevronUpIcon,
   Cross1Icon,
   CrossCircledIcon,
+  ImageIcon,
 } from "@radix-ui/react-icons";
 import { useScribePosition } from "@/utils/controller-position";
 import { printNode, zodToTs } from "zod-to-ts";
+import FileUpload from "./FileUpload";
 
 export function Controller(props: {
   formState: unknown;
@@ -48,6 +51,7 @@ export function Controller(props: {
   const [toReview, setToReview] = useState<ScribeFieldSuggestion[]>();
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
   const [controllerPosition] = useScribePosition();
+  const [files, setFiles] = useState<File[]>([]);
 
   //Use this to test scribe
   const SCRIBE_TEST_INPUT = `The patient's encounter status is currently on hold, classified as an emergency with a priority of “as needed,” 
@@ -80,7 +84,7 @@ export function Controller(props: {
           const res = await API.scribe.get(scribeInstanceId);
           const { status, transcript, ai_response } = res;
 
-          if (status === "FAILED") {
+          if (status === "FAILED" || status === "REFUSED") {
             toast({ title: "Transcription failed", variant: "destructive" });
             clearInterval(interval);
             return reject(new Error("Transcription failed"));
@@ -125,6 +129,10 @@ export function Controller(props: {
         "ai_response",
       );
       const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
+      const scribeTranscription = parsedFormData.__scribe__transcription
+      if (scribeTranscription) {
+        setTranscript(scribeTranscription);
+      }
       // run type validations
       const changedData = Object.entries(parsedFormData)
         .map(([k, v]) => {
@@ -229,24 +237,25 @@ export function Controller(props: {
   };
 
   // Uploads a scribe audio blob. Returns the response of the upload.
-  const uploadAudio = async (audioBlob: Blob, scribeInstanceId: string) => {
-    const category = "AUDIO";
-    const name = "audio.mp3";
+  const uploadScribeFile = async (blob: Blob, scribeInstanceId: string, type: ScribeFileType) => {
+    const category = type === ScribeFileType.AUDIO ? "AUDIO" : "UNSPECIFIED";
+    const extension = blob?.type?.split("/")?.[1].split(";")?.[0];
+    const name = "file" + (extension ? `.${extension}` : "");
     const filename = Date.now().toString();
 
     const data = await API.scribe.createFileUpload({
       original_name: name,
-      file_type: 1,
+      file_type: type,
       name: filename,
       associating_id: scribeInstanceId,
       file_category: category,
-      mime_type: audioBlob?.type?.split(";")?.[0],
+      mime_type: blob?.type?.split(";")?.[0],
     });
 
     await new Promise<void>((resolve, reject) => {
       const url = data?.signed_url;
       const internal_name = data?.internal_name;
-      const f = audioBlob;
+      const f = blob;
       if (f === undefined) {
         reject(Error("No file to upload"));
         return;
@@ -270,7 +279,7 @@ export function Controller(props: {
 
     return await API.scribe.editFileUpload(
       data.id,
-      "SCRIBE",
+      type === ScribeFileType.AUDIO ? "SCRIBE_AUDIO" : "SCRIBE_DOCUMENT",
       scribeInstanceId,
       { upload_completed: true },
     );
@@ -285,9 +294,10 @@ export function Controller(props: {
       // prompt: "..."
     });
 
-    await Promise.all(
-      audioBlobs.map((blob) => uploadAudio(blob, data?.external_id ?? "")),
-    );
+    await Promise.all([
+      ...audioBlobs.map((blob) => uploadScribeFile(blob, data?.external_id ?? "", ScribeFileType.AUDIO)),
+      ...files.map((file) => uploadScribeFile(file, data?.external_id ?? "", ScribeFileType.DOCUMENT)),
+    ]);
 
     return data.external_id;
   };
@@ -373,6 +383,7 @@ export function Controller(props: {
       setStatus("IDLE");
     }
   };
+  
 
   const handleStopRecording = async () => {
     timer.stop();
@@ -393,8 +404,26 @@ export function Controller(props: {
 
   const handleCancel = () => {
     setStatus("IDLE");
+    resetRecording();
     setToReview(undefined);
+    setFiles([]);
+    setTranscript(undefined);
+    setLastTranscript(undefined);
   };
+
+  const handleProcessFile = async () => {
+    setStatus("UPLOADING");
+    const fields = getQuestionInputs(props.formState);
+    const instanceId = await createScribeInstance(fields);
+    setInstanceId(instanceId);
+    setStatus("TRANSCRIBING");
+    await getTranscript(instanceId);
+    setStatus("THINKING");
+    const aiResponse = await getAIResponse(instanceId, fields);
+    if (!aiResponse) return;
+    setStatus("REVIEWING");
+    setToReview(getFieldsToReview(aiResponse, fields));
+  }
 
   return (
     <>
@@ -406,6 +435,13 @@ export function Controller(props: {
         <div
           className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-secondary-400 border"} bg-white transition-all delay-100`}
         >
+          {status === "ATTACHING" && (
+              <FileUpload
+                files={files}
+                setFiles={setFiles}
+                error={null}
+              />
+          )}
           {status === "RECORDING" && (
             <div className="flex items-center justify-center p-4 py-10">
               <div className="text-center">
@@ -500,7 +536,7 @@ export function Controller(props: {
             )}
           {status === "FAILED" && (
             <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-red-500">
-              <CrossCircledIcon className="text-4xl" />
+              <CrossCircledIcon className="w-8 h-8" />
               {t("scribe_error")}
             </div>
           )}
@@ -517,7 +553,7 @@ export function Controller(props: {
             </button>
           )}
         <div className="flex items-center gap-2">
-          {status === "REVIEWING" && (
+          {(status === "REVIEWING" || status === "ATTACHING") && (
             <button
               onClick={handleCancel}
               className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
@@ -526,13 +562,27 @@ export function Controller(props: {
               <Cross1Icon />
             </button>
           )}
+          {status === "IDLE" && (
+            <button 
+            onClick={() => setStatus("ATTACHING")}
+            className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
+            >
+            <ImageIcon/>
+          </button>
+          )}
           <ScribeButton
+            files={files}
             status={status}
             onClick={
-              status !== "RECORDING"
-                ? handleStartRecording
-                : handleStopRecording
+              status === "ATTACHING"
+                ? handleProcessFile
+                :  files.length > 0 ?
+                  () => setStatus("ATTACHING")
+                : status !== "RECORDING"
+                  ? handleStartRecording
+                  : handleStopRecording
             }
+            disabled={status === "ATTACHING" && files.length === 0}
           />
         </div>
       </div>

@@ -55,19 +55,27 @@ export type ScribeModel = {
     | "GENERATING_TRANSCRIPT"
     | "GENERATING_AI_RESPONSE"
     | "COMPLETED"
-    | "FAILED";
+    | "REFUSED"
+    | "FAILED"
     prompt?: string;
 };
 
 export type ScribeStatus =
     | "FAILED"
     | "IDLE"
+    | "ATTACHING"
     | "RECORDING"
     | "UPLOADING"
     | "TRANSCRIBING"
     | "THINKING"
     | "REVIEWING"
     | "SCRIBING";
+
+export enum ScribeFileType {
+    OTHER = 0,
+    AUDIO = 1,
+    DOCUMENT = 2
+}
 
 export type ScribeFieldOption = {
     value: string,
@@ -95,7 +103,7 @@ export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & { suggestion
 export type FileCategory = "UNSPECIFIED" | "XRAY" | "AUDIO" | "IDENTITY_PROOF";
 
 export interface CreateFileRequest {
-    file_type: string | number;
+    file_type: ScribeFileType;
     file_category: FileCategory;
     name: string;
     associating_id: string;
@@ -105,7 +113,7 @@ export interface CreateFileRequest {
 
 export interface CreateFileResponse {
     id: string;
-    file_type: string;
+    file_type: ScribeFileType;
     file_category: FileCategory;
     signed_url: string;
     internal_name: string;
