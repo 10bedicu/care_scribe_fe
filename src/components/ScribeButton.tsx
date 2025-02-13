@@ -126,11 +126,13 @@ export default function ScribeButton(props: {
         <div className="pl-2 pr-6 font-semibold">
           {status === "IDLE"
             ? t("voice_autofill")
-            : status === "ATTACHING" ? t("process_images") : status === "RECORDING"
-              ? t("stop_recording")
-              : files.length > 0 
-                ? t("reupload_files") 
-                : t("retake_recording")}
+            : status === "ATTACHING"
+              ? t("process_images")
+              : status === "RECORDING"
+                ? t("stop_recording")
+                : files.length > 0
+                  ? t("reupload_files")
+                  : t("retake_recording")}
         </div>
       </button>
     </>

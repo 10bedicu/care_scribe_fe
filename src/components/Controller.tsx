@@ -129,8 +129,8 @@ export function Controller(props: {
         "ai_response",
       );
       const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
-      const scribeTranscription = parsedFormData.__scribe__transcription
-      if (scribeTranscription) {
+      const scribeTranscription = parsedFormData.__scribe__transcription;
+      if (scribeTranscription && files.length !== 0) {
         setTranscript(scribeTranscription);
       }
       // run type validations
@@ -237,7 +237,11 @@ export function Controller(props: {
   };
 
   // Uploads a scribe audio blob. Returns the response of the upload.
-  const uploadScribeFile = async (blob: Blob, scribeInstanceId: string, type: ScribeFileType) => {
+  const uploadScribeFile = async (
+    blob: Blob,
+    scribeInstanceId: string,
+    type: ScribeFileType,
+  ) => {
     const category = type === ScribeFileType.AUDIO ? "AUDIO" : "UNSPECIFIED";
     const extension = blob?.type?.split("/")?.[1].split(";")?.[0];
     const name = "file" + (extension ? `.${extension}` : "");
@@ -295,8 +299,16 @@ export function Controller(props: {
     });
 
     await Promise.all([
-      ...audioBlobs.map((blob) => uploadScribeFile(blob, data?.external_id ?? "", ScribeFileType.AUDIO)),
-      ...files.map((file) => uploadScribeFile(file, data?.external_id ?? "", ScribeFileType.DOCUMENT)),
+      ...audioBlobs.map((blob) =>
+        uploadScribeFile(blob, data?.external_id ?? "", ScribeFileType.AUDIO),
+      ),
+      ...files.map((file) =>
+        uploadScribeFile(
+          file,
+          data?.external_id ?? "",
+          ScribeFileType.DOCUMENT,
+        ),
+      ),
     ]);
 
     return data.external_id;
@@ -383,7 +395,6 @@ export function Controller(props: {
       setStatus("IDLE");
     }
   };
-  
 
   const handleStopRecording = async () => {
     timer.stop();
@@ -423,7 +434,7 @@ export function Controller(props: {
     if (!aiResponse) return;
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
-  }
+  };
 
   return (
     <>
@@ -436,11 +447,7 @@ export function Controller(props: {
           className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-secondary-400 border"} bg-white transition-all delay-100`}
         >
           {status === "ATTACHING" && (
-              <FileUpload
-                files={files}
-                setFiles={setFiles}
-                error={null}
-              />
+            <FileUpload files={files} setFiles={setFiles} error={null} />
           )}
           {status === "RECORDING" && (
             <div className="flex items-center justify-center p-4 py-10">
@@ -536,7 +543,7 @@ export function Controller(props: {
             )}
           {status === "FAILED" && (
             <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-red-500">
-              <CrossCircledIcon className="w-8 h-8" />
+              <CrossCircledIcon className="h-8 w-8" />
               {t("scribe_error")}
             </div>
           )}
@@ -563,12 +570,12 @@ export function Controller(props: {
             </button>
           )}
           {status === "IDLE" && (
-            <button 
-            onClick={() => setStatus("ATTACHING")}
-            className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
+            <button
+              onClick={() => setStatus("ATTACHING")}
+              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
             >
-            <ImageIcon/>
-          </button>
+              <ImageIcon />
+            </button>
           )}
           <ScribeButton
             files={files}
@@ -576,11 +583,11 @@ export function Controller(props: {
             onClick={
               status === "ATTACHING"
                 ? handleProcessFile
-                :  files.length > 0 ?
-                  () => setStatus("ATTACHING")
-                : status !== "RECORDING"
-                  ? handleStartRecording
-                  : handleStopRecording
+                : files.length > 0
+                  ? () => setStatus("ATTACHING")
+                  : status !== "RECORDING"
+                    ? handleStartRecording
+                    : handleStopRecording
             }
             disabled={status === "ATTACHING" && files.length === 0}
           />
@@ -598,6 +605,7 @@ export function Controller(props: {
               });
             setToReview(undefined);
             setStatus("IDLE");
+            setFiles([]);
           }}
         />
       )}
