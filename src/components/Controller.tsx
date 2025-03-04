@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ScribeField,
   ScribeFieldSuggestion,
@@ -52,6 +52,7 @@ export function Controller(props: {
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
   const [controllerPosition] = useScribePosition();
   const [files, setFiles] = useState<File[]>([]);
+  const [realtimeToken, setRealtimeToken] = useState<string | null>(null);
 
   //Use this to test scribe
   const SCRIBE_TEST_INPUT = `The patient's encounter status is currently on hold, classified as an emergency with a priority of “as needed,” 
@@ -73,6 +74,76 @@ export function Controller(props: {
 
   const { toast } = useToast();
 
+  async function playBlobsSequentially(
+    blobs: Blob[],
+    audioContext: AudioContext,
+    destination: MediaStreamAudioDestinationNode,
+  ) {
+    // Start scheduling from the current context time.
+    let offset = audioContext.currentTime;
+    for (const blob of blobs) {
+      // Convert blob to ArrayBuffer
+      const arrayBuffer = await blob.arrayBuffer();
+      // Decode the audio data from the ArrayBuffer
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      // Create a source for this audio buffer
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      // Connect the source to the destination
+      source.connect(destination);
+
+      // Schedule the source to start at the appropriate time
+      source.start(offset);
+      // Increase the offset by the duration of the audio buffer
+      offset += audioBuffer.duration;
+    }
+  }
+
+  useEffect(() => {
+    if (!realtimeToken) return;
+    (async () => {
+      const pc = new RTCPeerConnection();
+
+      const audioContext = new AudioContext();
+      // Create a MediaStreamDestination node to capture the combined audio
+      const destination = audioContext.createMediaStreamDestination();
+
+      // Assume `blobs` is your array of predefined audio blobs
+      await playBlobsSequentially(audioBlobs, audioContext, destination);
+
+      // Add the combined audio track to the peer connection
+      const stream = destination.stream;
+      pc.addTrack(stream.getAudioTracks()[0]);
+
+      const dc = pc.createDataChannel("oai-events");
+      dc.addEventListener("message", (m) => {
+        console.log(m);
+      });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const baseUrl = "https://api.openai.com/v1/realtime";
+      const model = "gpt-4o-realtime-preview-2024-12-17";
+      const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
+        method: "POST",
+        body: offer.sdp,
+        headers: {
+          Authorization: `Bearer ${realtimeToken}`,
+          "Content-Type": "application/sdp",
+        },
+      });
+
+      const answer = {
+        type: "answer" as any,
+        sdp: await sdpResponse.text(),
+      };
+
+      await pc.setRemoteDescription(answer);
+    })();
+  }, [realtimeToken]);
+
   // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
   const poller = async (
     scribeInstanceId: string,
@@ -82,7 +153,11 @@ export function Controller(props: {
       const interval = setInterval(async () => {
         try {
           const res = await API.scribe.get(scribeInstanceId);
-          const { status, transcript, ai_response } = res;
+          const { status, transcript, ai_response, realtime_token } = res;
+
+          setRealtimeToken(realtime_token);
+
+          if (realtimeToken) return resolve("");
 
           if (status === "FAILED" || status === "REFUSED") {
             toast({ title: "Transcription failed", variant: "destructive" });

@@ -57,6 +57,7 @@ export type ScribeModel = {
     | "COMPLETED"
     | "REFUSED"
     | "FAILED";
+  realtime_token: string | null;
   prompt?: string;
 };
 
