@@ -12,6 +12,9 @@ export default {
   		colors: {}
   	}
   },
+  corePlugins: {
+    preflight: false,
+  },
   plugins: [require("tailwindcss-animate")],
 }
 
