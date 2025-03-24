@@ -1,7 +1,3 @@
-import { ReloadIcon } from "@radix-ui/react-icons";
-import { ScribeStatus } from "../types";
-import { useTranslation } from "react-i18next";
-import useKeyboardShortcut from "use-keyboard-shortcut";
 import { MicrophoneIcon, MicrophoneSlashIcon } from "@/utils/icons";
 import {
   ScribeControllerPosition,
@@ -9,12 +5,18 @@ import {
 } from "@/utils/controller-position";
 import { useRef, useState } from "react";
 
+import { I18NNAMESPACE } from "@/utils/constants";
+import { ReloadIcon } from "@radix-ui/react-icons";
+import { ScribeStatus } from "../types";
+import useKeyboardShortcut from "use-keyboard-shortcut";
+import { useTranslation } from "react-i18next";
+
 export default function ScribeButton(props: {
   status: ScribeStatus;
   onClick: () => void;
 }) {
   const { status, onClick } = props;
-  const { t } = useTranslation();
+  const { t } = useTranslation(I18NNAMESPACE);
   const [, setControllerPosition] = useScribePosition();
   const [initMousePosition, setInitMousePosition] = useState<{
     x: number;
