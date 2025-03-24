@@ -16,5 +16,8 @@
     "stop_recording": "Stop Recording",
     "autofilled_fields": "Autofilled Fields",
     "start_review": "Start Review",
-    "scribe_no_match": "Copilot could not find a {{valueType}} that matches with \"{{query}}\". Please enter manually."
+    "scribe_no_match": "Copilot could not find a {{valueType}} that matches with \"{{query}}\". Please enter manually.",
+    "audio__permission_message": "Please grant microphone permission to record audio.",
+    "close": "Close",
+    "cancel": "Cancel"
 }
