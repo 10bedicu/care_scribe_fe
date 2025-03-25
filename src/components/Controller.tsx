@@ -233,7 +233,8 @@ export function Controller(props: {
   // Uploads a scribe audio blob. Returns the response of the upload.
   const uploadAudio = async (audioBlob: Blob, scribeInstanceId: string) => {
     const category = "AUDIO";
-    const name = "audio.mp3";
+    const extension = audioBlob?.type?.split("/")?.[1].split(";")?.[0];
+    const name = "audio." + extension;
     const filename = Date.now().toString();
 
     const data = await API.scribe.createFileUpload({
