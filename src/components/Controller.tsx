@@ -6,23 +6,11 @@ import {
   ScribeStatus,
   VALUESET_SYSTEM_NAMES,
 } from "../types";
-import { useTranslation } from "react-i18next";
 import {
   getFieldsToReview,
   getQuestionInputs,
   replaceCodeSearchQueriesInObjectAsync,
 } from "../utils/utils";
-import ScribeButton from "./ScribeButton";
-import animationData from "../assets/animation.json";
-import Lottie from "lottie-react";
-import ScribeReview from "./Review";
-import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
-import { useTimer } from "@/hooks/useTimer";
-import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
-import { API } from "@/utils/api";
-import uploadFile from "@/utils/uploadFile";
-import { useToast } from "@/hooks/use-toast";
 import {
   SCRIBE_PROMPT_MAP,
   SCRIBE_REPEAT_PROMPT_MAP,
@@ -38,12 +26,26 @@ import { useScribePosition } from "@/utils/controller-position";
 import { printNode, zodToTs } from "zod-to-ts";
 import FileUpload from "./FileUpload";
 
+import { API } from "@/utils/api";
+import { Button } from "./ui/button";
+import { I18NNAMESPACE } from "@/utils/constants";
+import Lottie from "lottie-react";
+import ScribeButton from "./ScribeButton";
+import ScribeReview from "./Review";
+import { Textarea } from "./ui/textarea";
+import animationData from "../assets/animation.json";
+import uploadFile from "@/utils/uploadFile";
+import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
+import { useTimer } from "@/hooks/useTimer";
+import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
+
 export function Controller(props: {
   formState: unknown;
   setFormState: unknown;
 }) {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
-  const { t } = useTranslation();
+  const { t } = useTranslation(I18NNAMESPACE);
   const [transcript, setTranscript] = useState<string>();
   const timer = useTimer();
   const [lastTranscript, setLastTranscript] = useState<string>();

@@ -1,11 +1,8 @@
-import { useEffect } from "react";
 import { Controller } from "./components/Controller";
-import { usePath } from "raviger";
-import { useFeatureFlags } from "./hooks/useFeatureFlags";
-import i18n from "i18next";
-import { initReactI18next } from "react-i18next";
-import translation from "./locale/en.json";
 import { Toaster } from "./components/ui/toaster";
+import { useEffect } from "react";
+import { useFeatureFlags } from "./hooks/useFeatureFlags";
+import { usePath } from "raviger";
 
 export default function App(props: {
   formState: unknown;
@@ -17,20 +14,6 @@ export default function App(props: {
     : undefined;
   const featureFlags = useFeatureFlags(facilityId);
   const SCRIBE_ENABLED = featureFlags.includes("SCRIBE_ENABLED");
-
-  i18n.use(initReactI18next).init({
-    resources: {
-      en: {
-        translation,
-      },
-    },
-    lng: localStorage.getItem("i18nextLng") || "en",
-    fallbackLng: "en",
-    interpolation: {
-      escapeValue: false,
-    },
-    saveMissing: false,
-  });
 
   useEffect(() => {
     if (!SCRIBE_ENABLED) return;

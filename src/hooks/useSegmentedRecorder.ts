@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+
+import { I18NNAMESPACE } from "@/utils/constants";
 import { useTranslation } from "react-i18next";
 
 const useSegmentedRecording = () => {
@@ -7,7 +9,7 @@ const useSegmentedRecording = () => {
   const [audioBlobs, setAudioBlobs] = useState<Blob[]>([]);
   const [restart, setRestart] = useState(false);
   const [microphoneAccess, setMicrophoneAccess] = useState(false); // New state
-  const { t } = useTranslation();
+  const { t } = useTranslation(I18NNAMESPACE);
 
   const bufferInterval = 1 * 1000;
   const splitSizeLimit = 20 * 1000000; // 20MB

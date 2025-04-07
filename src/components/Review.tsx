@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
 import { ScribeFieldReviewedSuggestion, ScribeFieldSuggestion } from "../types";
 import { renderFieldValue, sleep, updateFieldValue } from "../utils/utils";
-import useKeyboardShortcut from "use-keyboard-shortcut";
-import { useTranslation } from "react-i18next";
-import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
+import { useEffect, useState } from "react";
+
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
+import { I18NNAMESPACE } from "@/utils/constants";
+import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
+import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useScribePosition } from "@/utils/controller-position";
+import { useTranslation } from "react-i18next";
 
 export default function ScribeReview(props: {
   setFormState: unknown;
@@ -20,7 +22,7 @@ export default function ScribeReview(props: {
   >([]);
   const [controllerPosition] = useScribePosition();
 
-  const { t } = useTranslation();
+  const { t } = useTranslation(I18NNAMESPACE);
 
   const reviewingField =
     reviewIndex !== -1 ? toReview?.[reviewIndex] : undefined;

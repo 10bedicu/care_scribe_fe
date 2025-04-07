@@ -1,3 +1,4 @@
+import { I18NNAMESPACE } from "@/utils/constants";
 import { Cross2Icon, UploadIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +9,7 @@ export default function FileUpload(props: {
   error: string | null;
 }) {
   const supported = ["image/jpeg", "image/png", "image/jpg"];
-  const { t } = useTranslation();
+  const { t } = useTranslation(I18NNAMESPACE);
 
   const { setFiles, error, files } = props;
   const [isDragging, setIsDragging] = useState(false);

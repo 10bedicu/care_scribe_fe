@@ -9,6 +9,8 @@ import {
 } from "@/utils/controller-position";
 import { useRef, useState } from "react";
 
+import { I18NNAMESPACE } from "@/utils/constants";
+
 export default function ScribeButton(props: {
   files: File[];
   status: ScribeStatus;
@@ -16,7 +18,7 @@ export default function ScribeButton(props: {
   disabled?: boolean;
 }) {
   const { status, onClick, disabled, files } = props;
-  const { t } = useTranslation();
+  const { t } = useTranslation(I18NNAMESPACE);
   const [, setControllerPosition] = useScribePosition();
   const [initMousePosition, setInitMousePosition] = useState<{
     x: number;

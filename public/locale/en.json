@@ -20,6 +20,8 @@
   "process_images": "Process Images",
   "upload_images": "Upload Images",
   "upload_images_description": "Drag and drop or click to upload images",
-  "cancel": "Cancel",
-  "reupload_files": "Reupload Files"
+  "reupload_files": "Reupload Files",
+  "audio__permission_message": "Please grant microphone permission to record audio.",
+  "close": "Close",
+  "cancel": "Cancel"
 }

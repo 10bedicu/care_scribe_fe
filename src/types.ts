@@ -159,7 +159,7 @@ export interface FacilityModel {
   local_body?: number;
   ward?: number;
   pincode?: string;
-  facility_flags?: FeatureFlag[];
+  flags?: FeatureFlag[];
   latitude?: string;
   longitude?: string;
   kasp_empanelled?: boolean;

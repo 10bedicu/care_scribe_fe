@@ -1,3 +1,5 @@
+export const I18NNAMESPACE = "care_scribe_fe";
+
 export const MEDICATION_REQUEST_TIMING_OPTIONS: Record<
     string,
     {
