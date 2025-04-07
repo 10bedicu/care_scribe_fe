@@ -108,7 +108,7 @@ export default function ScribeButton(props: {
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
         onClick={() => (!estimatedMovingPosition ? onClick() : undefined)}
-        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border-secondary-400 bg-secondary-200 hover:bg-secondary-300 border"} ${!!estimatedMovingPosition ? "opacity-50" : ""} disabled:bg-secondary-300 transition-[background,top,right,left,bottom,opacity]`}
+        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border-secondary-400 bg-secondary-200 hover:bg-secondary-300 border"} ${!!estimatedMovingPosition ? "opacity-50" : ""} disabled:bg-secondary-300 transition-[background,top,right,left,bottom,opacity] cursor-pointer`}
         disabled={["TRANSCRIBING", "THINKING"].includes(status) || disabled}
         style={{ touchAction: "none" }}
       >

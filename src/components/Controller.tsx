@@ -585,7 +585,7 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 hidden text-xs"
+                  className="absolute left-2 top-2 hidden text-xs cursor-pointer"
                 >
                   Test
                 </button>
@@ -610,7 +610,7 @@ export function Controller(props: {
                 </Button>
                 {!(toReview && !toReview.length) && (
                   <button
-                    className={`absolute ${controllerPosition.includes("top") ? "-bottom-6" : "-top-6"} right-4 text-xs text-gray-100 hover:text-gray-200`}
+                    className={`absolute ${controllerPosition.includes("top") ? "-bottom-6" : "-top-6"} right-4 text-xs text-gray-100 hover:text-gray-200 cursor-pointer`}
                     onClick={() => setOpenEditTranscript(false)}
                   >
                     {t("close")}
@@ -630,7 +630,7 @@ export function Controller(props: {
           !(openEditTranscript || (toReview && !toReview.length)) && (
             <button
               onClick={() => setOpenEditTranscript(true)}
-              className="flex max-h-[50px] w-40 items-center gap-2 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white transition-all hover:bg-black/40 md:max-h-[100px]"
+              className="flex max-h-[50px] w-40 items-center gap-2 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white transition-all hover:bg-black/40 md:max-h-[100px] cursor-pointer"
             >
               <div>{transcript}</div>
               <ChevronUpIcon className="text-xl" />
@@ -640,7 +640,7 @@ export function Controller(props: {
           {(status === "REVIEWING" || status === "ATTACHING") && (
             <button
               onClick={handleCancel}
-              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
+              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
               title={t("cancel")}
             >
               <Cross1Icon />
@@ -649,7 +649,7 @@ export function Controller(props: {
           {status === "IDLE" && (
             <button
               onClick={() => setStatus("ATTACHING")}
-              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all"
+              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
             >
               <ImageIcon />
             </button>
