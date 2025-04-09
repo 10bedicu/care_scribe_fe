@@ -46,5 +46,3 @@ vite.config.ts.timestamp-*
 # Temporary files
 *.tmp
 *.bak
-
-care-package.lock
