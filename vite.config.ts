@@ -17,7 +17,7 @@ export default defineConfig({
   react(),tailwindcss(),],
   build: {
     target: "esnext",
-    minify: false,
+    minify: true,
     cssCodeSplit: false,
     modulePreload: {
       polyfill: false,
@@ -29,8 +29,8 @@ export default defineConfig({
       },
       output: {
         format: "esm",
-        entryFileNames: "[name].js",
-        chunkFileNames: "[name].js",
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
       },
     },
   },
