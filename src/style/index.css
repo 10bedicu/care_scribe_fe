@@ -1,8 +1,9 @@
-@import "tailwindcss";
-
-@import "tw-animate-css";
-
 @config '../../tailwind.config.js';
+@import "tw-animate-css";
+.scribe-container {
+  @import 'tailwindcss';
+}
+
 
 @layer base {
   :root {
