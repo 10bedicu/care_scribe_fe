@@ -1,4 +1,4 @@
-# Copilot Instructions: CARE Scribe Plugin
+# CARE Scribe Plugin
 
 ## Overview
 
@@ -87,12 +87,7 @@ care_scribe_fe/
    - Follow React hooks rules
    - Handle cleanup in useEffect
 
-3. **Testing**
-   - Write tests for critical functionality
-   - Test user interactions and edge cases
-   - Use proper mocking for external dependencies
-
-4. **Performance**
+3. **Performance**
    - Optimize component re-renders
    - Lazy load components when appropriate
    - Monitor bundle size
