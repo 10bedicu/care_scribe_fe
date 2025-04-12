@@ -1,13 +1,5 @@
-@import 'tailwindcss';
-
-@plugin 'tailwindcss-animate';
-
-@custom-variant dark (&:is(.dark *));
-
-@theme {
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+.scribe-container {
+  @import "tailwindcss";
 }
 
 /*
