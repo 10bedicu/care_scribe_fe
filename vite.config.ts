@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import federation from "@originjs/vite-plugin-federation";
 import path from "path"
 import react from '@vitejs/plugin-react-swc'
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,7 +14,9 @@ export default defineConfig({
     },
     shared: ["react", "react-dom", "react-i18next"],
   }),
-  react(),],
+  react(),
+  tailwindcss(),
+  ],
   build: {
     target: "esnext",
     minify: false,
