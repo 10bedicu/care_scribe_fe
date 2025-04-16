@@ -107,7 +107,7 @@ export default function ScribeReview(props: {
 
   if (reviewIndex === -1) {
     return (
-      <div className="fixed inset-0 z-20 flex flex-col items-center justify-center bg-black/50 p-20 text-white backdrop-blur">
+      <div className="fixed inset-0 z-20 flex flex-col items-center justify-center bg-black/50 p-20 text-white backdrop-blur-sm">
         <h2 className="font-black">{toReview.length} fields inferred</h2>
         <div>
           <div className="my-4 flex max-h-[30vh] flex-wrap items-center justify-center gap-2 overflow-auto">
