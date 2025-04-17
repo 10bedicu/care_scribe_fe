@@ -264,7 +264,6 @@ export function Controller(props: {
           const replacedData =
             await replaceCodeSearchQueriesInObjectAsync(parsedData);
 
-          if (replacedData.noMatches.some((m) => m.primary === true)) {
             replacedData.noMatches
               .filter((m) => m.primary === true)
               .forEach((m) => {
@@ -277,10 +276,24 @@ export function Controller(props: {
                   variant: "destructive",
                 });
               });
-            return null;
+          
+          let transformed = replacedData.transformed;
+          console.log(transformed);
+          if (Array.isArray(replacedData.transformed)) {
+            transformed = replacedData.transformed.map((item) => {
+              if (typeof item === "object" && item !== null) {
+                // if the item contains a "code" key that is undefined, remove the object from the array
+                if (item.code === undefined) {
+                  return null;
+                }
+              }
+              return item;
+            });
+            transformed = transformed?.filter((item : any) => item !== null);
           }
+          console.log(transformed)
 
-          return { index, data: JSON.stringify(replacedData.transformed) };
+          return { index, data: JSON.stringify(transformed) };
         }),
       );
 
@@ -521,7 +534,7 @@ export function Controller(props: {
         className={`fixed z-40 flex ${controllerPosition.includes("top") ? "top-5 flex-col-reverse" : "bottom-5 flex-col"} ${controllerPosition.includes("right") ? "right-5 items-end" : "left-5 items-start"} gap-4 transition-all`}
       >
         <div
-          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-secondary-400 border"} bg-white transition-all delay-100`}
+          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-gray-300 border"} bg-white transition-all delay-100`}
         >
           {status === "ATTACHING" && (
             <FileUpload files={files} setFiles={setFiles} error={null} />
@@ -541,7 +554,7 @@ export function Controller(props: {
               <div className="w-32">
                 <Lottie animationData={animationData} loop autoPlay />
               </div>
-              <div className="text-secondary-700 -translate-y-4 text-sm">
+              <div className="text-gray-700 -translate-y-4 text-sm">
                 {t("copilot_thinking")}
               </div>
             </div>
@@ -557,7 +570,7 @@ export function Controller(props: {
                 )}
                 {audioBlobs.length > 0 && (
                   <div className="mb-4">
-                    <div className="border-secondary-400 bg-secondary-200 rounded border">
+                    <div className="border-gray-400 bg-gray-200 rounded border">
                       <audio controls className="plain-audio w-full">
                         {audioBlobs.map((blob, index) => (
                           <source
@@ -640,7 +653,7 @@ export function Controller(props: {
           {(status === "REVIEWING" || status === "ATTACHING") && (
             <button
               onClick={handleCancel}
-              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
+              className="border-gray-300 bg-gray-200 hover:bg-gray-300 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
               title={t("cancel")}
             >
               <Cross1Icon />
@@ -649,7 +662,7 @@ export function Controller(props: {
           {status === "IDLE" && (
             <button
               onClick={() => setStatus("ATTACHING")}
-              className="border-secondary-400 bg-secondary-300 hover:bg-secondary-400 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
+              className="border-gray-300 bg-gray-200 hover:bg-gray-300 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
             >
               <ImageIcon />
             </button>

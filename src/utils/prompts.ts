@@ -388,7 +388,8 @@ export const STRUCTURED_INPUT_PROMPTS = {
             verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]),
             onset: withFallback(z.object({ onset_datetime: isoDateTime }).default({ onset_datetime: new Date().toISOString() }).describe("ISO format"), { onset_datetime: new Date().toISOString() }),
             recorded_date: withFallback(isoDateTime.describe("In ISO format").default(new Date().toISOString()), new Date().toISOString()),
-            note: z.string().optional()
+            note: z.string().optional(),
+            category: z.enum(["encounter_diagnosis", "chronic_condition"]).default("encounter_diagnosis").describe(`Is this a chronic condition or a normal encounter diagnosis?`),
         })),
         example: [
             {
@@ -403,6 +404,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
                     onset_datetime: "2024-12-03",
                 },
                 note: "Note here",
+                category: "encounter_diagnosis"
             },
         ]
     },

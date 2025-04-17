@@ -72,15 +72,15 @@ export default function FileUpload(props: {
       )}
       <label
         className={`cursor-pointer border border-dashed ${
-          isDragging ? "border-blue-500 bg-blue-100" : "border-gray-300"
-        } flex w-full flex-col items-center justify-center gap-4 rounded-md p-4 transition-all hover:bg-gray-100`}
+          isDragging ? "border-blue-500 bg-blue-100" : "border-gray-200"
+        } flex w-full flex-col items-center justify-center gap-4 rounded-md p-4 transition-all hover:bg-gray-50`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         <UploadIcon className="h-10 w-10" />
-        <div className="text-center text-xs text-gray-500">
+        <div className="text-center text-xs text-gray-400">
           {t("upload_images_description")}
         </div>
         <input

@@ -10,6 +10,7 @@
   "retake_recording": "Retake Recording",
   "scribe__reviewing_field": "Reviewing field {{currentField}} / {{totalFields}}",
   "scribe_error": "Could not autofill fields",
+  "scribe_refused" : "Copliot could not autofill fields based on the given content. This is likely due to the content not being relevant.",
   "accept": "Accept",
   "accept_all": "Accept All",
   "reject": "Reject",

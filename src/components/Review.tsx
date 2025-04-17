@@ -116,7 +116,7 @@ export default function ScribeReview(props: {
                 key={index}
                 className="flex flex-col items-start rounded-lg bg-black/20 px-4 py-2"
               >
-                <div className="text-secondary-400 text-xs">
+                <div className="text-gray-400 text-xs">
                   {field.question.text}
                 </div>
                 <div className="font-bold">{renderFieldValue(field, true)}</div>
@@ -134,7 +134,7 @@ export default function ScribeReview(props: {
           </button>
           <button
             onClick={() => handleForward()}
-            className="hover:bg-secondary-100 flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all md:w-auto cursor-pointer"
+            className="hover:bg-gray-100 flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all md:w-auto cursor-pointer"
           >
             <KeyboardShortcutKey shortcut={["A"]} />
             {t("start_review")}
@@ -179,7 +179,7 @@ export default function ScribeReview(props: {
           </button>
           <button
             onClick={() => handleVerdict(false)}
-            className="hover:bg-secondary-100 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all cursor-pointer"
+            className="hover:bg-gray-100 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all cursor-pointer"
           >
             <KeyboardShortcutKey shortcut={["R"]} />
             {t("reject")}

@@ -45,5 +45,6 @@ export default defineConfig({
     port: 4173,
     allowedHosts: true,
     host: "0.0.0.0",
+    cors: true,
   }
 })
