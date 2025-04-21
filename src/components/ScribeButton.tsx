@@ -108,12 +108,12 @@ export default function ScribeButton(props: {
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
         onClick={() => (!estimatedMovingPosition ? onClick() : undefined)}
-        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border-gray-300 bg-gray-100 hover:bg-gray-200 border"} ${!!estimatedMovingPosition ? "opacity-50" : ""} disabled:bg-gray-200 transition-[background,top,right,left,bottom,opacity] cursor-pointer`}
+        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border-neutral-300 bg-neutral-100 hover:bg-neutral-200 border"} ${!!estimatedMovingPosition ? "opacity-50" : ""} disabled:bg-neutral-200 transition-[background,top,right,left,bottom,opacity] cursor-pointer`}
         disabled={["TRANSCRIBING", "THINKING"].includes(status) || disabled}
         style={{ touchAction: "none" }}
       >
         <div
-          className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-gray-200 group-hover:bg-gray-300"} p-4 text-xl`}
+          className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-neutral-200 group-hover:bg-neutral-300"} p-4 text-xl`}
         >
           {status === "IDLE" ? (
             <MicrophoneIcon className="w-4 invert" />

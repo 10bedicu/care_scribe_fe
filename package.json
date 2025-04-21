@@ -24,6 +24,7 @@
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-slot": "^1.2.0",
     "@radix-ui/react-toast": "^1.2.7",
+    "@tailwindcss/vite": "^4.1.4",
     "@tanstack/react-query": "^5.72.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -32,6 +33,7 @@
     "raviger": "^5.0.0-2",
     "react-i18next": "^15.4.1",
     "tailwind-merge": "^3.2.0",
+    "tailwindcss": "^4.1.4",
     "tailwindcss-animate": "^1.0.7",
     "use-keyboard-shortcut": "^1.1.6",
     "zod": "^3.24.2",
@@ -44,7 +46,6 @@
   "devDependencies": {
     "@eslint/js": "^9.24.0",
     "@originjs/vite-plugin-federation": "^1.4.1",
-    "@tailwindcss/vite": "^4.1.3",
     "@types/node": "^22.14.1",
     "@types/react": "^19.1.1",
     "@types/react-dom": "^19.1.2",
@@ -53,7 +54,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
-    "tailwindcss": "^4.1.3",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.29.1",
     "vite": "^6.2.6"

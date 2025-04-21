@@ -21,7 +21,7 @@ export function KeyboardShortcutKey(props: {
     <div className="hidden shrink-0 items-center md:flex">
       {shortcut.map((key, idx, keys) => (
         <Fragment key={idx}>
-          <kbd className="border-gray-400 bg-gray-100 relative z-10 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md border border-b-4 px-2 text-xs text-black">
+          <kbd className="border-neutral-400 bg-neutral-100 relative z-10 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md border border-b-4 px-2 text-xs text-black">
             {SHORTCUT_KEY_MAP[key]
               ? useShortKeys
                 ? SHORTCUT_KEY_MAP[key][0]

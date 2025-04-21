@@ -14,8 +14,8 @@ export default defineConfig({
     },
     shared: ["react", "react-dom", "react-i18next"],
   }),
-  react(),
   tailwindcss(),
+  react(),
   ],
   build: {
     target: "esnext",

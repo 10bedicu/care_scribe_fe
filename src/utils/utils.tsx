@@ -280,7 +280,7 @@ export async function replaceCodeSearchQueriesInObjectAsync<T>(
 
       if (!validCode) {
         noMatches.push(codeSearchQuery);
-        return undefined;
+        return "CODE_NOT_FOUND";
       }
 
       return {
