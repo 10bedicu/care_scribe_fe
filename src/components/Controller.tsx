@@ -39,6 +39,8 @@ import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
 import { useTimer } from "@/hooks/useTimer";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { usePath } from "raviger";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 export function Controller(props: {
   formState: unknown;
@@ -54,6 +56,11 @@ export function Controller(props: {
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
   const [controllerPosition] = useScribePosition();
   const [files, setFiles] = useState<File[]>([]);
+  const path = usePath();
+  const facilityId = path?.includes("/facility/")
+  ? path.split("/facility/")[1].split("/")[0]
+  : undefined;
+  const featureFlags = useFeatureFlags(facilityId);
 
   //Use this to test scribe
   const SCRIBE_TEST_INPUT = `The patient's encounter status is currently on hold, classified as an emergency with a priority of “as needed,” 
@@ -240,6 +247,7 @@ export function Controller(props: {
     try {
       await API.scribe.update(scribeInstanceId, {
         status: "READY",
+        requested_in_facility_id: facilityId || "",
       });
       const transcript = await poller(scribeInstanceId, "transcript");
       setLastTranscript(transcript);
@@ -310,6 +318,7 @@ export function Controller(props: {
     const data = await API.scribe.create({
       status: "CREATED",
       form_data: hfields as any,
+      requested_in_facility_id: facilityId || "",
       // prompt: "..."
     });
 
@@ -385,6 +394,7 @@ export function Controller(props: {
       await API.scribe.update(instanceId, {
         status: "READY",
         transcript: updatedTranscript,
+        requested_in_facility_id: facilityId || "",
         //ai_response: null,
       });
     } catch (error) {
@@ -584,7 +594,7 @@ export function Controller(props: {
               <Cross1Icon />
             </button>
           )}
-          {status === "IDLE" && (
+          {status === "IDLE" && featureFlags.includes("SCRIBE_OCR_ENABLED") && (
             <button
               onClick={() => setStatus("ATTACHING")}
               className="border-neutral-300 bg-neutral-200 hover:bg-neutral-300 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"

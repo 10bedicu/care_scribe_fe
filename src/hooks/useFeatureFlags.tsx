@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { API } from "../utils/api";
-import { FacilityModel } from "../types";
-export type FeatureFlag = "SCRIBE_ENABLED";
+import { FacilityModel, FeatureFlag } from "../types";
 
 export interface FeatureFlagsResponse {
   user_flags: FeatureFlag[];

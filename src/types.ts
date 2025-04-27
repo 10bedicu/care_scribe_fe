@@ -1,4 +1,4 @@
-export type FeatureFlag = "SCRIBE_ENABLED"; // "HCX_ENABLED" | "ABDM_ENABLED" |
+export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED"
 
 export type UserBareMinimum = {
   id: number;
@@ -47,6 +47,7 @@ export type ScribeModel = {
     options?: any[];
     type: string;
   }[];
+  requested_in_facility: FacilityModel;
   transcript: string;
   ai_response: string;
   status:
@@ -60,6 +61,13 @@ export type ScribeModel = {
   realtime_token: string | null;
   prompt?: string;
 };
+
+export type ScribeCreateRequest = {
+  status: ScribeModel["status"]
+  form_data?: ScribeModel["form_data"]
+  requested_in_facility_id: string
+  transcript?: ScribeModel["transcript"]
+}
 
 export type ScribeStatus =
   | "FAILED"
