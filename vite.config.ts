@@ -14,12 +14,12 @@ export default defineConfig({
     },
     shared: ["react", "react-dom", "react-i18next"],
   }),
-  react(),
   tailwindcss(),
+  react(),
   ],
   build: {
     target: "esnext",
-    minify: false,
+    minify: true,
     cssCodeSplit: false,
     modulePreload: {
       polyfill: false,
@@ -45,5 +45,6 @@ export default defineConfig({
     port: 4173,
     allowedHosts: true,
     host: "0.0.0.0",
+    cors: true,
   }
 })

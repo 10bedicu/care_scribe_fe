@@ -1,3 +1,7 @@
+import { ImageIcon, ReloadIcon } from "@radix-ui/react-icons";
+import { ScribeStatus } from "../types";
+import { useTranslation } from "react-i18next";
+import useKeyboardShortcut from "use-keyboard-shortcut";
 import { MicrophoneIcon, MicrophoneSlashIcon } from "@/utils/icons";
 import {
   ScribeControllerPosition,
@@ -6,16 +10,14 @@ import {
 import { useRef, useState } from "react";
 
 import { I18NNAMESPACE } from "@/utils/constants";
-import { ReloadIcon } from "@radix-ui/react-icons";
-import { ScribeStatus } from "../types";
-import useKeyboardShortcut from "use-keyboard-shortcut";
-import { useTranslation } from "react-i18next";
 
 export default function ScribeButton(props: {
+  files: File[];
   status: ScribeStatus;
   onClick: () => void;
+  disabled?: boolean;
 }) {
-  const { status, onClick } = props;
+  const { status, onClick, disabled, files } = props;
   const { t } = useTranslation(I18NNAMESPACE);
   const [, setControllerPosition] = useScribePosition();
   const [initMousePosition, setInitMousePosition] = useState<{
@@ -106,17 +108,19 @@ export default function ScribeButton(props: {
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
         onClick={() => (!estimatedMovingPosition ? onClick() : undefined)}
-        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border-secondary-400 bg-secondary-200 hover:bg-secondary-300 border"} ${!!estimatedMovingPosition ? "opacity-50" : ""} disabled:bg-secondary-300 transition-[background,top,right,left,bottom,opacity]`}
-        disabled={["TRANSCRIBING", "THINKING"].includes(status)}
+        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border-neutral-300 bg-neutral-100 hover:bg-neutral-200 border"} ${!!estimatedMovingPosition ? "opacity-50" : ""} disabled:bg-neutral-200 transition-[background,top,right,left,bottom,opacity] cursor-pointer`}
+        disabled={["TRANSCRIBING", "THINKING"].includes(status) || disabled}
         style={{ touchAction: "none" }}
       >
         <div
-          className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-secondary-300 group-hover:bg-secondary-400"} p-4 text-xl`}
+          className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-neutral-200 group-hover:bg-neutral-300"} p-4 text-xl`}
         >
           {status === "IDLE" ? (
             <MicrophoneIcon className="w-4 invert" />
           ) : status === "RECORDING" ? (
             <MicrophoneSlashIcon className="w-5" />
+          ) : status === "ATTACHING" ? (
+            <ImageIcon />
           ) : (
             <ReloadIcon />
           )}
@@ -124,9 +128,13 @@ export default function ScribeButton(props: {
         <div className="pl-2 pr-6 font-semibold">
           {status === "IDLE"
             ? t("voice_autofill")
-            : status === "RECORDING"
-              ? t("stop_recording")
-              : t("retake_recording")}
+            : status === "ATTACHING"
+              ? t("process_images")
+              : status === "RECORDING"
+                ? t("stop_recording")
+                : files.length > 0
+                  ? t("reupload_files")
+                  : t("retake_recording")}
         </div>
       </button>
     </>

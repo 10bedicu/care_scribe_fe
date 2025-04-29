@@ -1,4 +1,4 @@
-export type FeatureFlag = "SCRIBE_ENABLED"; // "HCX_ENABLED" | "ABDM_ENABLED" |
+export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED"
 
 export type UserBareMinimum = {
   id: number;
@@ -47,6 +47,7 @@ export type ScribeModel = {
     options?: any[];
     type: string;
   }[];
+  requested_in_facility: FacilityModel;
   transcript: string;
   ai_response: string;
   status:
@@ -55,20 +56,35 @@ export type ScribeModel = {
     | "GENERATING_TRANSCRIPT"
     | "GENERATING_AI_RESPONSE"
     | "COMPLETED"
+    | "REFUSED"
     | "FAILED";
-  system_prompt?: string;
-  json_prompt?: string;
+  realtime_token: string | null;
+  prompt?: string;
 };
+
+export type ScribeCreateRequest = {
+  status: ScribeModel["status"]
+  form_data?: ScribeModel["form_data"]
+  requested_in_facility_id: string
+  transcript?: ScribeModel["transcript"]
+}
 
 export type ScribeStatus =
   | "FAILED"
   | "IDLE"
+  | "ATTACHING"
   | "RECORDING"
   | "UPLOADING"
   | "TRANSCRIBING"
   | "THINKING"
   | "REVIEWING"
   | "SCRIBING";
+
+export enum ScribeFileType {
+  OTHER = 0,
+  AUDIO = 1,
+  DOCUMENT = 2,
+}
 
 export type ScribeFieldOption = {
   value: string;
@@ -99,7 +115,7 @@ export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & {
 export type FileCategory = "UNSPECIFIED" | "XRAY" | "AUDIO" | "IDENTITY_PROOF";
 
 export interface CreateFileRequest {
-  file_type: string | number;
+  file_type: ScribeFileType;
   file_category: FileCategory;
   name: string;
   associating_id: string;
@@ -109,7 +125,7 @@ export interface CreateFileRequest {
 
 export interface CreateFileResponse {
   id: string;
-  file_type: string;
+  file_type: ScribeFileType;
   file_category: FileCategory;
   signed_url: string;
   internal_name: string;

@@ -4,6 +4,7 @@ import {
   CreateFileResponse,
   FacilityModel,
   FileUploadModel,
+  ScribeCreateRequest,
   ScribeModel,
   UserModel,
 } from "../types";
@@ -80,11 +81,11 @@ const request = async <T extends unknown>(
 
 export const API = {
   scribe: {
-    create: (req: Partial<ScribeModel>) =>
+    create: (req:ScribeCreateRequest) =>
       request<ScribeModel>("/api/care_scribe/scribe/", "POST", req),
     get: (scribeId: string) =>
       request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}/`),
-    update: (scribeId: string, data: Partial<ScribeModel>) =>
+    update: (scribeId: string, data: ScribeCreateRequest) =>
       request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}/`, "PUT", data),
     createFileUpload: (data: CreateFileRequest) =>
       request<CreateFileResponse>(

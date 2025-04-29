@@ -91,12 +91,12 @@ const withFallback = <T>(schema: z.ZodType<T>, fallback: T) =>
 export const STRUCTURED_INPUT_PROMPTS = {
     "encounter": {
         prompt: () => z.object({
-            status: z.enum(["planned", "in_progress", "on_hold", "discharged", "completed", "cancelled", "discontinued", "entered_in_error", "unknown"]).describe("Status of the encounter"),
+            status: z.enum(["planned", "in_progress", "on_hold", "discharged", "completed", "cancelled", "discontinued", "entered_in_error", "unknown"]),
             encounter_class: z.enum(["imp", "amb", "obsenc", "emer", "vr", "hh"]).describe(`Class of the encounter : "imp" (Inpatient (IP)) | "amb" (Ambulatory (OP)) | "obsenc" (Observation Room) | "emer" (Emergency) | "vr" (Virtual) | "hh" (Home Health)`),
-            priority: z.enum(ENCOUNTER_PRIORITY).describe("Priority of the encounter"),
+            priority: z.enum(ENCOUNTER_PRIORITY),
             external_identifier: z.string().optional().describe("ip/op/obs/emr number"),
             hospitalization: z.object({
-                re_admission: z.boolean().describe("Encounter is a readmission"),
+                re_admission: z.boolean(),
                 admit_source: z.enum(["hosp_trans"
                     , "emd"
                     , "outp"
@@ -114,7 +114,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
                     , "vegan"
                     , "halal"
                     , "kosher"
-                    , "none"]).optional().describe("Dietary preference of the patient"),
+                    , "none"]).optional(),
                 discharge_disposition: z.enum(["home"
                     , "alt_home"
                     , "other_hcf"
@@ -144,13 +144,13 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "medication_request": {
         prompt: (isRes?: boolean) => z.array(z.object({
-            status: z.enum(MEDICATION_REQUEST_STATUS).describe("Status of the medication"),
-            intent: z.enum(MEDICATION_REQUEST_INTENT).optional().describe("Intent of the medication request"),
-            category: z.enum(["inpatient", "outpatient", "community", "discharge"]).describe("Category of the medication request"),
-            priority: z.enum(["stat", "urgent", "asap", "routine"]).describe("Priority of the medication request"),
+            status: withFallback(z.enum(MEDICATION_REQUEST_STATUS), "active"),
+            intent: z.enum(MEDICATION_REQUEST_INTENT).optional(),
+            category: withFallback(z.enum(["inpatient", "outpatient", "community", "discharge"]),"inpatient"),
+            priority: withFallback(z.enum(["stat", "urgent", "asap", "routine"]), "stat"),
             do_not_perform: z.literal(false).describe("Do not update this value"),
             medication: codeStructure(isRes, "system-medication", true),
-            authored_on: withFallback(isoDateTime.default(new Date().toISOString()).describe("When was this medication request authored? In ISO datetime"), new Date().toISOString()),
+            authored_on: withFallback(isoDateTime.describe("In ISO datetime"), new Date().toISOString()),
             dosage_instruction: z.array(z.object({
                 sequence: z.number().optional(),
                 text: z.string().optional(),
@@ -183,16 +183,16 @@ export const STRUCTURED_INPUT_PROMPTS = {
                     }),
                 }).optional(),
 
-                as_needed_boolean: withFallback(z.boolean().describe("True if the prescription is PRN, else false. Do not ommit this.").default(false), false),
+                as_needed_boolean: withFallback(z.boolean().describe("True if the prescription is PRN, else false. Do not ommit this."), false),
                 as_needed_for: codeStructure(isRes, "system-as-needed-reason").optional().describe("If it is a PRN medication (as_needed_boolean is true), the indicator"),
                 site: codeStructure(isRes, "system-body-site").optional().describe("The site the medication should be administered at"),
-                route: codeStructure(isRes, "system-route").optional().describe("The route of the medicine"),
-                method: codeStructure(isRes, "system-administration-method").optional().describe("The method in which the medicine should be administered"),
+                route: codeStructure(isRes, "system-route").optional(),
+                method: codeStructure(isRes, "system-administration-method").optional(),
                 dose_and_rate: z.union([z.object({
-                    type: z.literal("ordered"),
+                    type: withFallback(z.literal("ordered"), "ordered"),
                     dose_quantity: doseQuantity,
                 }), z.object({
-                    type: z.literal("calculated"),
+                    type: withFallback(z.literal("calculated"), "calculated"),
                     dose_range: doseRange,
                 })]).optional().describe(`
                 One of \`dose_quantity\` or \`dose_range\` must be present.
@@ -203,7 +203,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
                 `),
                 max_dose_per_period: doseRange.optional()
             })),
-            note: z.string().optional().describe("Additional Notes")
+            note: z.string().optional()
         })),
         example: [
             {
@@ -324,16 +324,16 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "medication_statement": {
         prompt: (isRes?: boolean) => z.array(z.object({
-            status: z.enum(MEDICATION_STATEMENT_STATUS).describe("Status of the medication"),
-            dosage_text: z.string().optional().describe("Text to support the dosage"),
-            information_source: z.string().optional().describe("The information source of the medication"),
+            status: z.enum(MEDICATION_STATEMENT_STATUS),
+            dosage_text: z.string().optional(),
+            information_source: z.string().optional(),
             medication: codeStructure(isRes, "system-medication", true),
-            note: z.string().optional().describe("Additional notes on the medication"),
-            reason: z.string().optional().describe("Reason for medication"),
+            note: z.string().optional(),
+            reason: z.string().optional(),
             effective_period: z.object({
                 start: isoDateTime.describe("ISO date"),
                 end: isoDateTime.describe("ISO date")
-            }).optional().describe("Medication effective period")
+            }).optional()
         })),
         example: [
             {
@@ -357,12 +357,12 @@ export const STRUCTURED_INPUT_PROMPTS = {
     "symptom": {
         prompt: (isRes?: boolean) => z.array(z.object({
             code: codeStructure(isRes, "system-condition-code", true),
-            clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]).describe("Clinical Status of the symptom"),
-            verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]).describe("Verification status of the symptom"),
-            severity: z.enum(["severe", "moderate", "mild"]).optional().describe("Severity of the symptom"),
-            onset: withFallback(z.object({ onset_datetime: isoDateTime }).default({ onset_datetime: new Date().toISOString() }).describe("Onset date of the symptom in ISO format"), { onset_datetime: new Date().toISOString() }),
-            recorded_date: isoDateTime.optional().describe("Date the symptom was recorded in ISO format"),
-            note: z.string().optional().describe("Additional notes")
+            clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]),
+            verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]),
+            severity: z.enum(["severe", "moderate", "mild"]),
+            onset: withFallback(z.object({ onset_datetime: isoDateTime }).describe("ISO format"), { onset_datetime: new Date().toISOString() }),
+            recorded_date: isoDateTime.optional().describe("ISO format"),
+            note: z.string().optional()
         })),
         example: [
             {
@@ -384,11 +384,12 @@ export const STRUCTURED_INPUT_PROMPTS = {
     "diagnosis": {
         prompt: (isRes?: boolean) => z.array(z.object({
             code: codeStructure(isRes, "system-condition-code", true),
-            clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]).describe("Clincal Status of the diagnosis"),
-            verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]).describe("Verification Status of the diagnosis"),
-            onset: withFallback(z.object({ onset_datetime: isoDateTime }).default({ onset_datetime: new Date().toISOString() }).describe("Onset date of the symptom in ISO format"), { onset_datetime: new Date().toISOString() }),
-            recorded_date: isoDateTime.optional().describe("Date the diagnosis was recorded. In ISO format"),
-            note: z.string().optional().describe("Additional notes")
+            clinical_status: z.enum(["active", "recurrence", "relapse", "inactive", "remission", "resolved"]),
+            verification_status: z.enum(["unconfirmed", "provisional", "differential", "confirmed", "refuted", "entered-in-error"]),
+            onset: withFallback(z.object({ onset_datetime: isoDateTime }).describe("ISO format"), { onset_datetime: new Date().toISOString() }),
+            recorded_date: withFallback(isoDateTime.describe("In ISO format"), new Date().toISOString()),
+            note: z.string().optional(),
+            category: withFallback(z.enum(["encounter_diagnosis", "chronic_condition"]).describe(`Is this a chronic condition or a normal encounter diagnosis?`), "encounter_diagnosis"),
         })),
         example: [
             {
@@ -403,18 +404,19 @@ export const STRUCTURED_INPUT_PROMPTS = {
                     onset_datetime: "2024-12-03",
                 },
                 note: "Note here",
+                category: "encounter_diagnosis"
             },
         ]
     },
     "allergy_intolerance": {
         prompt: (isRes?: boolean) => z.array(z.object({
             code: codeStructure(isRes, "system-allergy-code", true),
-            clinical_status: z.enum(["active", "inactive", "resolved"]).optional().describe("Clincal status of the allergy"),
-            category: z.enum(["food", "medication", "environment", "biologic"]).optional().describe("Category of the allergy"),
-            criticality: z.enum(["low", "high", "unable-to-assess"]).optional().describe("How critical is the allergy"),
-            verification_status: z.enum(["unconfirmed", "presumed", "confirmed", "refuted", "entered-in-error"]).optional().describe("Verification Status of the allergy"),
-            last_occurence: isoDateTime.optional().describe("The last occurance of the allergy In ISO format"),
-            note: z.string().optional().describe("Additional Notes")
+            clinical_status: z.enum(["active", "inactive", "resolved"]).optional(),
+            category: z.enum(["food", "medication", "environment", "biologic"]).optional(),
+            criticality: z.enum(["low", "high", "unable-to-assess"]).optional(),
+            verification_status: z.enum(["unconfirmed", "presumed", "confirmed", "refuted", "entered-in-error"]).optional(),
+            last_occurence: isoDateTime.optional().describe("ISO format"),
+            note: z.string().optional()
         })),
         example: [
             {
@@ -433,7 +435,7 @@ export const STRUCTURED_INPUT_PROMPTS = {
     },
     "follow_up_appointment": {
         prompt: () => z.object({
-            reason_for_visit: z.string().describe("The reason for the appointment")
+            reason_for_visit: z.string()
         }),
         example: {
             reason_for_visit: "No change in condition"
