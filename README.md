@@ -1,4 +1,4 @@
-# Care Scribe
+# Care Scribe 🚀
 
 Run with
 
