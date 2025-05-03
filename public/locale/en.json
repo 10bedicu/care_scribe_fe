@@ -24,5 +24,6 @@
   "reupload_files": "Reupload Files",
   "audio__permission_message": "Please grant microphone permission to record audio.",
   "close": "Close",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "microphone": "Microphone"
 }

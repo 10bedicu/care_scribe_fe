@@ -1,15 +1,13 @@
 import { ImageIcon, ReloadIcon } from "@radix-ui/react-icons";
-import { ScribeStatus } from "../types";
+import { ScribeControllerPosition, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { MicrophoneIcon, MicrophoneSlashIcon } from "@/utils/icons";
-import {
-  ScribeControllerPosition,
-  useScribePosition,
-} from "@/utils/controller-position";
 import { useRef, useState } from "react";
 
 import { I18NNAMESPACE } from "@/utils/constants";
+import { useAtom } from "jotai/react";
+import { controllerPositionAtom } from "@/store";
 
 export default function ScribeButton(props: {
   files: File[];
@@ -19,7 +17,8 @@ export default function ScribeButton(props: {
 }) {
   const { status, onClick, disabled, files } = props;
   const { t } = useTranslation(I18NNAMESPACE);
-  const [, setControllerPosition] = useScribePosition();
+  const [, setControllerPosition] = useAtom(controllerPositionAtom);
+
   const [initMousePosition, setInitMousePosition] = useState<{
     x: number;
     y: number;
@@ -40,7 +39,7 @@ export default function ScribeButton(props: {
   };
 
   const handleDragMove = (newMousePosition: { x: number; y: number }) => {
-    if (!buttonRef.current || !initMousePosition) return;
+    if (!buttonRef.current || !initMousePosition || status !== "IDLE") return;
     const xOffset = (initMousePosition.x - newMousePosition.x) * -1;
     const yOffset = (initMousePosition.y - newMousePosition.y) * -1;
     buttonRef.current.style.transform = `translateX(${xOffset}px) translateY(${yOffset}px)`;
@@ -125,7 +124,7 @@ export default function ScribeButton(props: {
             <ReloadIcon />
           )}
         </div>
-        <div className="pl-2 pr-6 font-semibold">
+        <div className="pl-2 pr-6 font-semibold flex items-center justify-between">
           {status === "IDLE"
             ? t("voice_autofill")
             : status === "ATTACHING"
@@ -135,6 +134,7 @@ export default function ScribeButton(props: {
                 : files.length > 0
                   ? t("reupload_files")
                   : t("retake_recording")}
+                 
         </div>
       </button>
     </>

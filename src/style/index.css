@@ -8,3 +8,7 @@
     @tailwind utilities;
   }
 }
+
+.scribe-container button {
+  @apply cursor-pointer
+}

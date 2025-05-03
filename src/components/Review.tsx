@@ -6,8 +6,9 @@ import { ChevronLeftIcon } from "@radix-ui/react-icons";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 import useKeyboardShortcut from "use-keyboard-shortcut";
-import { useScribePosition } from "@/utils/controller-position";
 import { useTranslation } from "react-i18next";
+import { useAtom } from "jotai/react";
+import { controllerPositionAtom } from "@/store";
 
 export default function ScribeReview(props: {
   setFormState: unknown;
@@ -20,7 +21,7 @@ export default function ScribeReview(props: {
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<
     ScribeFieldReviewedSuggestion[]
   >([]);
-  const [controllerPosition] = useScribePosition();
+  const [controllerPosition] = useAtom(controllerPositionAtom);
 
   const { t } = useTranslation(I18NNAMESPACE);
 
@@ -31,12 +32,16 @@ export default function ScribeReview(props: {
     reviewingField?.fieldElement.getBoundingClientRect();
 
   useEffect(() => {
-    if (!reviewingField) return;
+    if (!reviewingField) return 
     reviewingField.fieldElement.scrollIntoView({
       behavior: "instant",
       block: "center",
       inline: "center",
     });
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    }
   }, [reviewingField]);
 
   useEffect(() => {

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ScribeField,
   ScribeFieldSuggestion,
   ScribeFileType,
+  ScribeModel,
   ScribeStatus,
   VALUESET_SYSTEM_NAMES,
 } from "../types";
@@ -20,9 +21,9 @@ import {
   ChevronUpIcon,
   Cross1Icon,
   CrossCircledIcon,
+  DotsVerticalIcon,
   ImageIcon,
 } from "@radix-ui/react-icons";
-import { useScribePosition } from "@/utils/controller-position";
 import { printNode, zodToTs } from "zod-to-ts";
 import FileUpload from "./FileUpload";
 
@@ -41,6 +42,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { usePath } from "raviger";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { useMicrophones } from "@/hooks/useMicrophone";
+import { useAtom } from "jotai/react";
+import { controllerPositionAtom, microphoneAtom, enableStatisticsAtom } from "@/store";
+import { twMerge } from "tailwind-merge";
 
 export function Controller(props: {
   formState: unknown;
@@ -54,9 +60,14 @@ export function Controller(props: {
   const [instanceId, setInstanceId] = useState<string>();
   const [toReview, setToReview] = useState<ScribeFieldSuggestion[]>();
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
-  const [controllerPosition] = useScribePosition();
+  const [currentMic, setCurrentMic] = useAtom(microphoneAtom);
+  const [enableStatistics, setEnableStatistics] = useAtom(enableStatisticsAtom);
+  const { microphones, error: micError } = useMicrophones();
+  const [controllerPosition] = useAtom(controllerPositionAtom);
+  const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const path = usePath();
+  const menuRef = useRef<HTMLButtonElement>(null);
   const facilityId = path?.includes("/facility/")
   ? path.split("/facility/")[1].split("/")[0]
   : undefined;
@@ -91,6 +102,7 @@ export function Controller(props: {
       const interval = setInterval(async () => {
         try {
           const res = await API.scribe.get(scribeInstanceId);
+          setScribe(res);
           const { status, transcript, ai_response } = res;
 
           if (status === "FAILED" || status === "REFUSED") {
@@ -410,6 +422,7 @@ export function Controller(props: {
 
   const handleStartRecording = async () => {
     setToReview(undefined);
+    setScribe(null);
     resetRecording();
     try {
       await startSegmentedRecording();
@@ -445,6 +458,7 @@ export function Controller(props: {
     setFiles([]);
     setTranscript(undefined);
     setLastTranscript(undefined);
+    setScribe(null);
   };
 
   const handleProcessFile = async () => {
@@ -468,6 +482,16 @@ export function Controller(props: {
       <div
         className={`fixed z-40 flex ${controllerPosition.includes("top") ? "top-5 flex-col-reverse" : "bottom-5 flex-col"} ${controllerPosition.includes("right") ? "right-5 items-end" : "left-5 items-start"} gap-4 transition-all`}
       >
+        {typeof lastTranscript !== "undefined" &&
+          status === "REVIEWING" && enableStatistics && scribe?.meta && (
+            <div className="w-60 rounded-lg bg-black/20 p-2 text-left text-[10px] text-white">
+              {Object.entries(scribe?.meta).map(([key, value]) => (
+                <div key={key}>
+                  {key} : {key === "completion_time" && typeof value === "number" ? ((value * 1000).toFixed(2) + " ms") : value}
+                </div>
+              ))}
+            </div>
+          )}
         <div
           className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-neutral-300 border"} bg-white transition-all delay-100`}
         >
@@ -573,6 +597,7 @@ export function Controller(props: {
             </div>
           )}
         </div>
+        
         {typeof lastTranscript !== "undefined" &&
           status === "REVIEWING" &&
           !(openEditTranscript || (toReview && !toReview.length)) && (
@@ -584,7 +609,65 @@ export function Controller(props: {
               <ChevronUpIcon className="text-xl" />
             </button>
           )}
-        <div className="flex items-center gap-2">
+          
+        <div className={twMerge("flex items-center gap-2", controllerPosition.includes("left") && "flex-row-reverse")}>
+        
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  ref={menuRef}
+                  className="flex items-center justify-center aspect-square w-6 text-sm hover:bg-black/10 transition-all rounded-lg"
+                >
+                  {/* Ellipsis Icon*/}
+                  <DotsVerticalIcon className="text-xl" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48" portalProps={{container: menuRef.current}}>
+                <DropdownMenuGroup>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      {t("microphone")}
+                    </DropdownMenuSubTrigger>
+                    {micError && (
+                      <p className="px-4 py-2 text-sm text-red-500">
+                        {t("audio__permission_message")}
+                      </p>
+                    )}
+                      <DropdownMenuSubContent>
+                      <DropdownMenuRadioGroup value={currentMic || undefined} onValueChange={(v) => {
+                        setCurrentMic(v)
+                      }}>
+                        {microphones.map((mic) => (
+                          <DropdownMenuRadioItem
+                            key={mic.deviceId}
+                            value={mic.deviceId}
+                          >
+                            {mic.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuSubContent>
+
+                  </DropdownMenuSub>
+                  <DropdownMenuItem>
+                        History
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator/>
+                  {/* <DropdownMenuItem onClick={() => handleOptionSelect("text")}>Text input</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOptionSelect("image")}>Upload image</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOptionSelect("settings")}>Settings</DropdownMenuItem> */}
+                  <DropdownMenuCheckboxItem
+                    checked={enableStatistics}
+                    onCheckedChange={(checked) => {
+                      setEnableStatistics(checked);
+                    }}
+                  >
+                  Enable Statistics
+                </DropdownMenuCheckboxItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          
           {(status === "REVIEWING" || status === "ATTACHING") && (
             <button
               onClick={handleCancel}
@@ -616,6 +699,7 @@ export function Controller(props: {
             }
             disabled={status === "ATTACHING" && files.length === 0}
           />
+           
         </div>
       </div>
       {!!toReview && !!toReview.length && (

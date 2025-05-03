@@ -60,6 +60,14 @@ export type ScribeModel = {
     | "FAILED";
   realtime_token: string | null;
   prompt?: string;
+  meta: {
+      provider?: string;
+      transcription_time?: number;
+      completion_output_tokens?: number;
+      completion_input_tokens?: number;
+      completion_time?: number;
+      completion_id?: string;
+  }
 };
 
 export type ScribeCreateRequest = {
@@ -240,3 +248,9 @@ export interface Code {
   code: string;
   display?: string;
 }
+
+export type ScribeControllerPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
