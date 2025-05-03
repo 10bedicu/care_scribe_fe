@@ -25,5 +25,6 @@
   "audio__permission_message": "Please grant microphone permission to record audio.",
   "close": "Close",
   "cancel": "Cancel",
-  "microphone": "Microphone"
+  "microphone": "Microphone",
+  "enable_statistics": "Enable Statistics"
 }

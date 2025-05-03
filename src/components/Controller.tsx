@@ -649,20 +649,17 @@ export function Controller(props: {
                       </DropdownMenuSubContent>
 
                   </DropdownMenuSub>
-                  <DropdownMenuItem>
+                  {/* <DropdownMenuItem> // IDK if this is needed yet
                         History
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   <DropdownMenuSeparator/>
-                  {/* <DropdownMenuItem onClick={() => handleOptionSelect("text")}>Text input</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleOptionSelect("image")}>Upload image</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleOptionSelect("settings")}>Settings</DropdownMenuItem> */}
                   <DropdownMenuCheckboxItem
                     checked={enableStatistics}
                     onCheckedChange={(checked) => {
                       setEnableStatistics(checked);
                     }}
                   >
-                  Enable Statistics
+                  {t("enable_statistics")}
                 </DropdownMenuCheckboxItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
