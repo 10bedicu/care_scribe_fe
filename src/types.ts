@@ -68,6 +68,10 @@ export type ScribeModel = {
       completion_time?: number;
       completion_id?: string;
   }
+  created_date: string;
+  modified_date: string;
+  audio_file_ids: string[];
+  document_file_ids: string[];
 };
 
 export type ScribeCreateRequest = {

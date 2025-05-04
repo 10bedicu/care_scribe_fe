@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   ScribeField,
   ScribeFieldSuggestion,
@@ -45,8 +45,10 @@ import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { useMicrophones } from "@/hooks/useMicrophone";
 import { useAtom } from "jotai/react";
-import { controllerPositionAtom, microphoneAtom, enableStatisticsAtom } from "@/store";
+import { controllerPositionAtom, microphoneAtom, enableStatisticsAtom, containerRefAtom } from "@/store";
 import { twMerge } from "tailwind-merge";
+import HistorySheet from "./History";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function Controller(props: {
   formState: unknown;
@@ -67,7 +69,9 @@ export function Controller(props: {
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const path = usePath();
-  const menuRef = useRef<HTMLButtonElement>(null);
+  const [historySheetOpen, setHistorySheetOpen] = useState(false);
+  const [containerRef] = useAtom(containerRefAtom);
+  const queryClient = useQueryClient();
   const facilityId = path?.includes("/facility/")
   ? path.split("/facility/")[1].split("/")[0]
   : undefined;
@@ -446,6 +450,7 @@ export function Controller(props: {
     await getTranscript(instanceId);
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
+    queryClient.invalidateQueries({queryKey: ["scribe-history"]})
     if (!aiResponse) return;
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
@@ -470,6 +475,7 @@ export function Controller(props: {
     await getTranscript(instanceId);
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
+    queryClient.invalidateQueries({queryKey: ["scribe-history"]})
     if (!aiResponse) return;
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
@@ -612,58 +618,59 @@ export function Controller(props: {
           
         <div className={twMerge("flex items-center gap-2", controllerPosition.includes("left") && "flex-row-reverse")}>
         
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  ref={menuRef}
-                  className="flex items-center justify-center aspect-square w-6 text-sm hover:bg-black/10 transition-all rounded-lg"
-                >
-                  {/* Ellipsis Icon*/}
-                  <DotsVerticalIcon className="text-xl" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48" portalProps={{container: menuRef.current}}>
-                <DropdownMenuGroup>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      {t("microphone")}
-                    </DropdownMenuSubTrigger>
-                    {micError && (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center justify-center aspect-square w-6 text-sm hover:bg-black/10 transition-all rounded-lg"
+              >
+                {/* Ellipsis Icon*/}
+                <DotsVerticalIcon className="text-xl" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48" portalProps={{container: containerRef?.current}}>
+              <DropdownMenuGroup>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    {t("microphone")}
+                  </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                    {micError ? (
                       <p className="px-4 py-2 text-sm text-red-500">
                         {t("audio__permission_message")}
                       </p>
-                    )}
-                      <DropdownMenuSubContent>
+                    ) : (
                       <DropdownMenuRadioGroup value={currentMic || undefined} onValueChange={(v) => {
                         setCurrentMic(v)
                       }}>
-                        {microphones.map((mic) => (
-                          <DropdownMenuRadioItem
-                            key={mic.deviceId}
-                            value={mic.deviceId}
-                          >
-                            {mic.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuSubContent>
+                      {microphones.map((mic) => (
+                        <DropdownMenuRadioItem
+                        key={mic.deviceId}
+                        value={mic.deviceId}
+                        >
+                          {mic.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                      </DropdownMenuRadioGroup>
+                    )}
+                    </DropdownMenuSubContent>
 
-                  </DropdownMenuSub>
-                  {/* <DropdownMenuItem> // IDK if this is needed yet
-                        History
-                  </DropdownMenuItem> */}
-                  <DropdownMenuSeparator/>
-                  <DropdownMenuCheckboxItem
-                    checked={enableStatistics}
-                    onCheckedChange={(checked) => {
-                      setEnableStatistics(checked);
-                    }}
-                  >
-                  {t("enable_statistics")}
-                </DropdownMenuCheckboxItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={() => setHistorySheetOpen(true)}>
+                  {t("history")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator/>
+                <DropdownMenuCheckboxItem
+                  checked={enableStatistics}
+                  onCheckedChange={(checked) => {
+                    setEnableStatistics(checked);
+                  }}
+                >
+                {t("enable_statistics")}
+              </DropdownMenuCheckboxItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           
           {(status === "REVIEWING" || status === "ATTACHING") && (
             <button
@@ -715,6 +722,21 @@ export function Controller(props: {
           }}
         />
       )}
+      <HistorySheet 
+        open={historySheetOpen} 
+        setOpen={setHistorySheetOpen}
+        onUseScribe={async (scribe) => {
+          const fields = getQuestionInputs(props.formState);
+          const airesponse = await getAIResponse(scribe.external_id, fields);
+          if (!airesponse) return;
+          setToReview(getFieldsToReview(airesponse, fields));
+          setScribe(scribe);
+          setStatus("REVIEWING");
+          setLastTranscript(scribe.transcript);
+          setTranscript(scribe.transcript);
+          setInstanceId(scribe.external_id);
+        }}
+      />
     </>
   );
 }

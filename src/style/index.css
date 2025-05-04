@@ -9,6 +9,8 @@
   }
 }
 
-.scribe-container button {
-  @apply cursor-pointer
+@layer base {
+  .scribe-container button:not([disabled]), .scribe-container [role="button"]:not([disabled]) {
+    cursor: pointer;
+  }
 }

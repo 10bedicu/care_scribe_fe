@@ -26,5 +26,11 @@
   "close": "Close",
   "cancel": "Cancel",
   "microphone": "Microphone",
-  "enable_statistics": "Enable Statistics"
+  "enable_statistics": "Enable Statistics",
+  "history" : "History",
+  "click_to_view_details": "Click to view details",
+  "audio" : "Audio",
+  "status" : "Status",
+  "documents" : "Documents",
+  "use_this_autofill": "Use this autofill"
 }
