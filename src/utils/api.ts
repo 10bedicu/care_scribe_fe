@@ -5,6 +5,7 @@ import {
   FacilityModel,
   FileUploadModel,
   ScribeCreateRequest,
+  ScribeFileModel,
   ScribeModel,
   UserModel,
 } from "../types";
@@ -120,5 +121,15 @@ export const API = {
         search: query,
         count: 10
       }),
+  },
+  files: {
+    get: (fileId: string, fileType: string, associatingId: string) => request<ScribeFileModel>(
+      `/api/care_scribe/scribe_file/${fileId}/`,
+      "GET",
+      {
+        file_type: fileType,
+        associating_id: associatingId,
+      }
+    ),
   }
 };

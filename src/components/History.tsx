@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useAtom } from "jotai"
 import { Button } from "./ui/button"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog"
 import { containerRefAtom } from "@/store"
-import { useInfiniteQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query"
 import { API } from "@/utils/api"
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card"
 import dayjs from "dayjs"
-import { ScribeModel } from "@/types"
+import { FileUploadModel, ScribeFileModel, ScribeModel } from "@/types"
 import { useTranslation } from "react-i18next"
 import { I18NNAMESPACE } from "@/utils/constants"
 import { Skeleton } from "./ui/skeleton"
@@ -20,7 +20,20 @@ export default function HistorySheet(props: { open: boolean; setOpen: (open: boo
 
   // State for the modal
   const [selectedScribe, setSelectedScribe] = useState<ScribeModel | null>(null)
+  const [selectedAudios, setSelectedAudios] = useState<ScribeFileModel[] | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<ScribeFileModel[] | null>(null);
   const [modalOpen, setModalOpen] = useState(false)
+
+  const filesMutation = useMutation<ScribeFileModel, Error, {fileId: string, fileType: string, associatingId: string}>({
+    mutationFn: ({fileId, fileType, associatingId}) => API.files.get(fileId, fileType, associatingId),
+    onSuccess: (data, params) => {
+      if (params.fileType === "SCRIBE_AUDIO") {
+        setSelectedAudios((prev) => [...(prev || []), data])
+      }else{
+        setSelectedFiles((prev) => [...(prev || []), data])
+      }
+    },
+  })
 
   const historyQuery = useInfiniteQuery({
     queryKey: ["scribe-history"],
@@ -30,7 +43,7 @@ export default function HistorySheet(props: { open: boolean; setOpen: (open: boo
         offset: pageParam,
         limit: 10,
       }),
-    getNextPageParam: (lastPage, allPages, lastPageParam) => {
+    getNextPageParam: (lastPage, _, lastPageParam) => {
       if (lastPage.count > lastPageParam + 10) {
         return lastPageParam + 10
       } else {
@@ -57,6 +70,25 @@ export default function HistorySheet(props: { open: boolean; setOpen: (open: boo
     setSelectedScribe(scribe)
     setModalOpen(true)
   }
+  
+
+  useEffect(() => {
+    if (!selectedScribe) {
+        setSelectedAudios(null)
+        setSelectedFiles(null)
+        return;
+    }
+    if (selectedScribe?.audio_file_ids.length) {
+        for (const audioId of selectedScribe.audio_file_ids) {
+            filesMutation.mutate({fileId: audioId, fileType: "SCRIBE_AUDIO", associatingId: selectedScribe.external_id})
+        }
+    }
+    if (selectedScribe?.document_file_ids.length) {
+        for (const docId of selectedScribe.document_file_ids) {
+            filesMutation.mutate({fileId: docId, fileType: "SCRIBE_DOCUMENT", associatingId: selectedScribe.external_id})
+        }
+    }
+  }, [selectedScribe]);
 
   return (
     <>
@@ -96,7 +128,14 @@ export default function HistorySheet(props: { open: boolean; setOpen: (open: boo
         </SheetContent>
       </Sheet>
 
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen} onOpenChange={(open) => {
+        setModalOpen(open)
+        if (!open) {
+          setSelectedScribe(null)
+          setSelectedAudios(null)
+          setSelectedFiles(null)
+        }
+      }}>
         <DialogContent portalProps={{ container: containerRef?.current }} className="max-h-[80vh] max-w-screen-md w-full overflow-auto">
           <DialogHeader>
             <DialogTitle>{selectedScribe?.transcript}</DialogTitle>
@@ -112,20 +151,22 @@ export default function HistorySheet(props: { open: boolean; setOpen: (open: boo
             {!!selectedScribe?.audio_file_ids.length && (
                 <div>
                     <h4 className="text-sm font-medium mt-4 mb-2">{t("audio")}:</h4>
-                    {selectedScribe.audio_file_ids.map((audioId) => (
-                        <audio key={audioId} controls className="w-full">
-                            <source src={`${import.meta.env.VITE_API_URL}/api/v1/audio/${audioId}`} type="audio/mpeg" />
+                    <div className="flex flex-col gap-2">
+                    {selectedAudios?.map((audio) => (
+                        <audio key={audio.id} controls className="w-full">
+                            <source src={audio.read_signed_url} type="audio/mpeg" />
                             Your browser does not support the audio element.
                         </audio>
                     ))}
+                    </div>
                 </div>
             )}
             {!!selectedScribe?.document_file_ids.length && (
                 <div>
                     <h4 className="text-sm font-medium mt-4 mb-2">{t("documents")}:</h4>
-                    {selectedScribe.document_file_ids.map((docId) => (
-                        <a key={docId} href={`${import.meta.env.VITE_API_URL}/api/v1/document/${docId}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                            Document {docId}
+                    {selectedFiles?.map((file) => (
+                        <a key={file.id} href={file.read_signed_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                            Document {file.id}
                         </a>
                     ))}
                 </div>

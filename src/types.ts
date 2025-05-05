@@ -159,6 +159,13 @@ export interface FileUploadModel {
   archived_datetime?: string;
 }
 
+export interface ScribeFileModel {
+  id: string;
+  name: string;
+  upload_completed: boolean;
+  read_signed_url: string;
+}
+
 export interface FacilityModel {
   id?: string;
   name?: string;
