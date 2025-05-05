@@ -5,7 +5,7 @@ import Page from "./components/Page";
 const manifest = {
   plugin: "care-scribe",
   routes: {
-    "/autofill-history": () => (
+    "/facility/:facilityId/autofill-history": () => (
       <Page>
         <AutofillHistory />
       </Page>
@@ -15,9 +15,9 @@ const manifest = {
   components: {
     Scribe: lazy(() => import("./Providers")),
   },
-  navItems: [
+  navItems: ({ facilityId }: { facilityId: string }) => [
     {
-      url: `/autofill-history`,
+      url: `/facility/${facilityId}/autofill-history`,
       name: "Autofill History",
       icon: "d-folder",
     },

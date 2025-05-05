@@ -25,7 +25,8 @@ import { useTranslation } from "react-i18next";
 export default function AutofillHistory() {
   const { t } = useTranslation(I18NNAMESPACE);
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
-  const [{ page }] = useQueryParams();
+  const [{ page: initPage }] = useQueryParams();
+  const page = initPage || 1;
 
   const historyQuery = useQuery({
     queryKey: ["scribe-history", page],
