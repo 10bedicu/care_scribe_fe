@@ -25,7 +25,7 @@ export function useMicrophones(): UseMicrophonesResult {
             await navigator.mediaDevices.getUserMedia({ audio: true });
             devices = await navigator.mediaDevices.enumerateDevices();
             mics = devices.filter((d) => d.kind === "audioinput");
-          } catch (permErr) {
+          } catch {
             setError("Permission to access microphone denied.");
           }
         }
@@ -33,7 +33,7 @@ export function useMicrophones(): UseMicrophonesResult {
           mics.map((d) => ({
             deviceId: d.deviceId,
             label: d.label || "Unnamed Microphone",
-          }))
+          })),
         );
       } catch (err) {
         console.error("Failed to get microphones:", err);

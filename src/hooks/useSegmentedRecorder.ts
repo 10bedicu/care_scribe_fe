@@ -26,7 +26,7 @@ const useSegmentedRecording = () => {
   useEffect(() => {
     if (recorder === null) {
       if (isRecording || restart) {
-        requestRecorder({deviceId: currentMicrophone || undefined}).then(
+        requestRecorder({ deviceId: currentMicrophone || undefined }).then(
           (newRecorder) => {
             setRecorder(newRecorder);
             setMicrophoneAccess(true); // Set access to true on success
@@ -47,7 +47,7 @@ const useSegmentedRecording = () => {
     }
 
     if (isRecording) {
-      recorder.state === "inactive" && recorder.start(bufferInterval);
+      if (recorder.state === "inactive") recorder.start(bufferInterval);
     } else {
       if (restart) {
         setIsRecording(true);
@@ -55,7 +55,7 @@ const useSegmentedRecording = () => {
         recorder?.stream?.getTracks()?.forEach((i) => i?.stop());
         recorder.stop();
       }
-      recorder.state === "recording" && recorder.stop();
+      if (recorder.state === "recording") recorder.stop();
     }
 
     // Obtain the audio when ready.
@@ -106,11 +106,13 @@ const useSegmentedRecording = () => {
 
   const startRecording = async () => {
     try {
-      const newRecorder = await requestRecorder({deviceId: currentMicrophone || undefined});
+      const newRecorder = await requestRecorder({
+        deviceId: currentMicrophone || undefined,
+      });
       setRecorder(newRecorder);
       setMicrophoneAccess(true);
       setIsRecording(true);
-    } catch (error) {
+    } catch {
       setMicrophoneAccess(false);
       throw new Error("Microphone access denied");
     }

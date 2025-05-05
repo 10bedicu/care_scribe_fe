@@ -32,7 +32,7 @@ export default function ScribeReview(props: {
     reviewingField?.fieldElement.getBoundingClientRect();
 
   useEffect(() => {
-    if (!reviewingField) return 
+    if (!reviewingField) return;
     reviewingField.fieldElement.scrollIntoView({
       behavior: "instant",
       block: "center",
@@ -41,7 +41,7 @@ export default function ScribeReview(props: {
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";
-    }
+    };
   }, [reviewingField]);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function ScribeReview(props: {
   }, [toReview]);
 
   const handleBack = () => {
-    reviewIndex > 0 && setReviewIndex((i) => i - 1);
+    if (reviewIndex > 0) setReviewIndex((i) => i - 1);
   };
 
   const handleReviewComplete = async (
@@ -60,9 +60,11 @@ export default function ScribeReview(props: {
   };
 
   const handleForward = (accepted?: typeof acceptedSuggestions) => {
-    reviewIndex < toReview.length - 1
-      ? setReviewIndex((i) => i + 1)
-      : handleReviewComplete(accepted || acceptedSuggestions);
+    if (reviewIndex < toReview.length - 1) {
+      setReviewIndex((i) => i + 1);
+    } else {
+      handleReviewComplete(accepted || acceptedSuggestions);
+    }
   };
 
   const handleVerdict = async (approved: boolean) => {
@@ -121,7 +123,7 @@ export default function ScribeReview(props: {
                 key={index}
                 className="flex flex-col items-start rounded-lg bg-black/20 px-4 py-2"
               >
-                <div className="text-neutral-400 text-xs">
+                <div className="text-xs text-neutral-400">
                   {field.question.text}
                 </div>
                 <div className="font-bold">{renderFieldValue(field, true)}</div>
@@ -132,14 +134,14 @@ export default function ScribeReview(props: {
         <div className="flex flex-col gap-2 md:flex-row">
           <button
             onClick={handleAcceptAll}
-            className="bg-primary-500 hover:bg-primary-600 flex w-full items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all md:w-auto cursor-pointer"
+            className="bg-primary-500 hover:bg-primary-600 flex w-full cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all md:w-auto"
           >
             <KeyboardShortcutKey shortcut={["E"]} />
             {t("accept_all")}
           </button>
           <button
             onClick={() => handleForward()}
-            className="hover:bg-neutral-100 flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all md:w-auto cursor-pointer"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-neutral-100 md:w-auto"
           >
             <KeyboardShortcutKey shortcut={["A"]} />
             {t("start_review")}
@@ -178,20 +180,20 @@ export default function ScribeReview(props: {
         <div className="flex items-center gap-2">
           <button
             onClick={handleBack}
-            className="flex aspect-square items-center justify-center rounded-full border border-white p-2 text-2xl font-semibold text-white cursor-pointer"
+            className="flex aspect-square cursor-pointer items-center justify-center rounded-full border border-white p-2 text-2xl font-semibold text-white"
           >
             <ChevronLeftIcon />
           </button>
           <button
             onClick={() => handleVerdict(false)}
-            className="hover:bg-neutral-100 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all cursor-pointer"
+            className="flex cursor-pointer items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-neutral-100"
           >
             <KeyboardShortcutKey shortcut={["R"]} />
             {t("reject")}
           </button>
           <button
             onClick={() => handleVerdict(true)}
-            className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all cursor-pointer"
+            className="bg-primary-500 hover:bg-primary-600 flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all"
           >
             <KeyboardShortcutKey shortcut={["A"]} />
             {t("accept")}
@@ -207,7 +209,7 @@ export default function ScribeReview(props: {
           {toReview.map((_, i) => (
             <button
               key={i}
-              className={`aspect-square cursor-pointer w-4 rounded-full ${acceptedSuggestions.find((s) => s.suggestionIndex === i)?.approved === true ? "bg-primary-500" : acceptedSuggestions.find((s) => s.suggestionIndex === i)?.approved === false ? "bg-red-500" : "bg-white"} ${reviewIndex === i ? "opacity-100" : "opacity-50"} transition-all`}
+              className={`aspect-square w-4 cursor-pointer rounded-full ${acceptedSuggestions.find((s) => s.suggestionIndex === i)?.approved === true ? "bg-primary-500" : acceptedSuggestions.find((s) => s.suggestionIndex === i)?.approved === false ? "bg-red-500" : "bg-white"} ${reviewIndex === i ? "opacity-100" : "opacity-50"} transition-all`}
               onClick={() => setReviewIndex(i)}
             />
           ))}

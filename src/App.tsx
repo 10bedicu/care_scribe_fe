@@ -12,7 +12,7 @@ export default function App(props: {
 }) {
   const path = usePath();
   const container = useRef<HTMLDivElement>(null);
-  const [,setContainerRef] = useAtom(containerRefAtom);
+  const [, setContainerRef] = useAtom(containerRefAtom);
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;

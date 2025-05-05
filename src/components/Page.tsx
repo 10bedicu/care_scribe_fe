@@ -6,23 +6,24 @@ import { useEffect, useRef } from "react";
 
 const queryClient = new QueryClient();
 
-export default function Page(props : {children: React.ReactNode}) {
+export default function Page(props: { children: React.ReactNode }) {
+  const [, setContainerRef] = useAtom(containerRefAtom);
 
-    const [, setContainerRef] = useAtom(containerRefAtom)
+  const container = useRef<HTMLDivElement>(null);
 
-    const container = useRef<HTMLDivElement>(null);
-    
-      useEffect(() => {
-        if (container.current) {
-          setContainerRef(container);
-        }
-      }, [container, setContainerRef]);
+  useEffect(() => {
+    if (container.current) {
+      setContainerRef(container);
+    }
+  }, [container, setContainerRef]);
 
-    return (<QueryClientProvider client={queryClient}>
+  return (
+    <QueryClientProvider client={queryClient}>
       <FeatureFlagsProvider>
         <div className="scribe-container" ref={container}>
           {props.children}
         </div>
       </FeatureFlagsProvider>
-    </QueryClientProvider>)
+    </QueryClientProvider>
+  );
 }

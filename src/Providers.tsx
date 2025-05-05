@@ -12,7 +12,7 @@ export default function Providers(props: {
   return (
     <QueryClientProvider client={queryClient}>
       <FeatureFlagsProvider>
-          <App {...props} />
+        <App {...props} />
       </FeatureFlagsProvider>
     </QueryClientProvider>
   );

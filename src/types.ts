@@ -1,4 +1,4 @@
-export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED"
+export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED";
 
 export type UserBareMinimum = {
   id: number;
@@ -61,13 +61,13 @@ export type ScribeModel = {
   realtime_token: string | null;
   prompt?: string;
   meta: {
-      provider?: string;
-      transcription_time?: number;
-      completion_output_tokens?: number;
-      completion_input_tokens?: number;
-      completion_time?: number;
-      completion_id?: string;
-  }
+    provider?: string;
+    transcription_time?: number;
+    completion_output_tokens?: number;
+    completion_input_tokens?: number;
+    completion_time?: number;
+    completion_id?: string;
+  };
   created_date: string;
   modified_date: string;
   audio_file_ids: string[];
@@ -75,11 +75,11 @@ export type ScribeModel = {
 };
 
 export type ScribeCreateRequest = {
-  status: ScribeModel["status"]
-  form_data?: ScribeModel["form_data"]
-  requested_in_facility_id: string
-  transcript?: ScribeModel["transcript"]
-}
+  status: ScribeModel["status"];
+  form_data?: ScribeModel["form_data"];
+  requested_in_facility_id: string;
+  transcript?: ScribeModel["transcript"];
+};
 
 export type ScribeStatus =
   | "FAILED"

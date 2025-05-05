@@ -20,13 +20,12 @@ type options = {
 };
 const CARE_ACCESS_TOKEN_LOCAL_STORAGE_KEY = "care_access_token";
 
-const request = async <T extends unknown>(
+const request = async <T>(
   endpoint: string,
   method: methods = "GET",
   data: any = {},
   options: options = {},
 ): Promise<T> => {
-
   const CARE_BASE_URL = window.CARE_API_URL;
 
   const { formdata, external, headers, auth: isAuth } = options;
@@ -37,9 +36,9 @@ const request = async <T extends unknown>(
   if (method === "GET") {
     const requestParams = data
       ? `?${Object.keys(data)
-        .filter((key) => data[key] !== null && data[key] !== undefined)
-        .map((key) => `${key}=${data[key]}`)
-        .join("&")}`
+          .filter((key) => data[key] !== null && data[key] !== undefined)
+          .map((key) => `${key}=${data[key]}`)
+          .join("&")}`
       : "";
     url += requestParams;
     payload = null;
@@ -57,11 +56,11 @@ const request = async <T extends unknown>(
     headers: external
       ? { ...headers }
       : {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: auth,
-        ...headers,
-      },
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: auth,
+          ...headers,
+        },
     body: payload,
   });
   try {
@@ -82,9 +81,13 @@ const request = async <T extends unknown>(
 
 export const API = {
   scribe: {
-    list: (filters : {offset?: number, limit?: number} = {}) => 
-      request<{results : ScribeModel[], count: number}>("/api/care_scribe/scribe/", "GET", filters),
-    create: (req:ScribeCreateRequest) =>
+    list: (filters: { offset?: number; limit?: number } = {}) =>
+      request<{ results: ScribeModel[]; count: number }>(
+        "/api/care_scribe/scribe/",
+        "GET",
+        filters,
+      ),
+    create: (req: ScribeCreateRequest) =>
       request<ScribeModel>("/api/care_scribe/scribe/", "POST", req),
     get: (scribeId: string) =>
       request<ScribeModel>(`/api/care_scribe/scribe/${scribeId}/`),
@@ -113,23 +116,28 @@ export const API = {
       request<FacilityModel>(`/api/v1/facility/${facilityId}/`),
   },
   users: {
-    current: () => request<UserModel>(`/api/v1/users/getcurrentuser/`)
+    current: () => request<UserModel>(`/api/v1/users/getcurrentuser/`),
   },
   valuesets: {
     expand: (system: string, query: string) =>
-      request<{ results: Code[] }>(`/api/v1/valueset/${system}/expand/`, "POST", {
-        search: query,
-        count: 10
-      }),
+      request<{ results: Code[] }>(
+        `/api/v1/valueset/${system}/expand/`,
+        "POST",
+        {
+          search: query,
+          count: 10,
+        },
+      ),
   },
   files: {
-    get: (fileId: string, fileType: string, associatingId: string) => request<ScribeFileModel>(
-      `/api/care_scribe/scribe_file/${fileId}/`,
-      "GET",
-      {
-        file_type: fileType,
-        associating_id: associatingId,
-      }
-    ),
-  }
+    get: (fileId: string, fileType: string, associatingId: string) =>
+      request<ScribeFileModel>(
+        `/api/care_scribe/scribe_file/${fileId}/`,
+        "GET",
+        {
+          file_type: fileType,
+          associating_id: associatingId,
+        },
+      ),
+  },
 };

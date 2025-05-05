@@ -85,13 +85,13 @@ export default function ScribeButton(props: {
   return (
     <>
       <div
-        className={`-right-10 -top-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "top-right")}`}
+        className={`-top-10 -right-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "top-right")}`}
       />
       <div
-        className={`-left-10 -top-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "top-left")}`}
+        className={`-top-10 -left-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "top-left")}`}
       />
       <div
-        className={`-bottom-10 -right-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "bottom-right")}`}
+        className={`-right-10 -bottom-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "bottom-right")}`}
       />
       <div
         className={`-bottom-10 -left-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "bottom-left")}`}
@@ -107,7 +107,7 @@ export default function ScribeButton(props: {
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
         onClick={() => (!estimatedMovingPosition ? onClick() : undefined)}
-        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border-neutral-300 bg-neutral-100 hover:bg-neutral-200 border"} ${!!estimatedMovingPosition ? "opacity-50" : ""} disabled:bg-neutral-200 transition-[background,top,right,left,bottom,opacity] cursor-pointer`}
+        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border border-neutral-300 bg-neutral-100 hover:bg-neutral-200"} ${estimatedMovingPosition ? "opacity-50" : ""} cursor-pointer transition-[background,top,right,left,bottom,opacity] disabled:bg-neutral-200`}
         disabled={["TRANSCRIBING", "THINKING"].includes(status) || disabled}
         style={{ touchAction: "none" }}
       >
@@ -124,7 +124,7 @@ export default function ScribeButton(props: {
             <ReloadIcon />
           )}
         </div>
-        <div className="pl-2 pr-6 font-semibold flex items-center justify-between">
+        <div className="flex items-center justify-between pr-6 pl-2 font-semibold">
           {status === "IDLE"
             ? t("voice_autofill")
             : status === "ATTACHING"
@@ -134,7 +134,6 @@ export default function ScribeButton(props: {
                 : files.length > 0
                   ? t("reupload_files")
                   : t("retake_recording")}
-                 
         </div>
       </button>
     </>
