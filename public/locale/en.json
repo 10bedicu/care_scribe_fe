@@ -32,5 +32,7 @@
   "audio" : "Audio",
   "status" : "Status",
   "documents" : "Documents",
-  "use_this_autofill": "Use this autofill"
+  "use_this_autofill": "Use this autofill",
+  "statistics": "Statistics",
+  "autofill_history": "Autofill History"
 }

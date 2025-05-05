@@ -493,7 +493,7 @@ export function Controller(props: {
             <div className="w-60 rounded-lg bg-black/20 p-2 text-left text-[10px] text-white">
               {Object.entries(scribe?.meta).map(([key, value]) => (
                 <div key={key}>
-                  {key} : {key === "completion_time" && typeof value === "number" ? ((value * 1000).toFixed(2) + " ms") : value}
+                  {key} : {(key === "completion_time" || key === "transcription_time") && typeof value === "number" ? ((value * 1000).toFixed(2) + " ms") : value}
                 </div>
               ))}
             </div>

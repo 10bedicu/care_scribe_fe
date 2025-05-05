@@ -25,7 +25,7 @@ care_scribe_fe/
 │   ├── App.tsx        # Main app component
 │   ├── Providers.tsx  # React context providers
 │   ├── main.tsx      # Entry point
-│   └── manifest.ts    # Plugin manifest for federation
+│   └── manifest.tsx    # Plugin manifest for federation
 ├── tailwind.config.js
 ├── vite.config.ts
 └── package.json
@@ -45,7 +45,7 @@ care_scribe_fe/
 
 3. **Plugin Integration**
    - Plugin is loaded into CARE via vite-plugin-federation
-   - Export components through manifest.ts
+   - Export components through manifest.tsx
    - Maintain compatibility with CARE's React version
 
 4. **Code Style**

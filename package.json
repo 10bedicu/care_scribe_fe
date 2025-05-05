@@ -20,6 +20,12 @@
   },
   "homepage": "https://github.com/ohcnetwork/care_scribe_fe#readme",
   "description": "",
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ]
+  },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.11",
     "@radix-ui/react-dropdown-menu": "^2.1.12",
@@ -32,6 +38,7 @@
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
     "jotai": "^2.12.3",
+    "lint-staged": "^15.5.1",
     "lottie-react": "^2.4.1",
     "raviger": "^5.0.0-2",
     "react-i18next": "^15.4.1",
