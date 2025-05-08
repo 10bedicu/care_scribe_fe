@@ -1,8 +1,26 @@
 import { lazy } from "react";
 import AutofillHistory from "./pages/AutofillHistory";
 import Page from "./components/Page";
+import SidebarIcon from "./components/icon";
 
-const manifest = {
+interface Manifest {
+  plugin: string;
+  routes: Record<string, () => React.ReactNode>;
+  extends: string[];
+  components: Record<
+    string,
+    React.LazyExoticComponent<
+      React.FC<{ formState: unknown; setFormState: unknown }>
+    >
+  >;
+  navItems: Array<{
+    url: string;
+    name: string;
+    icon: React.ReactNode;
+  }>;
+}
+
+const manifest: Manifest = {
   plugin: "care-scribe",
   routes: {
     "/facility/:facilityId/autofill-history": () => (
@@ -15,11 +33,11 @@ const manifest = {
   components: {
     Scribe: lazy(() => import("./Providers")),
   },
-  navItems: ({ facilityId }: { facilityId: string }) => [
+  navItems: [
     {
-      url: `/facility/${facilityId}/autofill-history`,
+      url: `/facility/:facilityId/autofill-history`,
       name: "Autofill History",
-      icon: "d-folder",
+      icon: <SidebarIcon />,
     },
   ],
 };
