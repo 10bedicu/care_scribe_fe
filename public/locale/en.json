@@ -34,5 +34,6 @@
   "documents" : "Documents",
   "use_this_autofill": "Use this autofill",
   "statistics": "Statistics",
-  "autofill_history": "Autofill History"
+  "autofill_history": "Autofill History",
+  "no_autofill_history": "You have not made any autofills yet."
 }

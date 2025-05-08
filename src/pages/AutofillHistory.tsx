@@ -1,3 +1,4 @@
+import SidebarIcon from "@/components/icon";
 import ScribeDialog from "@/components/ScribeDialog";
 import {
   Card,
@@ -53,6 +54,14 @@ export default function AutofillHistory() {
             <Skeleton className="h-[125px] rounded-lg" />
             <Skeleton className="h-[125px] rounded-lg" />
             <Skeleton className="h-[125px] rounded-lg" />
+          </div>
+        )}
+        {historyQuery.isFetched && history?.length === 0 && (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg opacity-50">
+            <div className="text-8xl">
+              <SidebarIcon />
+            </div>
+            {t("no_autofill_history")}
           </div>
         )}
         {history?.map((scribe) => (
