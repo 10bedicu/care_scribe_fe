@@ -35,7 +35,7 @@ const manifest: Manifest = {
   },
   navItems: [
     {
-      url: `/facility/:facilityId/autofill-history`,
+      url: `autofill-history`,
       name: "Autofill History",
       icon: <SidebarIcon />,
     },
