@@ -54,7 +54,6 @@ export default function HistorySheet(props: {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
-    console.log("scrolling", el?.scrollTop, el?.scrollHeight, el?.clientHeight);
     if (!el || !hasNextPage || isFetchingNextPage) return;
     // Trigger when 100px from bottom
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
@@ -84,6 +83,11 @@ export default function HistorySheet(props: {
                 <Skeleton className="h-[125px] rounded-lg" />
                 <Skeleton className="h-[125px] rounded-lg" />
                 <Skeleton className="h-[125px] rounded-lg" />
+              </div>
+            )}
+            {historyQuery.isFetched && history?.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg opacity-50">
+                {t("no_scribe_history")}
               </div>
             )}
             {history?.map((scribe) => (
@@ -125,6 +129,7 @@ export default function HistorySheet(props: {
         }}
         onUse={() => {
           if (!selectedScribe) return;
+          setOpen(false);
           onUseScribe(selectedScribe);
         }}
       />

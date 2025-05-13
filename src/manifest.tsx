@@ -3,9 +3,14 @@ import AutofillHistory from "./pages/AutofillHistory";
 import Page from "./components/Page";
 import SidebarIcon from "./components/icon";
 
+interface NavigationLink {
+  url: string;
+  name: string;
+  icon?: React.ReactNode;
+}
 interface Manifest {
   plugin: string;
-  routes: Record<string, () => React.ReactNode>;
+  routes: Record<string, (...args: any) => React.ReactNode>;
   extends: string[];
   components: Record<
     string,
@@ -13,17 +18,14 @@ interface Manifest {
       React.FC<{ formState: unknown; setFormState: unknown }>
     >
   >;
-  navItems: Array<{
-    url: string;
-    name: string;
-    icon: React.ReactNode;
-  }>;
+  navItems?: NavigationLink[];
+  userNavItems?: NavigationLink[];
 }
 
 const manifest: Manifest = {
   plugin: "care-scribe",
   routes: {
-    "/facility/:facilityId/autofill-history": () => (
+    "/facility/:facilityId/users/:user/scribe-history": () => (
       <Page>
         <AutofillHistory />
       </Page>
@@ -33,10 +35,10 @@ const manifest: Manifest = {
   components: {
     Scribe: lazy(() => import("./Providers")),
   },
-  navItems: [
+  userNavItems: [
     {
-      url: `autofill-history`,
-      name: "Autofill History",
+      url: `scribe-history`,
+      name: "Scribe History",
       icon: <SidebarIcon />,
     },
   ],

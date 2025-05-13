@@ -132,6 +132,7 @@ const useSegmentedRecording = () => {
     stopRecording,
     resetRecording,
     audioBlobs,
+    setAudioBlobs,
     microphoneAccess, // Return microphoneAccess
   };
 };

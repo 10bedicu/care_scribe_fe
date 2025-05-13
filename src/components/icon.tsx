@@ -1,25 +1,25 @@
-/*
-    Yoinked from https://duoicons.vercel.app/
-*/
-
 export default function SidebarIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="66"
-      height="66"
-      viewBox="0 0 24 24"
+      className="ionicon"
+      viewBox="0 0 512 512"
     >
       <path
-        fill="currentColor"
-        fill-rule="evenodd"
-        d="M2 6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7.333L4 21.5c-.824.618-2 .03-2-1V6Z"
-        opacity=".3"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="32"
+        d="M192 448h128M384 208v32c0 70.4-57.6 128-128 128h0c-70.4 0-128-57.6-128-128v-32M256 368v80"
       />
       <path
-        fill="currentColor"
-        fill-rule="evenodd"
-        d="M8 12a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2H8ZM7 9a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1Z"
+        d="M256 64a63.68 63.68 0 00-64 64v111c0 35.2 29 65 64 65s64-29 64-65V128c0-36-28-64-64-64z"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="32"
       />
     </svg>
   );

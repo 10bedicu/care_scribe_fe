@@ -48,6 +48,7 @@ export type ScribeModel = {
     type: string;
   }[];
   requested_in_facility: FacilityModel;
+  requested_in_encounter: unknown;
   transcript: string;
   ai_response: string;
   status:
@@ -77,7 +78,8 @@ export type ScribeModel = {
 export type ScribeCreateRequest = {
   status: ScribeModel["status"];
   form_data?: ScribeModel["form_data"];
-  requested_in_facility_id: string;
+  requested_in_facility_id?: string;
+  requested_in_encounter_id?: string;
   transcript?: ScribeModel["transcript"];
 };
 

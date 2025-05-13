@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ScribeField,
   ScribeFieldSuggestion,
@@ -67,6 +67,7 @@ import {
 import { twMerge } from "tailwind-merge";
 import HistorySheet from "./History";
 import { useQueryClient } from "@tanstack/react-query";
+import { useScribeFiles } from "@/hooks/useScribeFiles";
 
 export function Controller(props: {
   formState: unknown;
@@ -93,6 +94,10 @@ export function Controller(props: {
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
+
+  const encounterId = path?.includes("/encounter/")
+    ? path.split("/encounter/")[1].split("/")[0]
+    : undefined;
   const featureFlags = useFeatureFlags(facilityId);
 
   //Use this to test scribe
@@ -111,9 +116,32 @@ export function Controller(props: {
     stopRecording: stopSegmentedRecording,
     resetRecording,
     audioBlobs,
+    setAudioBlobs,
   } = useSegmentedRecording();
 
   const { toast } = useToast();
+
+  const { audioFiles, files: imageFiles } = useScribeFiles(scribe);
+
+  useEffect(() => {
+    // Fetch the audio files from the scribe instance.
+    // Helpful when loading a previous scribe instance.
+    if (audioBlobs.length) return;
+    audioFiles?.map(async (af) => {
+      const audioData = await fetch(af?.read_signed_url);
+      const audioBlob = await audioData.blob();
+      setAudioBlobs((prev) => [...prev, audioBlob]);
+    });
+    if (files.length) return;
+    imageFiles?.map(async (ifile) => {
+      const imageData = await fetch(ifile?.read_signed_url);
+      const imageBlob = await imageData.blob();
+      const imageFile = new File([imageBlob], ifile?.name, {
+        type: imageBlob.type,
+      });
+      setFiles((prev) => [...prev, imageFile]);
+    });
+  }, [audioFiles, imageFiles]);
 
   // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
   const poller = async (
@@ -282,6 +310,7 @@ export function Controller(props: {
       await API.scribe.update(scribeInstanceId, {
         status: "READY",
         requested_in_facility_id: facilityId || "",
+        requested_in_encounter_id: encounterId || "",
       });
       const transcript = await poller(scribeInstanceId, "transcript");
       setLastTranscript(transcript);
@@ -353,6 +382,7 @@ export function Controller(props: {
       status: "CREATED",
       form_data: hfields as any,
       requested_in_facility_id: facilityId || "",
+      requested_in_encounter_id: encounterId || "",
       // prompt: "..."
     });
 
@@ -420,7 +450,7 @@ export function Controller(props: {
 
   // updates the transcript and fetches a new AI response
   const handleUpdateTranscript = async (updatedTranscript: string) => {
-    if (updatedTranscript === lastTranscript) return;
+    if (updatedTranscript === lastTranscript && !files.length) return;
     if (!instanceId) throw Error("Cannot find scribe instance");
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
@@ -429,6 +459,7 @@ export function Controller(props: {
         status: "READY",
         transcript: updatedTranscript,
         requested_in_facility_id: facilityId || "",
+        requested_in_encounter_id: encounterId || "",
         //ai_response: null,
       });
     } catch {
@@ -506,25 +537,8 @@ export function Controller(props: {
       <div
         className={`fixed z-40 flex ${controllerPosition.includes("top") ? "top-5 flex-col-reverse" : "bottom-5 flex-col"} ${controllerPosition.includes("right") ? "right-5 items-end" : "left-5 items-start"} gap-4 transition-all`}
       >
-        {typeof lastTranscript !== "undefined" &&
-          status === "REVIEWING" &&
-          enableStatistics &&
-          scribe?.meta && (
-            <div className="w-60 rounded-lg bg-black/20 p-2 text-left text-[10px] text-white">
-              {Object.entries(scribe?.meta).map(([key, value]) => (
-                <div key={key}>
-                  {key} :{" "}
-                  {(key === "completion_time" ||
-                    key === "transcription_time") &&
-                  typeof value === "number"
-                    ? (value * 1000).toFixed(2) + " ms"
-                    : value}
-                </div>
-              ))}
-            </div>
-          )}
         <div
-          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border border-neutral-300"} bg-white transition-all delay-100`}
+          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[450px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border border-neutral-300"} bg-white transition-all delay-100`}
         >
           {status === "ATTACHING" && (
             <FileUpload files={files} setFiles={setFiles} error={null} />
@@ -594,16 +608,33 @@ export function Controller(props: {
                 </button>
                 <Textarea
                   name="transcript"
-                  disabled={status !== "REVIEWING"}
+                  disabled={status !== "REVIEWING" || files.length > 0}
                   value={transcript}
                   onChange={(e) => setTranscript(e.target.value)}
                   className="h-20 resize-none"
                   // errorClassName="hidden"
                   placeholder="Transcript"
                 />
+                {typeof lastTranscript !== "undefined" &&
+                  status === "REVIEWING" &&
+                  enableStatistics &&
+                  scribe?.meta && (
+                    <div className="mt-2 text-[10px]">
+                      {Object.entries(scribe?.meta).map(([key, value]) => (
+                        <div key={key}>
+                          {key.replace(/_/g, " ")} :{" "}
+                          {(key === "completion_time" ||
+                            key === "transcription_time") &&
+                          typeof value === "number"
+                            ? (value * 1000).toFixed(2) + " ms"
+                            : value}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 <Button
                   // loading={status !== "REVIEWING"}
-                  disabled={transcript === lastTranscript}
+                  disabled={transcript === lastTranscript && !files.length}
                   className="mt-4 w-full"
                   onClick={() =>
                     transcript && handleUpdateTranscript(transcript)

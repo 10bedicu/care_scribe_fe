@@ -46,7 +46,7 @@ export default function AutofillHistory() {
   return (
     <div className="px-6 md:px-4">
       <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
-        {t("autofill_history")}
+        {t("scribe_history")}
       </h1>
       <div className="mt-4 flex flex-col gap-2">
         {historyQuery.isLoading && (
@@ -61,7 +61,7 @@ export default function AutofillHistory() {
             <div className="text-8xl">
               <SidebarIcon />
             </div>
-            {t("no_autofill_history")}
+            {t("no_scribe_history")}
           </div>
         )}
         {history?.map((scribe) => (

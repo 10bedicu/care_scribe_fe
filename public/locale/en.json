@@ -32,8 +32,8 @@
   "audio" : "Audio",
   "status" : "Status",
   "documents" : "Documents",
-  "use_this_autofill": "Use this autofill",
+  "use_this_scribe": "Use this scribe",
   "statistics": "Statistics",
-  "autofill_history": "Autofill History",
-  "no_autofill_history": "You have not made any autofills yet."
+  "scribe_history": "Scribe History",
+  "no_scribe_history": "You have not made any scribes yet."
 }
