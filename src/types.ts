@@ -1,4 +1,4 @@
-export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED"
+export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED";
 
 export type UserBareMinimum = {
   id: number;
@@ -48,6 +48,7 @@ export type ScribeModel = {
     type: string;
   }[];
   requested_in_facility: FacilityModel;
+  requested_in_encounter: unknown;
   transcript: string;
   ai_response: string;
   status:
@@ -60,14 +61,27 @@ export type ScribeModel = {
     | "FAILED";
   realtime_token: string | null;
   prompt?: string;
+  meta: {
+    provider?: string;
+    transcription_time?: number;
+    completion_output_tokens?: number;
+    completion_input_tokens?: number;
+    completion_time?: number;
+    completion_id?: string;
+  };
+  created_date: string;
+  modified_date: string;
+  audio_file_ids: string[];
+  document_file_ids: string[];
 };
 
 export type ScribeCreateRequest = {
-  status: ScribeModel["status"]
-  form_data?: ScribeModel["form_data"]
-  requested_in_facility_id: string
-  transcript?: ScribeModel["transcript"]
-}
+  status: ScribeModel["status"];
+  form_data?: ScribeModel["form_data"];
+  requested_in_facility_id?: string;
+  requested_in_encounter_id?: string;
+  transcript?: ScribeModel["transcript"];
+};
 
 export type ScribeStatus =
   | "FAILED"
@@ -145,6 +159,13 @@ export interface FileUploadModel {
   extension?: string;
   archived_by?: UserBareMinimum;
   archived_datetime?: string;
+}
+
+export interface ScribeFileModel {
+  id: string;
+  name: string;
+  upload_completed: boolean;
+  read_signed_url: string;
 }
 
 export interface FacilityModel {
@@ -240,3 +261,9 @@ export interface Code {
   code: string;
   display?: string;
 }
+
+export type ScribeControllerPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";

@@ -24,5 +24,16 @@
   "reupload_files": "Reupload Files",
   "audio__permission_message": "Please grant microphone permission to record audio.",
   "close": "Close",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "microphone": "Microphone",
+  "enable_statistics": "Enable Statistics",
+  "history" : "History",
+  "click_to_view_details": "Click to view details",
+  "audio" : "Audio",
+  "status" : "Status",
+  "documents" : "Documents",
+  "use_this_scribe": "Use this scribe",
+  "statistics": "Statistics",
+  "scribe_history": "Scribe History",
+  "no_scribe_history": "You have not made any scribes yet."
 }
