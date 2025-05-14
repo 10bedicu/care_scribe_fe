@@ -788,6 +788,7 @@ export function Controller(props: {
         open={historySheetOpen}
         setOpen={setHistorySheetOpen}
         onUseScribe={async (scribe) => {
+          setStatus("THINKING");
           const fields = getQuestionInputs(props.formState);
           const airesponse = await getAIResponse(scribe.external_id, fields);
           if (!airesponse) return;
