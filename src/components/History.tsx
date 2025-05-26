@@ -16,7 +16,7 @@ import { ScribeModel } from "@/types";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { Skeleton } from "./ui/skeleton";
-import ScribeDialog from "./ScribeDialog";
+import HistoryDetailsPage from "@/pages/HistoryDetails";
 
 export default function HistorySheet(props: {
   open: boolean;
@@ -122,17 +122,28 @@ export default function HistorySheet(props: {
         </SheetContent>
       </Sheet>
 
-      <ScribeDialog
-        scribe={selectedScribe}
-        onClose={() => {
-          setSelectedScribe(null);
-        }}
-        onUse={() => {
-          if (!selectedScribe) return;
-          setOpen(false);
-          onUseScribe(selectedScribe);
-        }}
-      />
+      <Sheet
+        open={!!selectedScribe}
+        onOpenChange={() => setSelectedScribe(null)}
+      >
+        <SheetContent
+          portalProps={{ container: containerRef?.current }}
+          className="overflow-y-auto py-8"
+          onScroll={handleScroll}
+        >
+          {selectedScribe && (
+            <HistoryDetailsPage
+              scribeId={selectedScribe?.external_id}
+              onUseScribe={() => {
+                if (!selectedScribe) return;
+                setOpen(false);
+                setSelectedScribe(null);
+                onUseScribe(selectedScribe);
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

@@ -1,5 +1,4 @@
 import { lazy } from "react";
-import AutofillHistory from "./pages/AutofillHistory";
 import Page from "./components/Page";
 import SidebarIcon from "./components/icon";
 
@@ -22,12 +21,20 @@ interface Manifest {
   userNavItems?: NavigationLink[];
 }
 
+const HistoryListLazy = lazy(() => import("./pages/HistoryList"));
+const HistoryDetailsLazy = lazy(() => import("./pages/HistoryDetails"));
+
 const manifest: Manifest = {
   plugin: "care-scribe",
   routes: {
     "/facility/:facilityId/users/:user/scribe-history": () => (
       <Page>
-        <AutofillHistory />
+        <HistoryListLazy />
+      </Page>
+    ),
+    "/facility/:facilityId/users/:user/scribe-history/:id": ({ id }) => (
+      <Page>
+        <HistoryDetailsLazy scribeId={id} />
       </Page>
     ),
   },

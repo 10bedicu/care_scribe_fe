@@ -14,6 +14,16 @@ export type UserBareMinimum = {
 
 export type GenderType = "Male" | "Female" | "Transgender";
 
+export const SCRIBE_STATUS = [
+  "CREATED",
+  "READY",
+  "GENERATING_TRANSCRIPT",
+  "GENERATING_AI_RESPONSE",
+  "COMPLETED",
+  "REFUSED",
+  "FAILED",
+] as const;
+
 export type UserModel = UserBareMinimum & {
   external_id: string;
   local_body?: number;
@@ -46,19 +56,22 @@ export type ScribeModel = {
     id: string;
     options?: any[];
     type: string;
+    current: any;
   }[];
-  requested_in_facility: FacilityModel;
-  requested_in_encounter: unknown;
+  requested_in_facility: {
+    id: FacilityModel["id"];
+    name: FacilityModel["name"];
+  };
+  requested_in_encounter: {
+    external_id: string;
+    patient: {
+      external_id: string;
+      name: string;
+    };
+  };
   transcript: string;
   ai_response: string;
-  status:
-    | "CREATED"
-    | "READY"
-    | "GENERATING_TRANSCRIPT"
-    | "GENERATING_AI_RESPONSE"
-    | "COMPLETED"
-    | "REFUSED"
-    | "FAILED";
+  status: (typeof SCRIBE_STATUS)[number];
   realtime_token: string | null;
   prompt?: string;
   meta: {
@@ -68,6 +81,9 @@ export type ScribeModel = {
     completion_input_tokens?: number;
     completion_time?: number;
     completion_id?: string;
+    chat_model?: string;
+    audio_model?: string;
+    prompt?: string;
   };
   created_date: string;
   modified_date: string;

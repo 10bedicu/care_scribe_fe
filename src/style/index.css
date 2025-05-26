@@ -5,6 +5,21 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @layer utilities {
   .scribe-container { 
     @tailwind utilities;

@@ -620,16 +620,18 @@ export function Controller(props: {
                   enableStatistics &&
                   scribe?.meta && (
                     <div className="mt-2 text-[10px]">
-                      {Object.entries(scribe?.meta).map(([key, value]) => (
-                        <div key={key}>
-                          {key.replace(/_/g, " ")} :{" "}
-                          {(key === "completion_time" ||
-                            key === "transcription_time") &&
-                          typeof value === "number"
-                            ? (value * 1000).toFixed(2) + " ms"
-                            : value}
-                        </div>
-                      ))}
+                      {Object.entries(scribe?.meta)
+                        .filter(([k]) => k !== "prompt")
+                        .map(([key, value]) => (
+                          <div key={key}>
+                            {key.replace(/_/g, " ")} :{" "}
+                            {(key === "completion_time" ||
+                              key === "transcription_time") &&
+                            typeof value === "number"
+                              ? (value * 1000).toFixed(2) + " ms"
+                              : value}
+                          </div>
+                        ))}
                     </div>
                   )}
                 <Button
@@ -729,7 +731,7 @@ export function Controller(props: {
                     setEnableStatistics(checked);
                   }}
                 >
-                  {t("enable_statistics")}
+                  {t("developer_mode")}
                 </DropdownMenuCheckboxItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>

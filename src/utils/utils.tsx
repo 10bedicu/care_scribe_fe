@@ -51,15 +51,23 @@ export const getFieldsToReview = (
     .filter((f) => f.newValue);
 };
 
+export const renderCamelCase = (str: string) => {
+  // replace all underscores with spaces
+  return str.replace(/_/g, " ");
+};
+
 export const renderFieldValue = (
-  field: ScribeFieldSuggestion,
+  field: {
+    value: ScribeField["value"];
+    newValue?: ScribeFieldSuggestion["newValue"];
+  },
   useNewValue?: boolean,
 ) => {
   const val = useNewValue ? field.newValue : field.value;
   let parsedValue;
   try {
-    parsedValue = JSON.parse(val as string); // Support edge cases where scribe does not return JSON
-  } catch (error) {
+    parsedValue = JSON.parse(val as string);
+  } catch {
     parsedValue = val;
   }
   if (Array.isArray(parsedValue)) {
@@ -71,7 +79,9 @@ export const renderFieldValue = (
               <ul className="list-disc pl-5">
                 {Object.entries(item).map(([key, value]) => (
                   <li key={key}>
-                    <span className="font-semibold">{key}:</span>{" "}
+                    <span className="font-semibold">
+                      {renderCamelCase(key)}:
+                    </span>{" "}
                     {typeof value === "string" || typeof value === "number"
                       ? String(value)
                       : "..."}
@@ -90,7 +100,7 @@ export const renderFieldValue = (
       <ul className="list-disc pl-5">
         {Object.entries(parsedValue).map(([key, value]) => (
           <li key={key}>
-            <span className="font-semibold">{key}:</span>{" "}
+            <span className="font-semibold">{renderCamelCase(key)}:</span>{" "}
             {typeof value === "string" || typeof value === "number"
               ? String(value)
               : "..."}
@@ -118,7 +128,9 @@ export const updateFieldValue = (
   let val = (useNewValue ? field.newValue : field.value) as any;
   try {
     val = JSON.parse(val);
-  } catch (error) {}
+  } catch {
+    console.error("Failed to parse field value", val);
+  }
   const element = field.fieldElement as HTMLElement;
 
   const qId = element.getAttribute("data-question-id");
@@ -291,4 +303,17 @@ export async function replaceCodeSearchQueriesInObjectAsync<T>(
     },
   );
   return { transformed, noMatches };
+}
+
+export function debounce<T extends unknown[], U>(
+  callback: (...args: T) => PromiseLike<U> | U,
+  wait: number,
+) {
+  let timer: ReturnType<typeof setTimeout>;
+  return (...args: T): Promise<U> => {
+    clearTimeout(timer);
+    return new Promise((resolve) => {
+      timer = setTimeout(() => resolve(callback(...args)), wait);
+    });
+  };
 }

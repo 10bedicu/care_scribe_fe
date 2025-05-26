@@ -81,12 +81,23 @@ const request = async <T>(
 
 export const API = {
   scribe: {
-    list: (filters: { offset?: number; limit?: number } = {}) =>
-      request<{ results: ScribeModel[]; count: number }>(
-        "/api/care_scribe/scribe/",
-        "GET",
-        filters,
-      ),
+    list: (
+      filters: {
+        ordering?: string;
+        status?: string;
+        encounter_id?: string;
+        patient?: string;
+        facility?: string;
+        offset?: number;
+        limit?: number;
+      } = {},
+    ) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: ScribeModel[];
+        count: number;
+      }>("/api/care_scribe/scribe/", "GET", filters),
     create: (req: ScribeCreateRequest) =>
       request<ScribeModel>("/api/care_scribe/scribe/", "POST", req),
     get: (scribeId: string) =>
