@@ -1,14 +1,18 @@
 import { Controller } from "./components/Controller";
 import { Toaster } from "./components/ui/toaster";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import { usePath } from "raviger";
+import { useAtom } from "jotai";
+import { containerRefAtom } from "./store";
 
 export default function App(props: {
   formState: unknown;
   setFormState: unknown;
 }) {
   const path = usePath();
+  const container = useRef<HTMLDivElement>(null);
+  const [, setContainerRef] = useAtom(containerRefAtom);
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
@@ -31,8 +35,14 @@ export default function App(props: {
     };
   }, []);
 
+  useEffect(() => {
+    if (container.current) {
+      setContainerRef(container);
+    }
+  }, [container, setContainerRef]);
+
   return (
-    <div className="scribe-container">
+    <div className="scribe-container" ref={container}>
       <Toaster />
       {SCRIBE_ENABLED && <Controller {...props} />}
     </div>

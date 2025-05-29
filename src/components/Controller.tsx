@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ScribeField,
   ScribeFieldSuggestion,
   ScribeFileType,
+  ScribeModel,
   ScribeStatus,
   VALUESET_SYSTEM_NAMES,
 } from "../types";
@@ -20,9 +21,9 @@ import {
   ChevronUpIcon,
   Cross1Icon,
   CrossCircledIcon,
+  DotsVerticalIcon,
   ImageIcon,
 } from "@radix-ui/react-icons";
-import { useScribePosition } from "@/utils/controller-position";
 import { printNode, zodToTs } from "zod-to-ts";
 import FileUpload from "./FileUpload";
 
@@ -41,6 +42,32 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { usePath } from "raviger";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { useMicrophones } from "@/hooks/useMicrophone";
+import { useAtom } from "jotai/react";
+import {
+  controllerPositionAtom,
+  microphoneAtom,
+  enableStatisticsAtom,
+  containerRefAtom,
+} from "@/store";
+import { twMerge } from "tailwind-merge";
+import HistorySheet from "./History";
+import { useQueryClient } from "@tanstack/react-query";
+import { useScribeFiles } from "@/hooks/useScribeFiles";
 
 export function Controller(props: {
   formState: unknown;
@@ -54,12 +81,23 @@ export function Controller(props: {
   const [instanceId, setInstanceId] = useState<string>();
   const [toReview, setToReview] = useState<ScribeFieldSuggestion[]>();
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
-  const [controllerPosition] = useScribePosition();
+  const [currentMic, setCurrentMic] = useAtom(microphoneAtom);
+  const [enableStatistics, setEnableStatistics] = useAtom(enableStatisticsAtom);
+  const { microphones, error: micError } = useMicrophones();
+  const [controllerPosition] = useAtom(controllerPositionAtom);
+  const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const path = usePath();
+  const [historySheetOpen, setHistorySheetOpen] = useState(false);
+  const [containerRef] = useAtom(containerRefAtom);
+  const queryClient = useQueryClient();
   const facilityId = path?.includes("/facility/")
-  ? path.split("/facility/")[1].split("/")[0]
-  : undefined;
+    ? path.split("/facility/")[1].split("/")[0]
+    : undefined;
+
+  const encounterId = path?.includes("/encounter/")
+    ? path.split("/encounter/")[1].split("/")[0]
+    : undefined;
   const featureFlags = useFeatureFlags(facilityId);
 
   //Use this to test scribe
@@ -78,9 +116,32 @@ export function Controller(props: {
     stopRecording: stopSegmentedRecording,
     resetRecording,
     audioBlobs,
+    setAudioBlobs,
   } = useSegmentedRecording();
 
   const { toast } = useToast();
+
+  const { audioFiles, files: imageFiles } = useScribeFiles(scribe);
+
+  useEffect(() => {
+    // Fetch the audio files from the scribe instance.
+    // Helpful when loading a previous scribe instance.
+    if (audioBlobs.length) return;
+    audioFiles?.map(async (af) => {
+      const audioData = await fetch(af?.read_signed_url);
+      const audioBlob = await audioData.blob();
+      setAudioBlobs((prev) => [...prev, audioBlob]);
+    });
+    if (files.length) return;
+    imageFiles?.map(async (ifile) => {
+      const imageData = await fetch(ifile?.read_signed_url);
+      const imageBlob = await imageData.blob();
+      const imageFile = new File([imageBlob], ifile?.name, {
+        type: imageBlob.type,
+      });
+      setFiles((prev) => [...prev, imageFile]);
+    });
+  }, [audioFiles, imageFiles]);
 
   // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
   const poller = async (
@@ -91,6 +152,7 @@ export function Controller(props: {
       const interval = setInterval(async () => {
         try {
           const res = await API.scribe.get(scribeInstanceId);
+          setScribe(res);
           const { status, transcript, ai_response } = res;
 
           if (status === "FAILED" || status === "REFUSED") {
@@ -165,7 +227,7 @@ export function Controller(props: {
             try {
               parsedV = JSON.parse(v as string);
               jsonParsed = true;
-            } catch (error) {
+            } catch {
               parsedV = v;
             }
             const validation = prompt(true).safeParse(parsedV);
@@ -189,26 +251,26 @@ export function Controller(props: {
           let parsedData;
           try {
             parsedData = JSON.parse(data as string);
-          } catch (e) {
+          } catch {
             parsedData = data;
           }
 
           const replacedData =
             await replaceCodeSearchQueriesInObjectAsync(parsedData);
 
-            replacedData.noMatches
-              .filter((m) => m.primary === true)
-              .forEach((m) => {
-                toast({
-                  title: t("scribe_no_match", {
-                    valueType:
-                      VALUESET_SYSTEM_NAMES[m.code_search_type].toLowerCase(),
-                    query: m.code_search_query,
-                  }),
-                  variant: "destructive",
-                });
+          replacedData.noMatches
+            .filter((m) => m.primary === true)
+            .forEach((m) => {
+              toast({
+                title: t("scribe_no_match", {
+                  valueType:
+                    VALUESET_SYSTEM_NAMES[m.code_search_type].toLowerCase(),
+                  query: m.code_search_query,
+                }),
+                variant: "destructive",
               });
-          
+            });
+
           let transformed = replacedData.transformed;
           console.log(transformed);
           if (Array.isArray(replacedData.transformed)) {
@@ -221,9 +283,9 @@ export function Controller(props: {
               }
               return item;
             });
-            transformed = transformed?.filter((item : any) => item !== null);
+            transformed = transformed?.filter((item: unknown) => item !== null);
           }
-          console.log(transformed)
+          console.log(transformed);
 
           return { index, data: JSON.stringify(transformed) };
         }),
@@ -248,16 +310,17 @@ export function Controller(props: {
       await API.scribe.update(scribeInstanceId, {
         status: "READY",
         requested_in_facility_id: facilityId || "",
+        requested_in_encounter_id: encounterId || "",
       });
       const transcript = await poller(scribeInstanceId, "transcript");
       setLastTranscript(transcript);
       setTranscript(transcript);
       return transcript;
-    } catch (error) {
+    } catch {
       toast({ title: t("scribe_error"), variant: "destructive" });
       setStatus("FAILED");
     }
-  }; 
+  };
 
   // Uploads a scribe audio blob. Returns the response of the upload.
   const uploadScribeFile = async (
@@ -319,6 +382,7 @@ export function Controller(props: {
       status: "CREATED",
       form_data: hfields as any,
       requested_in_facility_id: facilityId || "",
+      requested_in_encounter_id: encounterId || "",
       // prompt: "..."
     });
 
@@ -354,7 +418,7 @@ export function Controller(props: {
         ? SCRIBE_REPEAT_PROMPT_MAP
         : SCRIBE_PROMPT_MAP;
 
-      let structuredPromptText = structuredPrompt
+      const structuredPromptText = structuredPrompt
         ? `A structure of type ${printNode(zodToTs(structuredPrompt.prompt()).node)}. Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current datetime is ${new Date().toISOString()}`
         : undefined;
 
@@ -386,7 +450,7 @@ export function Controller(props: {
 
   // updates the transcript and fetches a new AI response
   const handleUpdateTranscript = async (updatedTranscript: string) => {
-    if (updatedTranscript === lastTranscript) return;
+    if (updatedTranscript === lastTranscript && !files.length) return;
     if (!instanceId) throw Error("Cannot find scribe instance");
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
@@ -395,9 +459,10 @@ export function Controller(props: {
         status: "READY",
         transcript: updatedTranscript,
         requested_in_facility_id: facilityId || "",
+        requested_in_encounter_id: encounterId || "",
         //ai_response: null,
       });
-    } catch (error) {
+    } catch {
       throw Error("Error updating Scribe Instance");
     }
     setStatus("THINKING");
@@ -410,12 +475,13 @@ export function Controller(props: {
 
   const handleStartRecording = async () => {
     setToReview(undefined);
+    setScribe(null);
     resetRecording();
     try {
       await startSegmentedRecording();
       timer.start();
       setStatus("RECORDING");
-    } catch (error) {
+    } catch {
       toast({ title: t("audio__permission_message") });
       setStatus("IDLE");
     }
@@ -433,6 +499,7 @@ export function Controller(props: {
     await getTranscript(instanceId);
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
+    queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     if (!aiResponse) return;
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
@@ -445,6 +512,7 @@ export function Controller(props: {
     setFiles([]);
     setTranscript(undefined);
     setLastTranscript(undefined);
+    setScribe(null);
   };
 
   const handleProcessFile = async () => {
@@ -456,6 +524,7 @@ export function Controller(props: {
     await getTranscript(instanceId);
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
+    queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     if (!aiResponse) return;
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
@@ -469,7 +538,7 @@ export function Controller(props: {
         className={`fixed z-40 flex ${controllerPosition.includes("top") ? "top-5 flex-col-reverse" : "bottom-5 flex-col"} ${controllerPosition.includes("right") ? "right-5 items-end" : "left-5 items-start"} gap-4 transition-all`}
       >
         <div
-          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[400px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border-neutral-300 border"} bg-white transition-all delay-100`}
+          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[450px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border border-neutral-300"} bg-white transition-all delay-100`}
         >
           {status === "ATTACHING" && (
             <FileUpload files={files} setFiles={setFiles} error={null} />
@@ -489,7 +558,7 @@ export function Controller(props: {
               <div className="w-32">
                 <Lottie animationData={animationData} loop autoPlay />
               </div>
-              <div className="text-neutral-700 -translate-y-4 text-sm">
+              <div className="-translate-y-4 text-sm text-neutral-700">
                 {t("copilot_thinking")}
               </div>
             </div>
@@ -505,7 +574,7 @@ export function Controller(props: {
                 )}
                 {audioBlobs.length > 0 && (
                   <div className="mb-4">
-                    <div className="border-neutral-300 bg-neutral-200 rounded border">
+                    <div className="rounded border border-neutral-300 bg-neutral-200">
                       <audio controls className="plain-audio w-full">
                         {audioBlobs.map((blob, index) => (
                           <source
@@ -533,22 +602,41 @@ export function Controller(props: {
                 </p>
                 <button
                   onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute left-2 top-2 hidden text-xs cursor-pointer"
+                  className="absolute top-2 left-2 hidden cursor-pointer text-xs"
                 >
                   Test
                 </button>
                 <Textarea
                   name="transcript"
-                  disabled={status !== "REVIEWING"}
+                  disabled={status !== "REVIEWING" || files.length > 0}
                   value={transcript}
                   onChange={(e) => setTranscript(e.target.value)}
                   className="h-20 resize-none"
                   // errorClassName="hidden"
                   placeholder="Transcript"
                 />
+                {typeof lastTranscript !== "undefined" &&
+                  status === "REVIEWING" &&
+                  enableStatistics &&
+                  scribe?.meta && (
+                    <div className="mt-2 text-[10px]">
+                      {Object.entries(scribe?.meta)
+                        .filter(([k]) => k !== "prompt")
+                        .map(([key, value]) => (
+                          <div key={key}>
+                            {key.replace(/_/g, " ")} :{" "}
+                            {(key === "completion_time" ||
+                              key === "transcription_time") &&
+                            typeof value === "number"
+                              ? (value * 1000).toFixed(2) + " ms"
+                              : value}
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 <Button
                   // loading={status !== "REVIEWING"}
-                  disabled={transcript === lastTranscript}
+                  disabled={transcript === lastTranscript && !files.length}
                   className="mt-4 w-full"
                   onClick={() =>
                     transcript && handleUpdateTranscript(transcript)
@@ -558,7 +646,7 @@ export function Controller(props: {
                 </Button>
                 {!(toReview && !toReview.length) && (
                   <button
-                    className={`absolute ${controllerPosition.includes("top") ? "-bottom-6" : "-top-6"} right-4 text-xs text-neutral-100 hover:text-neutral-200 cursor-pointer`}
+                    className={`absolute ${controllerPosition.includes("top") ? "-bottom-6" : "-top-6"} right-4 cursor-pointer text-xs text-neutral-100 hover:text-neutral-200`}
                     onClick={() => setOpenEditTranscript(false)}
                   >
                     {t("close")}
@@ -573,22 +661,86 @@ export function Controller(props: {
             </div>
           )}
         </div>
+
         {typeof lastTranscript !== "undefined" &&
           status === "REVIEWING" &&
           !(openEditTranscript || (toReview && !toReview.length)) && (
             <button
               onClick={() => setOpenEditTranscript(true)}
-              className="flex max-h-[50px] w-40 items-center gap-2 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white transition-all hover:bg-black/40 md:max-h-[100px] cursor-pointer"
+              className="flex max-h-[50px] w-40 cursor-pointer items-center gap-2 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white transition-all hover:bg-black/40 md:max-h-[100px]"
             >
               <div>{transcript}</div>
               <ChevronUpIcon className="text-xl" />
             </button>
           )}
-        <div className="flex items-center gap-2">
+
+        <div
+          className={twMerge(
+            "flex items-center gap-2",
+            controllerPosition.includes("left") && "flex-row-reverse",
+          )}
+        >
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <button className="flex aspect-square w-6 items-center justify-center rounded-lg text-sm transition-all hover:bg-black/10">
+                {/* Ellipsis Icon*/}
+                <DotsVerticalIcon className="text-xl" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-48"
+              portalProps={{ container: containerRef?.current }}
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    {t("microphone")}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {micError ? (
+                      <p className="px-4 py-2 text-sm text-red-500">
+                        {t("audio__permission_message")}
+                      </p>
+                    ) : (
+                      <DropdownMenuRadioGroup
+                        value={currentMic || undefined}
+                        onValueChange={(v) => {
+                          setCurrentMic(v);
+                        }}
+                      >
+                        {microphones.map((mic) => (
+                          <DropdownMenuRadioItem
+                            key={mic.deviceId}
+                            value={mic.deviceId}
+                          >
+                            {mic.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={() => setHistorySheetOpen(true)}>
+                  {t("history")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={enableStatistics}
+                  onCheckedChange={(checked) => {
+                    setEnableStatistics(checked);
+                  }}
+                >
+                  {t("developer_mode")}
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {(status === "REVIEWING" || status === "ATTACHING") && (
             <button
               onClick={handleCancel}
-              className="border-neutral-300 bg-neutral-200 hover:bg-neutral-300 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
+              className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300"
               title={t("cancel")}
             >
               <Cross1Icon />
@@ -597,7 +749,7 @@ export function Controller(props: {
           {status === "IDLE" && featureFlags.includes("SCRIBE_OCR_ENABLED") && (
             <button
               onClick={() => setStatus("ATTACHING")}
-              className="border-neutral-300 bg-neutral-200 hover:bg-neutral-300 flex aspect-square h-full items-center justify-center rounded-full border p-4 text-xl transition-all cursor-pointer"
+              className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300"
             >
               <ImageIcon />
             </button>
@@ -624,7 +776,7 @@ export function Controller(props: {
           toReview={toReview}
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);
-            approved &&
+            if (approved)
               toast({
                 title: t("autofilled_fields"),
               });
@@ -634,6 +786,22 @@ export function Controller(props: {
           }}
         />
       )}
+      <HistorySheet
+        open={historySheetOpen}
+        setOpen={setHistorySheetOpen}
+        onUseScribe={async (scribe) => {
+          setStatus("THINKING");
+          const fields = getQuestionInputs(props.formState);
+          const airesponse = await getAIResponse(scribe.external_id, fields);
+          if (!airesponse) return;
+          setToReview(getFieldsToReview(airesponse, fields));
+          setScribe(scribe);
+          setStatus("REVIEWING");
+          setLastTranscript(scribe.transcript);
+          setTranscript(scribe.transcript);
+          setInstanceId(scribe.external_id);
+        }}
+      />
     </>
   );
 }

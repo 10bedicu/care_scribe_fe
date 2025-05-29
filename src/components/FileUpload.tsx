@@ -57,7 +57,7 @@ export default function FileUpload(props: {
                 onClick={() => {
                   setFiles(files.filter((_, i) => i !== index));
                 }}
-                className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md cursor-pointer"
+                className="absolute -top-2 -right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-white shadow-md"
               >
                 <Cross2Icon className="h-4 w-4" />
               </button>

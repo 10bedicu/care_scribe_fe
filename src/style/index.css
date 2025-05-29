@@ -3,8 +3,31 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @layer utilities {
   .scribe-container { 
     @tailwind utilities;
+  }
+}
+
+@layer base {
+  .scribe-container button:not([disabled]), .scribe-container [role="button"]:not([disabled]) {
+    cursor: pointer;
   }
 }
