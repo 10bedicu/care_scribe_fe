@@ -10,7 +10,6 @@ export function handleUploadPercentage(
   }
 }
 
-
 const uploadFile = (
   url: string,
   file: File | FormData,

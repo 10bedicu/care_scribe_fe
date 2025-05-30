@@ -1,4 +1,4 @@
-export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED"
+export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED";
 
 export type UserBareMinimum = {
   id: number;
@@ -13,6 +13,16 @@ export type UserBareMinimum = {
 };
 
 export type GenderType = "Male" | "Female" | "Transgender";
+
+export const SCRIBE_STATUS = [
+  "CREATED",
+  "READY",
+  "GENERATING_TRANSCRIPT",
+  "GENERATING_AI_RESPONSE",
+  "COMPLETED",
+  "REFUSED",
+  "FAILED",
+] as const;
 
 export type UserModel = UserBareMinimum & {
   external_id: string;
@@ -46,28 +56,48 @@ export type ScribeModel = {
     id: string;
     options?: any[];
     type: string;
+    current: any;
   }[];
-  requested_in_facility: FacilityModel;
+  requested_in_facility: {
+    id: FacilityModel["id"];
+    name: FacilityModel["name"];
+  };
+  requested_in_encounter: {
+    external_id: string;
+    patient: {
+      external_id: string;
+      name: string;
+    };
+  };
   transcript: string;
   ai_response: string;
-  status:
-    | "CREATED"
-    | "READY"
-    | "GENERATING_TRANSCRIPT"
-    | "GENERATING_AI_RESPONSE"
-    | "COMPLETED"
-    | "REFUSED"
-    | "FAILED";
+  status: (typeof SCRIBE_STATUS)[number];
   realtime_token: string | null;
   prompt?: string;
+  meta: {
+    provider?: string;
+    transcription_time?: number;
+    completion_output_tokens?: number;
+    completion_input_tokens?: number;
+    completion_time?: number;
+    completion_id?: string;
+    chat_model?: string;
+    audio_model?: string;
+    prompt?: string;
+  };
+  created_date: string;
+  modified_date: string;
+  audio_file_ids: string[];
+  document_file_ids: string[];
 };
 
 export type ScribeCreateRequest = {
-  status: ScribeModel["status"]
-  form_data?: ScribeModel["form_data"]
-  requested_in_facility_id: string
-  transcript?: ScribeModel["transcript"]
-}
+  status: ScribeModel["status"];
+  form_data?: ScribeModel["form_data"];
+  requested_in_facility_id?: string;
+  requested_in_encounter_id?: string;
+  transcript?: ScribeModel["transcript"];
+};
 
 export type ScribeStatus =
   | "FAILED"
@@ -145,6 +175,13 @@ export interface FileUploadModel {
   extension?: string;
   archived_by?: UserBareMinimum;
   archived_datetime?: string;
+}
+
+export interface ScribeFileModel {
+  id: string;
+  name: string;
+  upload_completed: boolean;
+  read_signed_url: string;
 }
 
 export interface FacilityModel {
@@ -240,3 +277,9 @@ export interface Code {
   code: string;
   display?: string;
 }
+
+export type ScribeControllerPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
