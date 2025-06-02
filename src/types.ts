@@ -61,14 +61,14 @@ export type ScribeModel = {
   requested_in_facility: {
     id: FacilityModel["id"];
     name: FacilityModel["name"];
-  };
+  } | null;
   requested_in_encounter: {
     external_id: string;
     patient: {
       external_id: string;
       name: string;
     };
-  };
+  } | null;
   transcript: string;
   ai_response: string;
   status: (typeof SCRIBE_STATUS)[number];
