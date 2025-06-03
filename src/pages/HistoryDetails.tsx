@@ -67,7 +67,7 @@ export default function HistoryDetailsPage(props: {
     {
       icon: <FilePlusIcon />,
       label: t("facility"),
-      value: scribe?.requested_in_facility.name,
+      value: scribe?.requested_in_facility?.name,
     },
     {
       icon: <FaceIcon />,
@@ -75,9 +75,9 @@ export default function HistoryDetailsPage(props: {
       value: (
         <Link
           className="text-blue-500 hover:underline"
-          href={`/facility/${scribe?.requested_in_facility.id}/patient/${scribe?.requested_in_encounter.patient.external_id}`}
+          href={`/facility/${scribe?.requested_in_facility?.id}/patient/${scribe?.requested_in_encounter?.patient.external_id}`}
         >
-          {scribe?.requested_in_encounter.patient.name}
+          {scribe?.requested_in_encounter?.patient.name}
         </Link>
       ),
     },
@@ -87,9 +87,9 @@ export default function HistoryDetailsPage(props: {
       value: (
         <Link
           className="text-blue-500 hover:underline"
-          href={`/facility/${scribe?.requested_in_facility.id}/patient/${scribe?.requested_in_encounter.patient.external_id}/encounter/${scribe?.requested_in_encounter.external_id}/updates`}
+          href={`/facility/${scribe?.requested_in_facility?.id}/patient/${scribe?.requested_in_encounter?.patient.external_id}/encounter/${scribe?.requested_in_encounter?.external_id}/updates`}
         >
-          {scribe?.requested_in_encounter.external_id}
+          {scribe?.requested_in_encounter?.external_id}
         </Link>
       ),
     },
