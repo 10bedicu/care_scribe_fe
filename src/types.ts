@@ -70,7 +70,10 @@ export type ScribeModel = {
     };
   } | null;
   transcript: string;
-  ai_response: string;
+  ai_response: {
+    __scribe__transcription: string;
+    [key: string]: unknown;
+  } | null;
   status: (typeof SCRIBE_STATUS)[number];
   realtime_token: string | null;
   prompt?: string;
@@ -84,6 +87,7 @@ export type ScribeModel = {
     chat_model?: string;
     audio_model?: string;
     prompt?: string;
+    function?: Record<string, unknown>;
   };
   created_date: string;
   modified_date: string;
@@ -121,10 +125,16 @@ export type ScribeFieldOption = {
   text: string;
 };
 
+export type ScribeQuestionnaire = {
+  title: string;
+  description: string;
+  questions: ScribeField[];
+};
+
 export type ScribeField = {
   question: FormQuestion;
   fieldElement: Element;
-  value: string | null;
+  value: unknown | null;
 };
 
 export type ScribeAIResponse = {

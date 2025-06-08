@@ -1,52 +1,60 @@
 import {
   CodeSearchQuery,
-  FormQuestion,
   ScribeAIResponse,
   ScribeField,
   ScribeFieldSuggestion,
+  ScribeQuestionnaire,
 } from "../types";
 import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { API } from "./api";
 
-export const getQuestionInputs: (formState: any) => ScribeField[] = (
+export const getQuestionInputs: (formState: any) => ScribeQuestionnaire[] = (
   formState: any,
 ) => {
-  const formElement = document;
-  const questions = [
-    ...formElement.querySelectorAll("[data-question-id]"),
-  ] as HTMLInputElement[];
+  return formState
+    .map((qn: any) => ({
+      title: qn.questionnaire.title,
+      description: qn.questionnaire.description,
+      questions: getQuestions(qn.questionnaire.questions, formState),
+    }))
+    .filter((qn: ScribeQuestionnaire) => qn.questions.length > 0);
+};
 
+const getQuestions = (questions: any[], formState: any): ScribeField[] => {
   return questions
-    .map((ele) => {
-      const questionId = ele.getAttribute("data-question-id");
-      const question = findQuestion(formState, questionId || "");
-
-      if (!question) throw Error("No Question Found");
-
-      const currentValue = formState
-        .find((qn: any) =>
-          qn.responses.some(
-            (response: any) => response.question_id === questionId,
+    .flatMap((question: any) => {
+      if (question.type === "group") {
+        return getQuestions(question.questions, formState);
+      }
+      return [
+        {
+          question,
+          fieldElement: document.querySelector(
+            `[data-question-id="${question.id}"]`,
           ),
-        )
-        ?.responses.find((response: any) => response.question_id === questionId)
-        ?.values?.[0]?.value;
-
-      return {
-        question,
-        fieldElement: ele,
-        value: JSON.stringify(currentValue || null),
-      } as ScribeField;
+          value:
+            formState
+              .find((qn: any) =>
+                qn.responses.some(
+                  (response: any) => response.question_id === question.id,
+                ),
+              )
+              ?.responses.find(
+                (response: any) => response.question_id === question.id,
+              )?.values?.[0]?.value || null,
+        },
+      ];
     })
-    .filter((i) => !!i);
+    .filter((f) => !!f.fieldElement) as ScribeField[];
 };
 
 export const getFieldsToReview = (
   aiResponse: ScribeAIResponse,
-  scrapedFields: ScribeField[],
+  scrapedFields: ScribeQuestionnaire[],
 ) => {
   return scrapedFields
+    .flatMap((qn) => qn.questions)
     .map((f, i) => ({ ...f, newValue: aiResponse[i] }))
     .filter((f) => f.newValue);
 };
@@ -64,16 +72,10 @@ export const renderFieldValue = (
   useNewValue?: boolean,
 ) => {
   const val = useNewValue ? field.newValue : field.value;
-  let parsedValue;
-  try {
-    parsedValue = JSON.parse(val as string);
-  } catch {
-    parsedValue = val;
-  }
-  if (Array.isArray(parsedValue)) {
+  if (Array.isArray(val)) {
     return (
       <ul className="list-disc pl-5">
-        {parsedValue.map((item, index) => (
+        {val.map((item, index) => (
           <li key={index}>
             {typeof item === "object" && item !== null ? (
               <ul className="list-disc pl-5">
@@ -95,10 +97,10 @@ export const renderFieldValue = (
         ))}
       </ul>
     );
-  } else if (typeof parsedValue === "object" && parsedValue !== null) {
+  } else if (typeof val === "object" && val !== null) {
     return (
       <ul className="list-disc pl-5">
-        {Object.entries(parsedValue).map(([key, value]) => (
+        {Object.entries(val).map(([key, value]) => (
           <li key={key}>
             <span className="font-semibold">{renderCamelCase(key)}:</span>{" "}
             {typeof value === "string" || typeof value === "number"
@@ -109,7 +111,7 @@ export const renderFieldValue = (
       </ul>
     );
   }
-  return <span>{String(parsedValue)}</span>;
+  return <span>{String(val)}</span>;
 };
 
 export const sleep = async (seconds: number) => {
@@ -126,11 +128,6 @@ export const updateFieldValue = (
   setFormState?: any,
 ) => {
   let val = (useNewValue ? field.newValue : field.value) as any;
-  try {
-    val = JSON.parse(val);
-  } catch {
-    console.error("Failed to parse field value", val);
-  }
   const element = field.fieldElement as HTMLElement;
 
   const qId = element.getAttribute("data-question-id");
@@ -139,8 +136,8 @@ export const updateFieldValue = (
   if (qId === "encounter") {
     val = [
       {
-        ...JSON.parse(field.value as any)[0],
-        ...val[0],
+        ...(field.value as any)[0],
+        ...val,
       },
     ];
   }
@@ -181,53 +178,6 @@ export const updateFieldValue = (
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
-}
-
-function isFormQuestion(value: unknown): value is FormQuestion {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "id" in value &&
-    "text" in value &&
-    typeof (value as { id: unknown }).id === "string" &&
-    typeof (value as { text: unknown }).text === "string"
-  );
-}
-
-export function findQuestion(
-  form: unknown,
-  questionId: string,
-): FormQuestion | undefined {
-  // If array, search each element
-  if (Array.isArray(form)) {
-    for (const element of form) {
-      const result = findQuestion(element, questionId);
-      if (result !== undefined) {
-        return result;
-      }
-    }
-    return undefined;
-  }
-
-  if (form !== null && typeof form === "object") {
-    if (isFormQuestion(form) && form.id === questionId) {
-      return form;
-    }
-
-    // Otherwise, search all properties of this object
-    for (const key in form) {
-      // Must ensure it's an own property
-      if (Object.prototype.hasOwnProperty.call(form, key)) {
-        const value = (form as Record<string, unknown>)[key];
-        const result = findQuestion(value, questionId);
-        if (result !== undefined) {
-          return result;
-        }
-      }
-    }
-  }
-
-  return undefined;
 }
 
 function isCodeSearchQuery(value: any): value is CodeSearchQuery {

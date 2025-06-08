@@ -177,8 +177,7 @@ export default function HistoryDetailsPage(props: {
   useEffect(() => {
     if (scribe?.ai_response) {
       try {
-        const parsedResponse = JSON.parse(scribe.ai_response);
-        setParsedAiResponse(parsedResponse);
+        setParsedAiResponse(scribe.ai_response);
       } catch (error) {
         console.error("Failed to parse AI response:", error);
       }
@@ -343,11 +342,16 @@ export default function HistoryDetailsPage(props: {
                   {scribe?.meta.prompt}
                 </pre>
 
+                <div className="mt-4 mb-2 font-semibold">{t("tool_call")}</div>
+                <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                  {JSON.stringify(scribe?.meta.function, null, 2)}
+                </pre>
+
                 <div className="mt-4 mb-2 font-semibold">
                   {t("ai_response")}
                 </div>
                 <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {scribe?.ai_response}
+                  {JSON.stringify(scribe?.ai_response, null, 2)}
                 </pre>
                 <div
                   className={cn(
