@@ -4,6 +4,7 @@ import {
   ScribeFieldSuggestion,
   ScribeFileType,
   ScribeModel,
+  ScribeQuestionnaire,
   ScribeStatus,
   VALUESET_SYSTEM_NAMES,
 } from "../types";
@@ -12,11 +13,7 @@ import {
   getQuestionInputs,
   replaceCodeSearchQueriesInObjectAsync,
 } from "../utils/utils";
-import {
-  SCRIBE_PROMPT_MAP,
-  SCRIBE_REPEAT_PROMPT_MAP,
-  STRUCTURED_INPUT_PROMPTS,
-} from "@/utils/prompts";
+import { SCRIBE_ARB_PROMPTS, STRUCTURED_INPUT_PROMPTS } from "@/utils/prompts";
 import {
   ChevronUpIcon,
   Cross1Icon,
@@ -24,7 +21,6 @@ import {
   DotsVerticalIcon,
   ImageIcon,
 } from "@radix-ui/react-icons";
-import { printNode, zodToTs } from "zod-to-ts";
 import FileUpload from "./FileUpload";
 
 import { API } from "@/utils/api";
@@ -68,6 +64,7 @@ import { twMerge } from "tailwind-merge";
 import HistorySheet from "./History";
 import { useQueryClient } from "@tanstack/react-query";
 import { useScribeFiles } from "@/hooks/useScribeFiles";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 export function Controller(props: {
   formState: unknown;
@@ -147,7 +144,7 @@ export function Controller(props: {
   const poller = async (
     scribeInstanceId: string,
     type: "transcript" | "ai_response",
-  ): Promise<string> => {
+  ) => {
     return new Promise((resolve, reject) => {
       const interval = setInterval(async () => {
         try {
@@ -191,21 +188,28 @@ export function Controller(props: {
   // gets the AI response and returns only the data that has changes
   const getAIResponse = async (
     scribeInstanceId: string,
-    fields: ScribeField[],
+    questionnaire: ScribeQuestionnaire[],
   ) => {
     try {
-      const hfields = await getHydratedFields(fields);
-      const updatedFieldsResponse = await poller(
+      const fields = questionnaire.flatMap((q) => q.questions);
+      const hfields = (await getHydratedFields(questionnaire)).flatMap(
+        (qn) => qn?.fields || [],
+      );
+      const aiResponse = (await poller(
         scribeInstanceId,
         "ai_response",
-      );
-      const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
-      const scribeTranscription = parsedFormData.__scribe__transcription;
+      )) as ScribeModel["ai_response"];
+      if (!aiResponse) {
+        toast({ title: t("scribe_error"), variant: "destructive" });
+        setStatus("FAILED");
+        return;
+      }
+      const scribeTranscription = aiResponse?.__scribe__transcription;
       if (scribeTranscription && files.length !== 0) {
         setTranscript(scribeTranscription);
       }
       // run type validations
-      const changedData = Object.entries(parsedFormData)
+      const changedData = Object.entries(aiResponse)
         .map(([k, v]) => {
           const f = hfields.find((f) => f.id === k);
           const ogF = fields.find((_, i) => i === Number(f?.id));
@@ -221,24 +225,12 @@ export function Controller(props: {
                   .structured_type as keyof typeof STRUCTURED_INPUT_PROMPTS
               ].prompt;
 
-            let parsedV = v;
-            let jsonParsed = false;
-
-            try {
-              parsedV = JSON.parse(v as string);
-              jsonParsed = true;
-            } catch {
-              parsedV = v;
-            }
-            const validation = prompt(true).safeParse(parsedV);
+            const validation = prompt().safeParse(v);
             if (!validation.success) {
-              console.error("Validation error", parsedV, validation.error);
+              console.error("Validation error", v, validation.error);
               return [k, null];
             } else {
-              return [
-                k,
-                jsonParsed ? JSON.stringify(validation.data) : validation.data,
-              ];
+              return [k, validation.data];
             }
           }
           return [k, v];
@@ -248,15 +240,9 @@ export function Controller(props: {
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
       const replacedData = await Promise.all(
         Object.entries(changedData).map(async ([index, data]) => {
-          let parsedData;
-          try {
-            parsedData = JSON.parse(data as string);
-          } catch {
-            parsedData = data;
-          }
-
-          const replacedData =
-            await replaceCodeSearchQueriesInObjectAsync(parsedData);
+          const replacedData = await replaceCodeSearchQueriesInObjectAsync(
+            data as Record<string, any>,
+          );
 
           replacedData.noMatches
             .filter((m) => m.primary === true)
@@ -272,7 +258,6 @@ export function Controller(props: {
             });
 
           let transformed = replacedData.transformed;
-          console.log(transformed);
           if (Array.isArray(replacedData.transformed)) {
             transformed = replacedData.transformed.map((item) => {
               if (typeof item === "object" && item !== null) {
@@ -285,9 +270,8 @@ export function Controller(props: {
             });
             transformed = transformed?.filter((item: unknown) => item !== null);
           }
-          console.log(transformed);
 
-          return { index, data: JSON.stringify(transformed) };
+          return { index, data: transformed };
         }),
       );
 
@@ -312,7 +296,10 @@ export function Controller(props: {
         requested_in_facility_id: facilityId || "",
         requested_in_encounter_id: encounterId || "",
       });
-      const transcript = await poller(scribeInstanceId, "transcript");
+      const transcript = (await poller(
+        scribeInstanceId,
+        "transcript",
+      )) as string;
       setLastTranscript(transcript);
       setTranscript(transcript);
       return transcript;
@@ -376,8 +363,10 @@ export function Controller(props: {
   };
 
   // Sets up a scribe instance with the available recordings. Returns the instance ID.
-  const createScribeInstance = async (fields: ScribeField[]) => {
-    const hfields = await getHydratedFields(fields);
+  const createScribeInstance = async (
+    questionnaires: ScribeQuestionnaire[],
+  ) => {
+    const hfields = await getHydratedFields(questionnaires);
     const data = await API.scribe.create({
       status: "CREATED",
       form_data: hfields as any,
@@ -402,49 +391,65 @@ export function Controller(props: {
     return data.external_id;
   };
 
-  const getHydratedFields = async (fields: ScribeField[]) => {
-    return fields.map((field, i) => {
-      const structuredType = field.question.structured_type;
+  const getHydratedFields = async (questionnaires: ScribeQuestionnaire[]) => {
+    let idOffset = 0;
+    return questionnaires.map((questionnaire) => {
+      const fields = questionnaire.questions;
+      if (!fields || !fields.length) return null;
 
-      const structuredPrompt =
-        structuredType &&
-        Object.keys(STRUCTURED_INPUT_PROMPTS).includes(structuredType)
-          ? STRUCTURED_INPUT_PROMPTS[
-              structuredType as keyof typeof STRUCTURED_INPUT_PROMPTS
-            ]
-          : undefined;
+      const toReturn = {
+        title: questionnaire.title || "Untitled Questionnaire",
+        description: questionnaire.description || "",
+        fields: fields.map((field, i) => {
+          const structuredType = field.question.structured_type;
 
-      const promptMap = field.question.repeats
-        ? SCRIBE_REPEAT_PROMPT_MAP
-        : SCRIBE_PROMPT_MAP;
+          const fieldType =
+            (Object.keys(SCRIBE_ARB_PROMPTS).includes(field.question.type)
+              ? field.question.type
+              : "string") + (field.question.repeats ? "_array" : "");
 
-      const structuredPromptText = structuredPrompt
-        ? `A structure of type ${printNode(zodToTs(structuredPrompt.prompt()).node)}. Update existing data, delete existing data or append to the existing list as per the will of the user. NOTE: Make sure not to discard existing data until explicitly said so. Current datetime is ${new Date().toISOString()}`
-        : undefined;
+          const structure =
+            structuredType &&
+            Object.keys(STRUCTURED_INPUT_PROMPTS).includes(structuredType)
+              ? STRUCTURED_INPUT_PROMPTS[
+                  structuredType as keyof typeof STRUCTURED_INPUT_PROMPTS
+                ].prompt()
+              : SCRIBE_ARB_PROMPTS[
+                  fieldType as keyof typeof SCRIBE_ARB_PROMPTS
+                ] || {};
 
-      return {
-        friendlyName: field.question.text || "Unlabled Field",
-        current: field.value,
-        id: `${i}`,
-        description:
-          (structuredPrompt ? structuredPromptText : undefined) ||
-          promptMap[field.question.type]?.prompt ||
-          promptMap["default"]?.prompt,
-        type: typeof (
-          structuredPrompt?.example ||
-          promptMap[field.question.type]?.example ||
-          promptMap["default"]?.example
-        ),
-        example: JSON.stringify(
-          structuredPrompt?.example ||
-            promptMap[field.question.type]?.example ||
-            promptMap["default"]?.example,
-        ),
-        options: field.question.answer_option?.map((opt) => ({
-          id: opt.value,
-          text: opt.value,
-        })),
+          const value =
+            field.question.structured_type === "encounter"
+              ? [
+                  {
+                    status: (field.value as any)[0].status,
+                    encounter_class: (field.value as any)[0].encounter_class,
+                    period: (field.value as any)[0].period,
+                    hospitalization: (field.value as any)[0].hospitalization,
+                    priority: (field.value as any)[0].priority,
+                    external_identifier: (field.value as any)[0]
+                      .external_identifier,
+                  },
+                ]
+              : field.value;
+
+          console.log(value, field.value);
+
+          return {
+            friendlyName: field.question.text || "Unlabled Field",
+            current: value,
+            id: `${i + idOffset}`,
+            type: fieldType,
+            options: field.question.answer_option?.map((opt) => ({
+              id: opt.value,
+              text: opt.value,
+            })),
+            schema: structure ? zodToJsonSchema(structure) : undefined,
+          };
+        }),
       };
+      idOffset += fields.length;
+      return toReturn;
     });
   };
 
@@ -538,7 +543,7 @@ export function Controller(props: {
         className={`fixed z-40 flex ${controllerPosition.includes("top") ? "top-5 flex-col-reverse" : "bottom-5 flex-col"} ${controllerPosition.includes("right") ? "right-5 items-end" : "left-5 items-start"} gap-4 transition-all`}
       >
         <div
-          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[450px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border border-neutral-300"} bg-white transition-all delay-100`}
+          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[500px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border border-neutral-300"} bg-white transition-all delay-100`}
         >
           {status === "ATTACHING" && (
             <FileUpload files={files} setFiles={setFiles} error={null} />
@@ -621,7 +626,7 @@ export function Controller(props: {
                   scribe?.meta && (
                     <div className="mt-2 text-[10px]">
                       {Object.entries(scribe?.meta)
-                        .filter(([k]) => k !== "prompt")
+                        .filter(([k]) => !["prompt", "function"].includes(k))
                         .map(([key, value]) => (
                           <div key={key}>
                             {key.replace(/_/g, " ")} :{" "}
@@ -629,7 +634,9 @@ export function Controller(props: {
                               key === "transcription_time") &&
                             typeof value === "number"
                               ? (value * 1000).toFixed(2) + " ms"
-                              : value}
+                              : typeof value === "string"
+                                ? value
+                                : JSON.stringify(value)}
                           </div>
                         ))}
                     </div>

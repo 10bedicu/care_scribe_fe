@@ -1,4 +1,4 @@
-import { ScribePromptMap, ValueSetSystem } from "@/types";
+import { ValueSetSystem } from "@/types";
 import dayjs from "dayjs";
 import z from "zod";
 import {
@@ -11,46 +11,17 @@ import {
   MEDICATION_STATEMENT_STATUS,
 } from "./constants";
 
-const ARBITRARY_INPUT_PROMPTS: ScribePromptMap = {
-  default: {
-    prompt: "A normal string value JSON encoded",
-    example: "A value",
-  },
-  integer: {
-    prompt: "An integer value JSON encoded",
-    example: 42,
-  },
-  date: {
-    prompt: `A date value JSON encoded. Current date : ${dayjs(new Date()).format("YYYY-MM-DD")}`,
-    example: "2003-12-21",
-  },
-  boolean: {
-    prompt: "A true or false value JSON encoded",
-    example: true,
-  },
-  dateTime: {
-    prompt: `A date time value in ISO format. Current timestamp is ${dayjs(new Date()).format("YYYY-MM-DDTHH:mm")}`,
-    example: "2003-12-21T23:10",
-  },
-};
-
-export const SCRIBE_REPEAT_PROMPT_MAP: ScribePromptMap = {
-  default: {
-    prompt: "An array of strings JSON encoded",
-    example: ["A value"],
-  },
-  integer: {
-    prompt: "An array of integers JSON encoded",
-    example: [42],
-  },
-  date: {
-    prompt: `An array of date values JSON encoded. Current date : ${dayjs(new Date()).format("YYYY-MM-DD")}`,
-    example: ["2003-12-21"],
-  },
-  boolean: {
-    prompt: "An array of true or false values JSON encoded",
-    example: [true],
-  },
+export const SCRIBE_ARB_PROMPTS = {
+  string: z.string(),
+  integer: z.number().int(),
+  date: z.string().describe(`YYYY-MM-DD format.`),
+  boolean: z.boolean(),
+  dateTime: z.string().describe(`YYYY-MM-DDTHH:mm format`),
+  string_array: z.array(z.string()),
+  integer_array: z.array(z.number().int()),
+  date_array: z.array(z.string().describe("YYYY-MM-DD format")),
+  boolean_array: z.array(z.boolean()),
+  dateTime_array: z.array(z.string().describe(`YYYY-MM-DDTHH:mm format`)),
 };
 
 const code = z.object({
@@ -64,7 +35,7 @@ const codeQuery = (type: ValueSetSystem, primary?: boolean) =>
     code_search_query: z.string().describe("The query"),
     code_search_type: z
       .literal(type)
-      .describe("This field must not be changed"),
+      .describe('This field must always be "' + type + '"'),
     ...(primary
       ? { primary: z.literal(true).describe("This field must always be true") }
       : {}),
@@ -84,7 +55,9 @@ const doseQuantity = z.object({
     display: z.enum(DOSAGE_UNITS_CODES.map((c) => c.display) as [string]),
     system: z
       .literal("http://unitsofmeasure.org")
-      .describe("Do not change this value"),
+      .describe(
+        "Do not change this value. Should always be 'http://unitsofmeasure.org'",
+      ),
   }),
 });
 
@@ -220,7 +193,9 @@ export const STRUCTURED_INPUT_PROMPTS = {
             z.enum(["stat", "urgent", "asap", "routine"]),
             "stat",
           ),
-          do_not_perform: z.literal(false).describe("Do not update this value"),
+          do_not_perform: z
+            .literal(false)
+            .describe("Do not update this value. Should always be false"),
           medication: codeStructure(isRes, "system-medication", true),
           authored_on: withFallback(
             isoDateTime.describe("In ISO datetime"),
@@ -281,9 +256,13 @@ export const STRUCTURED_INPUT_PROMPTS = {
                         (timing) => timing.timing.code.display,
                       ) as [string],
                     ),
-                    system: z.literal(
-                      "http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation",
-                    ),
+                    system: z
+                      .literal(
+                        "http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation",
+                      )
+                      .describe(
+                        "Do not change this value. Should always be 'http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation'",
+                      ),
                   }),
                 })
                 .optional(),
@@ -641,8 +620,4 @@ export const STRUCTURED_INPUT_PROMPTS = {
       reason_for_visit: "No change in condition",
     },
   },
-};
-
-export const SCRIBE_PROMPT_MAP: ScribePromptMap = {
-  ...ARBITRARY_INPUT_PROMPTS,
 };
