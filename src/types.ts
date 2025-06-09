@@ -277,11 +277,6 @@ export const VALUESET_SYSTEM_NAMES: { [key in ValueSetSystem]: string } = {
   "system-ucum-units": "UCUM Units",
 };
 
-export interface CodeSearchQuery {
-  code_search_type: ValueSetSystem;
-  code_search_query: string;
-  primary?: boolean;
-}
 export interface Code {
   system: string;
   code: string;

@@ -1,19 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  ScribeField,
   ScribeFieldSuggestion,
   ScribeFileType,
   ScribeModel,
   ScribeQuestionnaire,
   ScribeStatus,
-  VALUESET_SYSTEM_NAMES,
 } from "../types";
-import {
-  getFieldsToReview,
-  getQuestionInputs,
-  replaceCodeSearchQueriesInObjectAsync,
-} from "../utils/utils";
-import { SCRIBE_ARB_PROMPTS, STRUCTURED_INPUT_PROMPTS } from "@/utils/prompts";
+import { getFieldsToReview, getQuestionInputs } from "../utils/utils";
 import {
   ChevronUpIcon,
   Cross1Icon,
@@ -65,6 +58,8 @@ import HistorySheet from "./History";
 import { useQueryClient } from "@tanstack/react-query";
 import { useScribeFiles } from "@/hooks/useScribeFiles";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import structures, { arbitraryStructures } from "@/utils/structures";
+import { z } from "zod";
 
 export function Controller(props: {
   formState: unknown;
@@ -209,78 +204,51 @@ export function Controller(props: {
         setTranscript(scribeTranscription);
       }
       // run type validations
-      const changedData = Object.entries(aiResponse)
-        .map(([k, v]) => {
-          const f = hfields.find((f) => f.id === k);
-          const ogF = fields.find((_, i) => i === Number(f?.id));
-          if (!f) return [k, null];
-          if (v === f.current) return [k, null];
-          if (
-            ogF?.question.structured_type &&
-            ogF.question.structured_type !== "encounter"
-          ) {
-            const prompt =
-              STRUCTURED_INPUT_PROMPTS[
-                ogF.question
-                  .structured_type as keyof typeof STRUCTURED_INPUT_PROMPTS
-              ].prompt;
+      const changedData = (
+        await Promise.all(
+          Object.entries(aiResponse).map(async ([k, v]) => {
+            const f = hfields.find((f) => f.id === k);
+            const ogF = fields.find((_, i) => i === Number(f?.id));
+            if (!f) return [k, null];
 
-            const validation = prompt().safeParse(v);
-            if (!validation.success) {
-              console.error("Validation error", v, validation.error);
-              return [k, null];
-            } else {
-              return [k, validation.data];
+            const structure = f.structuredType
+              ? structures[f.structuredType as keyof typeof structures]
+              : null;
+            let deserializedValue: any = v;
+
+            if (structure) {
+              const deserialized = await structure.deserialize(v as any);
+              deserializedValue = deserialized.data;
+              deserialized.errors?.forEach((error) => {
+                toast({
+                  title: error,
+                  variant: "destructive",
+                });
+              });
             }
-          }
-          return [k, v];
-        })
+
+            if (JSON.stringify(deserializedValue) === JSON.stringify(f.current))
+              return [k, null];
+
+            if (
+              ogF?.question.structured_type &&
+              ogF.question.structured_type !== "encounter"
+            ) {
+              const validation = structure?.toolStructure.safeParse(v);
+              if (!validation?.success) {
+                console.error("Validation error", v, validation?.error);
+                return [k, null];
+              }
+            }
+            return [k, deserializedValue];
+          }),
+        )
+      )
         .filter(([, v]) => !!v)
         .map(([k, v]) => ({ [k as string]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
-      const replacedData = await Promise.all(
-        Object.entries(changedData).map(async ([index, data]) => {
-          const replacedData = await replaceCodeSearchQueriesInObjectAsync(
-            data as Record<string, any>,
-          );
 
-          replacedData.noMatches
-            .filter((m) => m.primary === true)
-            .forEach((m) => {
-              toast({
-                title: t("scribe_no_match", {
-                  valueType:
-                    VALUESET_SYSTEM_NAMES[m.code_search_type].toLowerCase(),
-                  query: m.code_search_query,
-                }),
-                variant: "destructive",
-              });
-            });
-
-          let transformed = replacedData.transformed;
-          if (Array.isArray(replacedData.transformed)) {
-            transformed = replacedData.transformed.map((item) => {
-              if (typeof item === "object" && item !== null) {
-                // if any key in the object contains "CODE_NOT_FOUND", return null
-                if (Object.values(item).includes("CODE_NOT_FOUND")) {
-                  return null;
-                }
-              }
-              return item;
-            });
-            transformed = transformed?.filter((item: unknown) => item !== null);
-          }
-
-          return { index, data: transformed };
-        }),
-      );
-
-      const replacedDataMap = replacedData.reduce(
-        (acc, curr) => (curr ? { ...acc, [curr.index]: curr.data } : acc),
-        {},
-      );
-
-      return replacedDataMap;
+      return changedData;
     } catch (e) {
       console.error(e);
       toast({ title: t("scribe_error"), variant: "destructive" });
@@ -403,43 +371,41 @@ export function Controller(props: {
         fields: fields.map((field, i) => {
           const structuredType = field.question.structured_type;
 
-          const fieldType =
-            (Object.keys(SCRIBE_ARB_PROMPTS).includes(field.question.type)
-              ? field.question.type
-              : "string") + (field.question.repeats ? "_array" : "");
+          const fieldType = Object.keys(arbitraryStructures).includes(
+            field.question.type,
+          )
+            ? field.question.type
+            : "string";
 
-          const structure =
-            structuredType &&
-            Object.keys(STRUCTURED_INPUT_PROMPTS).includes(structuredType)
-              ? STRUCTURED_INPUT_PROMPTS[
-                  structuredType as keyof typeof STRUCTURED_INPUT_PROMPTS
-                ].prompt()
-              : SCRIBE_ARB_PROMPTS[
-                  fieldType as keyof typeof SCRIBE_ARB_PROMPTS
-                ] || {};
+          let structure =
+            structuredType && Object.keys(structures).includes(structuredType)
+              ? structures[structuredType as keyof typeof structures]
+                  .toolStructure
+              : arbitraryStructures[
+                  fieldType as keyof typeof arbitraryStructures
+                ];
 
-          const value =
-            field.question.structured_type === "encounter"
-              ? [
-                  {
-                    status: (field.value as any)[0].status,
-                    encounter_class: (field.value as any)[0].encounter_class,
-                    period: (field.value as any)[0].period,
-                    hospitalization: (field.value as any)[0].hospitalization,
-                    priority: (field.value as any)[0].priority,
-                    external_identifier: (field.value as any)[0]
-                      .external_identifier,
-                  },
-                ]
+          if (field.question.repeats) {
+            structure = z.array(structure) as z.ZodArray<any>;
+          }
+
+          const humanValue =
+            structuredType && Object.keys(structures).includes(structuredType)
+              ? structures[structuredType as keyof typeof structures].toPrompt(
+                  field.question.structured_type === "encounter"
+                    ? (field.value as any)[0]
+                    : field.value,
+                )
               : field.value;
-
-          console.log(value, field.value);
 
           return {
             friendlyName: field.question.text || "Unlabled Field",
-            current: value,
+            current: field.value,
+            humanValue,
             id: `${i + idOffset}`,
-            type: fieldType,
+            type: field.question.type,
+            structuredType: field.question.structured_type || null,
+            repeats: field.question.repeats || false,
             options: field.question.answer_option?.map((opt) => ({
               id: opt.value,
               text: opt.value,

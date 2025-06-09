@@ -1,13 +1,14 @@
 import {
-  CodeSearchQuery,
   ScribeAIResponse,
   ScribeField,
   ScribeFieldSuggestion,
   ScribeQuestionnaire,
+  ValueSetSystem,
 } from "../types";
 import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { API } from "./api";
+import { z } from "zod";
 
 export const getQuestionInputs: (formState: any) => ScribeQuestionnaire[] = (
   formState: any,
@@ -180,81 +181,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-function isCodeSearchQuery(value: any): value is CodeSearchQuery {
-  return (
-    value &&
-    typeof value === "object" &&
-    "code_search_type" in value &&
-    "code_search_query" in value
-  );
-}
-
-/**
- * Recursively transforms an object by finding CodeSearchQuery objects and
- * replacing them using the provided async transform function.
- */
-async function transformObjectAsync<T>(
-  input: T,
-  transformFn: (codeSearchQuery: CodeSearchQuery) => Promise<any>,
-): Promise<T> {
-  // If it's an array, transform each element.
-  if (Array.isArray(input)) {
-    const transformedArray = await Promise.all(
-      input.map(async (item) => transformObjectAsync(item, transformFn)),
-    );
-    return transformedArray as unknown as T;
-  }
-
-  // If it's a non-null object, examine its properties.
-  if (input !== null && typeof input === "object") {
-    // Check if it's a CodeSearchQuery; if so, transform it.
-    if (isCodeSearchQuery(input)) {
-      // Transform and return the result of the transform function.
-      return (await transformFn(input)) as T;
-    } else {
-      // Otherwise, recurse through each property of the object.
-      const output: Record<string, any> = { ...input };
-      const keys = Object.keys(output);
-
-      for (const key of keys) {
-        output[key] = await transformObjectAsync(output[key], transformFn);
-      }
-      return output as T;
-    }
-  }
-
-  // If it's a primitive (string, number, boolean, null, undefined), just return as-is.
-  return input;
-}
-
-export async function replaceCodeSearchQueriesInObjectAsync<T>(
-  obj: T,
-): Promise<{ transformed: T; noMatches: CodeSearchQuery[] }> {
-  const noMatches: CodeSearchQuery[] = [];
-  const transformed = await transformObjectAsync(
-    obj,
-    async (codeSearchQuery) => {
-      const valuesets = await API.valuesets.expand(
-        codeSearchQuery.code_search_type,
-        codeSearchQuery.code_search_query,
-      );
-      const validCode = valuesets.results[0];
-
-      if (!validCode) {
-        noMatches.push(codeSearchQuery);
-        return "CODE_NOT_FOUND";
-      }
-
-      return {
-        system: validCode.system,
-        code: validCode.code,
-        display: validCode.display,
-      };
-    },
-  );
-  return { transformed, noMatches };
-}
-
 export function debounce<T extends unknown[], U>(
   callback: (...args: T) => PromiseLike<U> | U,
   wait: number,
@@ -267,3 +193,25 @@ export function debounce<T extends unknown[], U>(
     });
   };
 }
+
+export async function getCodeFromQuery(query: string, type: ValueSetSystem) {
+  const valuesets = await API.valuesets.expand(type, query);
+  const validCode = valuesets.results[0];
+
+  if (!validCode) {
+    return null;
+  }
+
+  return {
+    system: validCode.system,
+    code: validCode.code,
+    display: validCode.display,
+  };
+}
+
+export const isoDateTime = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?$/,
+    "Invalid ISO date format",
+  );
