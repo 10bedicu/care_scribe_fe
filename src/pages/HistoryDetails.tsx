@@ -268,8 +268,9 @@ export default function HistoryDetailsPage(props: {
                             {statsEnabled && <TableCell>{key}</TableCell>}
                             <TableCell>
                               {
-                                scribe?.form_data.find((f) => f.id === key)
-                                  ?.friendlyName
+                                scribe?.form_data
+                                  .flatMap((f) => f.fields)
+                                  .find((f) => f.id === key)?.friendlyName
                               }
                             </TableCell>
                             <TableCell className="max-w-[300px] break-words whitespace-pre-wrap">

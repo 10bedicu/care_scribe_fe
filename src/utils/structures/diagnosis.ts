@@ -2,7 +2,6 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
-import { t } from "i18next";
 
 const CLINICAL_STATUS = [
   "active",
@@ -56,37 +55,35 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
     toolStructure,
     deserialize: async (data) => {
       const errors: string[] = [];
-      const d = data
-        .map(async (diagnosis) => {
-          const code = await getCodeFromQuery(
-            diagnosis.diagnosis,
-            "system-condition-code",
+      const d = data.map(async (diagnosis) => {
+        const code = await getCodeFromQuery(
+          diagnosis.diagnosis,
+          "system-condition-code",
+        );
+        if (!code) {
+          errors.push(
+            `Copilot could not find a diagnosis that matches with ${diagnosis.diagnosis}. Please enter manually.`,
           );
-          if (!code) {
-            errors.push(
-              t("scribe_no_match", {
-                valueType: "diagnosis",
-                query: diagnosis.diagnosis,
-              }),
-            );
-            return undefined;
-          }
-          const diagnosisData: Diagnosis = {
-            code,
-            clinical_status: diagnosis.clinical_status,
-            verification_status: diagnosis.verification_status,
-            onset: {
-              onset_datetime: diagnosis.onset_datetime,
-            },
-            recorded_date:
-              diagnosis.recorded_datetime || new Date().toISOString(),
-            note: diagnosis.note,
-            category: diagnosis.category || "encounter_diagnosis",
-          };
-          return diagnosisData;
-        })
-        .filter((s) => !!s);
-      return { data: (await Promise.all(d)) as Diagnosis[], errors };
+          return undefined;
+        }
+        const diagnosisData: Diagnosis = {
+          code,
+          clinical_status: diagnosis.clinical_status,
+          verification_status: diagnosis.verification_status,
+          onset: {
+            onset_datetime: diagnosis.onset_datetime,
+          },
+          recorded_date:
+            diagnosis.recorded_datetime || new Date().toISOString(),
+          note: diagnosis.note,
+          category: diagnosis.category || "encounter_diagnosis",
+        };
+        return diagnosisData;
+      });
+      return {
+        data: ((await Promise.all(d)) as Diagnosis[]).filter((s) => !!s),
+        errors,
+      };
     },
     toPrompt: (data) => {
       return data

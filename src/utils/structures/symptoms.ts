@@ -2,7 +2,6 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
-import { t } from "i18next";
 
 const CLINICAL_STATUS = [
   "active",
@@ -50,34 +49,32 @@ export const symptomsStructure: Structure<Symptom[], typeof toolStructure> = {
   toolStructure,
   deserialize: async (data) => {
     const errors: string[] = [];
-    const d = data
-      .map(async (symptom) => {
-        const code = await getCodeFromQuery(
-          symptom.symptom,
-          "system-condition-code",
+    const d = data.map(async (symptom) => {
+      const code = await getCodeFromQuery(
+        symptom.symptom,
+        "system-condition-code",
+      );
+      if (!code) {
+        errors.push(
+          `Copilot could not find a symptom that matches with ${symptom.symptom}. Please enter manually.`,
         );
-        if (!code) {
-          errors.push(
-            t("scribe_no_match", {
-              valueType: "symptom",
-              query: symptom.symptom,
-            }),
-          );
-          return undefined;
-        }
-        const symptomData: Symptom = {
-          code,
-          clinical_status: symptom.clinical_status,
-          verification_status: symptom.verification_status,
-          severity: symptom.severity,
-          onset: {
-            onset_datetime: symptom.onset_datetime,
-          },
-        };
-        return symptomData;
-      })
-      .filter((s) => !!s);
-    return { data: (await Promise.all(d)) as Symptom[], errors };
+        return undefined;
+      }
+      const symptomData: Symptom = {
+        code,
+        clinical_status: symptom.clinical_status,
+        verification_status: symptom.verification_status,
+        severity: symptom.severity,
+        onset: {
+          onset_datetime: symptom.onset_datetime,
+        },
+      };
+      return symptomData;
+    });
+    return {
+      data: (await Promise.all(d)).filter((s) => !!s) as Symptom[],
+      errors,
+    };
   },
   toPrompt: (data) => {
     return data

@@ -2,7 +2,6 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery } from "../utils";
-import { t } from "i18next";
 import {
   BOUNDS_DURATION_UNITS,
   DOSAGE_UNITS_CODES,
@@ -202,10 +201,7 @@ export const medicationRequestStructure: Structure<
 
       if (!code) {
         errors.push(
-          t("scribe_no_match", {
-            valueType: "medication",
-            query: medicationRequest.medicine,
-          }),
+          `Copilot could not find a medication that matches with ${medicationRequest.medicine}. Please enter manually.`,
         );
         return undefined;
       }

@@ -2,7 +2,6 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
-import { t } from "i18next";
 import { MEDICATION_STATEMENT_STATUS } from "../constants";
 
 export const INFORMATION_SOURCE = [
@@ -65,10 +64,7 @@ export const medicationStatementStructure: Structure<
 
       if (!code) {
         errors.push(
-          t("scribe_no_match", {
-            valueType: "medication",
-            query: medicationStatement.medication,
-          }),
+          `Copilot could not find a medication that matches with ${medicationStatement.medication}. Please enter manually.`,
         );
         return undefined;
       }
