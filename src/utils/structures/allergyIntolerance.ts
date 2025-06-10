@@ -2,7 +2,6 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
-import { t } from "i18next";
 
 const CLINICAL_STATUS = ["active", "inactive", "resolved"] as const;
 
@@ -49,35 +48,33 @@ export const allergyIntoleranceStructure: Structure<
   toolStructure,
   deserialize: async (data) => {
     const errors: string[] = [];
-    const d = data
-      .map(async (allergyIntolerance) => {
-        const code = await getCodeFromQuery(
-          allergyIntolerance.allergy,
-          "system-allergy-code",
+    const d = data.map(async (allergyIntolerance) => {
+      const code = await getCodeFromQuery(
+        allergyIntolerance.allergy,
+        "system-allergy-code",
+      );
+      if (!code) {
+        errors.push(
+          `Copilot could not find an allergy that matches with ${allergyIntolerance.allergy}. Please enter manually.`,
         );
-        if (!code) {
-          errors.push(
-            t("scribe_no_match", {
-              valueType: "allergy",
-              query: allergyIntolerance.allergy,
-            }),
-          );
-          return undefined;
-        }
-        const allergyIntoleranceData: AllergyIntolerance = {
-          code,
-          clinical_status: allergyIntolerance.clinical_status,
-          category: allergyIntolerance.category || "medication",
-          criticality: allergyIntolerance.criticality || "low",
-          verification_status:
-            allergyIntolerance.verification_status || "confirmed",
-          last_occurrence: allergyIntolerance.last_occurrence,
-          note: allergyIntolerance.note,
-        };
-        return allergyIntoleranceData;
-      })
-      .filter((s) => !!s);
-    return { data: (await Promise.all(d)) as AllergyIntolerance[], errors };
+        return undefined;
+      }
+      const allergyIntoleranceData: AllergyIntolerance = {
+        code,
+        clinical_status: allergyIntolerance.clinical_status,
+        category: allergyIntolerance.category || "medication",
+        criticality: allergyIntolerance.criticality || "low",
+        verification_status:
+          allergyIntolerance.verification_status || "confirmed",
+        last_occurrence: allergyIntolerance.last_occurrence,
+        note: allergyIntolerance.note,
+      };
+      return allergyIntoleranceData;
+    });
+    return {
+      data: ((await Promise.all(d)) as AllergyIntolerance[]).filter((s) => !!s),
+      errors,
+    };
   },
   toPrompt: (data) => {
     return data

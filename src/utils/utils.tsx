@@ -55,8 +55,13 @@ export const getFieldsToReview = (
   scrapedFields: ScribeQuestionnaire[],
 ) => {
   return scrapedFields
-    .flatMap((qn) => qn.questions)
-    .map((f, i) => ({ ...f, newValue: aiResponse[i] }))
+    .flatMap((qn) =>
+      qn.questions.map((field) => ({
+        ...field,
+        id: constructFieldId(qn.title, field.question.text),
+      })),
+    )
+    .map((f) => ({ ...f, newValue: aiResponse[f.id] }))
     .filter((f) => f.newValue);
 };
 
@@ -211,7 +216,13 @@ export async function getCodeFromQuery(query: string, type: ValueSetSystem) {
 
 export const isoDateTime = z
   .string()
-  .regex(
-    /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?$/,
-    "Invalid ISO date format",
-  );
+  .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`);
+
+export const constructFieldId = (
+  questionnaire_name: string,
+  field_name: string,
+) =>
+  (questionnaire_name + "__" + field_name)
+    .replace(/\s+/g, "_")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "");

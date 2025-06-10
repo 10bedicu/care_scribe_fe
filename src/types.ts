@@ -49,14 +49,18 @@ export type ScribeModel = {
   external_id: string;
   requested_by: UserModel;
   form_data: {
-    friendlyName: string;
-    default: string;
+    title: string;
     description: string;
-    example: string;
-    id: string;
-    options?: any[];
-    type: string;
-    current: any;
+    fields: {
+      friendlyName: string;
+      default: string;
+      description: string;
+      example: string;
+      id: string;
+      options?: any[];
+      type: string;
+      current: any;
+    }[];
   }[];
   requested_in_facility: {
     id: FacilityModel["id"];
@@ -138,7 +142,7 @@ export type ScribeField = {
 };
 
 export type ScribeAIResponse = {
-  [field_number: number]: unknown;
+  [field_id: string]: unknown;
 };
 
 export type ScribePromptMap = {

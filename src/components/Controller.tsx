@@ -6,7 +6,11 @@ import {
   ScribeQuestionnaire,
   ScribeStatus,
 } from "../types";
-import { getFieldsToReview, getQuestionInputs } from "../utils/utils";
+import {
+  constructFieldId,
+  getFieldsToReview,
+  getQuestionInputs,
+} from "../utils/utils";
 import {
   ChevronUpIcon,
   Cross1Icon,
@@ -146,7 +150,6 @@ export function Controller(props: {
           const res = await API.scribe.get(scribeInstanceId);
           setScribe(res);
           const { status, transcript, ai_response } = res;
-
           if (status === "FAILED" || status === "REFUSED") {
             toast({ title: "Transcription failed", variant: "destructive" });
             clearInterval(interval);
@@ -170,8 +173,6 @@ export function Controller(props: {
             clearInterval(interval);
             return resolve(ai_response);
           }
-
-          // return reject(new Error(`Failed to resolve response`));
         } catch (error) {
           clearInterval(interval);
           reject(error);
@@ -227,6 +228,8 @@ export function Controller(props: {
               });
             }
 
+            console.log("Deserialized Value", deserializedValue);
+
             if (JSON.stringify(deserializedValue) === JSON.stringify(f.current))
               return [k, null];
 
@@ -247,7 +250,6 @@ export function Controller(props: {
         .filter(([, v]) => !!v)
         .map(([k, v]) => ({ [k as string]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
-
       return changedData;
     } catch (e) {
       console.error(e);
@@ -360,7 +362,6 @@ export function Controller(props: {
   };
 
   const getHydratedFields = async (questionnaires: ScribeQuestionnaire[]) => {
-    let idOffset = 0;
     return questionnaires.map((questionnaire) => {
       const fields = questionnaire.questions;
       if (!fields || !fields.length) return null;
@@ -368,7 +369,11 @@ export function Controller(props: {
       const toReturn = {
         title: questionnaire.title || "Untitled Questionnaire",
         description: questionnaire.description || "",
-        fields: fields.map((field, i) => {
+        fields: fields.map((field) => {
+          const id = constructFieldId(
+            questionnaire.title || "Untitled Questionnaire",
+            field.question.text || "Unlabled Field",
+          );
           const structuredType = field.question.structured_type;
 
           const fieldType = Object.keys(arbitraryStructures).includes(
@@ -402,7 +407,7 @@ export function Controller(props: {
             friendlyName: field.question.text || "Unlabled Field",
             current: field.value,
             humanValue,
-            id: `${i + idOffset}`,
+            id,
             type: field.question.type,
             structuredType: field.question.structured_type || null,
             repeats: field.question.repeats || false,
@@ -414,7 +419,6 @@ export function Controller(props: {
           };
         }),
       };
-      idOffset += fields.length;
       return toReturn;
     });
   };
