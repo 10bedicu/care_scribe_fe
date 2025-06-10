@@ -171,10 +171,12 @@ export const updateFieldValue = (
                         value: val,
                       },
                     ]
-                : val.map((v: any) => ({
-                    type: field.question.structured_type || typeof v,
-                    value: v,
-                  })),
+                : val
+                  ? val.map((v: any) => ({
+                      type: field.question.structured_type || typeof v,
+                      value: v,
+                    }))
+                  : [],
             }
           : response,
       ),
