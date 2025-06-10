@@ -30,7 +30,8 @@ export const codeQuery = (type: ValueSetSystem, primary?: boolean) =>
   });
 export const arbitraryStructures = {
   string: z.string(),
-  integer: z.number().int(),
+  integer: z.number().int().describe("A whole integer"),
+  decimal: z.number().describe("A decimal number"),
   boolean: z.boolean(),
   date: z.string().describe(`YYYY-MM-DD format.`),
   dateTime: z.string().describe(`YYYY-MM-DDTHH:mm format`),
