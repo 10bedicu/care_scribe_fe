@@ -38,7 +38,7 @@ const ADMIT_SOURCE = [
 
 const DEIT_PREFERENCE = [
   "vegetarian",
-  "diary_free",
+  "dairy_free",
   "nut_free",
   "gluten_free",
   "vegan",
