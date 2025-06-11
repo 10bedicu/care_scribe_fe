@@ -92,6 +92,7 @@ export type ScribeModel = {
     audio_model?: string;
     prompt?: string;
     function?: Record<string, unknown>;
+    error?: string;
   };
   created_date: string;
   modified_date: string;

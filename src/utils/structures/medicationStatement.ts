@@ -18,8 +18,8 @@ const toolStructure = z.array(
     medication: z.string().describe("The medication that has been requested"),
     note: z.string().optional(),
     reason: z.string().optional(),
-    take_from: isoDateTime.describe("ISO date").optional(),
-    take_until: isoDateTime.describe("ISO date").optional(),
+    take_from: isoDateTime.optional(),
+    take_until: isoDateTime.optional(),
   }),
 );
 

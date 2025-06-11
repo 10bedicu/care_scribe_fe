@@ -79,7 +79,8 @@ export function Controller(props: {
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
   const [currentMic, setCurrentMic] = useAtom(microphoneAtom);
   const [enableStatistics, setEnableStatistics] = useAtom(enableStatisticsAtom);
-  const { microphones, error: micError } = useMicrophones();
+  const [fetchMicrophones, setFetchMicrophones] = useState(false);
+  const { microphones, error: micError } = useMicrophones(!fetchMicrophones);
   const [controllerPosition] = useAtom(controllerPositionAtom);
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -151,7 +152,6 @@ export function Controller(props: {
           setScribe(res);
           const { status, transcript, ai_response } = res;
           if (status === "FAILED" || status === "REFUSED") {
-            toast({ title: "Transcription failed", variant: "destructive" });
             clearInterval(interval);
             return reject(new Error("Transcription failed"));
           }
@@ -196,7 +196,6 @@ export function Controller(props: {
         "ai_response",
       )) as ScribeModel["ai_response"];
       if (!aiResponse) {
-        toast({ title: t("scribe_error"), variant: "destructive" });
         setStatus("FAILED");
         return;
       }
@@ -253,7 +252,6 @@ export function Controller(props: {
       return changedData;
     } catch (e) {
       console.error(e);
-      toast({ title: t("scribe_error"), variant: "destructive" });
       setStatus("FAILED");
     }
   };
@@ -274,7 +272,6 @@ export function Controller(props: {
       setTranscript(transcript);
       return transcript;
     } catch {
-      toast({ title: t("scribe_error"), variant: "destructive" });
       setStatus("FAILED");
     }
   };
@@ -403,6 +400,15 @@ export function Controller(props: {
                 )
               : field.value;
 
+          if (field.question.answer_option?.length) {
+            structure = z.enum(
+              field.question.answer_option.map((opt) => opt.value) as [string],
+            ) as any;
+            if (field.question.repeats) {
+              structure = z.array(structure) as z.ZodArray<any>;
+            }
+          }
+
           return {
             friendlyName: field.question.text || "Unlabled Field",
             current: field.value,
@@ -410,11 +416,6 @@ export function Controller(props: {
             id,
             type: field.question.type,
             structuredType: field.question.structured_type || null,
-            repeats: field.question.repeats || false,
-            options: field.question.answer_option?.map((opt) => ({
-              id: opt.value,
-              text: opt.value,
-            })),
             schema: structure ? zodToJsonSchema(structure) : undefined,
           };
         }),
@@ -468,7 +469,9 @@ export function Controller(props: {
     setStatus("UPLOADING");
     stopSegmentedRecording();
     const fields = getQuestionInputs(props.formState);
-    const instanceId = await createScribeInstance(fields);
+    const instanceId = scribe
+      ? scribe.external_id
+      : await createScribeInstance(fields);
     setInstanceId(instanceId);
     setStatus("TRANSCRIBING");
     await getTranscript(instanceId);
@@ -632,9 +635,19 @@ export function Controller(props: {
               </div>
             )}
           {status === "FAILED" && (
-            <div className="flex flex-col items-center justify-center gap-4 px-4 py-10 text-red-500">
-              <CrossCircledIcon className="h-8 w-8" />
-              {t("scribe_error")}
+            <div className="flex flex-col items-center justify-between gap-4 p-4 text-red-500">
+              <div className="flex flex-col items-center justify-center gap-4 py-4">
+                <CrossCircledIcon className="h-8 w-8" />
+                {t("scribe_error")}
+                {enableStatistics && scribe?.meta.error && (
+                  <pre className="max-h-20 w-52 overflow-auto rounded-md bg-red-100 p-2 text-xs break-words whitespace-pre-wrap text-red-500">
+                    {scribe?.meta.error}
+                  </pre>
+                )}
+              </div>
+              <Button className="w-full" onClick={handleStopRecording}>
+                {t("transcribe_again")}
+              </Button>
             </div>
           )}
         </div>
@@ -671,7 +684,9 @@ export function Controller(props: {
             >
               <DropdownMenuGroup>
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger
+                    onClick={() => setFetchMicrophones(true)}
+                  >
                     {t("microphone")}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>

@@ -10,11 +10,14 @@ interface UseMicrophonesResult {
   error: string | null;
 }
 
-export function useMicrophones(): UseMicrophonesResult {
+export function useMicrophones(dontFetch?: boolean): UseMicrophonesResult {
   const [microphones, setMicrophones] = useState<MicrophoneDevice[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (dontFetch) {
+      return;
+    }
     const fetchMicrophones = async () => {
       try {
         let devices = await navigator.mediaDevices.enumerateDevices();
@@ -42,7 +45,7 @@ export function useMicrophones(): UseMicrophonesResult {
     };
 
     fetchMicrophones();
-  }, []);
+  }, [dontFetch]);
 
   return { microphones, error };
 }
