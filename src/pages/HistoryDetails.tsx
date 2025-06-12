@@ -1,4 +1,10 @@
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +30,7 @@ import {
   ExternalLinkIcon,
   FaceIcon,
   FilePlusIcon,
+  GridIcon,
   PersonIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -102,48 +109,85 @@ export default function HistoryDetailsPage(props: {
       icon: <ClockIcon />,
       label: t("time_taken"),
       value: `
-         ${(
-           (scribe?.meta.transcription_time || 0) +
-           (scribe?.meta.completion_time || 0)
-         ).toFixed(2)} s`,
+         ${scribe?.meta.iterations
+           ?.reduce(
+             (acc, iteration) =>
+               acc +
+               (iteration.transcription_time || 0) +
+               (iteration.completion_time || 0),
+             0,
+           )
+           .toFixed(2)} s`,
+    },
+    {
+      icon: <GridIcon />,
+      label: t("chunks"),
+      value: scribe?.meta.iterations?.length || 0,
     },
   ];
 
   const metaData = [
     {
       label: t("input_tokens"),
-      value: scribe?.meta.completion_input_tokens,
+      value: scribe?.meta.iterations?.reduce(
+        (acc, iteration) => acc + (iteration.completion_input_tokens || 0),
+        0,
+      ),
     },
     {
       label: t("output_tokens"),
-      value: scribe?.meta.completion_output_tokens,
+      value: scribe?.meta.iterations?.reduce(
+        (acc, iteration) => acc + (iteration.completion_output_tokens || 0),
+        0,
+      ),
     },
     {
       label: t("total_tokens"),
-      value:
-        (scribe?.meta.completion_input_tokens || 0) +
-        (scribe?.meta.completion_output_tokens || 0),
+      value: scribe?.meta.iterations?.reduce(
+        (acc, iteration) =>
+          acc +
+          (iteration.completion_input_tokens || 0) +
+          (iteration.completion_output_tokens || 0),
+        0,
+      ),
     },
     {
-      labek: t("transcription_time"),
-      value: scribe?.meta.transcription_time?.toFixed(2) + " s",
-      hide: !scribe?.meta.transcription_time,
+      label: t("transcription_time"),
+      value:
+        scribe?.meta.iterations
+          ?.reduce(
+            (acc, iteration) => acc + (iteration.transcription_time || 0),
+            0,
+          )
+          .toFixed(2) + " s",
+      hide: !scribe?.meta.iterations?.[0]?.transcription_time,
     },
     {
       label: t("completion_time"),
-      value: scribe?.meta.completion_time?.toFixed(2) + " s",
+      value:
+        scribe?.meta.iterations
+          ?.reduce(
+            (acc, iteration) => acc + (iteration.completion_time || 0),
+            0,
+          )
+          .toFixed(2) + " s",
     },
     {
       label: t("total_time"),
       value:
-        (
-          (scribe?.meta.transcription_time || 0) +
-          (scribe?.meta.completion_time || 0)
-        ).toFixed(2) + " s",
+        scribe?.meta.iterations
+          ?.reduce(
+            (acc, iteration) =>
+              acc +
+              (iteration.transcription_time || 0) +
+              (iteration.completion_time || 0),
+            0,
+          )
+          .toFixed(2) + " s",
     },
     {
       label: t("completion_id"),
-      value: scribe?.meta.completion_id,
+      value: scribe?.meta.iterations?.map((i) => i.completion_id).join(", "),
     },
     {
       label: t("audio_model"),
@@ -166,8 +210,13 @@ export default function HistoryDetailsPage(props: {
       label: t("end_time"),
       value: dayjs(scribe?.created_date)
         .add(
-          (scribe?.meta.transcription_time || 0) +
-            (scribe?.meta.completion_time || 0),
+          scribe?.meta.iterations?.reduce(
+            (acc, iteration) =>
+              acc +
+              (iteration.transcription_time || 0) +
+              (iteration.completion_time || 0),
+            0,
+          ) || 0,
           "second",
         )
         .format("DD/MM/YYYY HH:mm:ss"),
@@ -338,16 +387,43 @@ export default function HistoryDetailsPage(props: {
               </TabsContent>
               <TabsContent value="metadata">
                 <h3 className="text-xl">{t("metadata")}</h3>
-                <div className="mt-4 mb-2 font-semibold">{t("prompt")}</div>
-                <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {scribe?.meta.prompt}
-                </pre>
+                <Accordion
+                  type="multiple"
+                  defaultValue={
+                    (scribe?.meta.iterations?.length || 0) < 2
+                      ? ["item-1"]
+                      : undefined
+                  }
+                >
+                  {scribe?.meta.iterations?.map((iteration, index) => (
+                    <AccordionItem value={`item-${index + 1}`} key={index}>
+                      <AccordionTrigger>
+                        {t("chunk_number", { number: index + 1 })}{" "}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="mt-4 mb-2 font-semibold">
+                          {t("prompt")}
+                        </div>
+                        <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                          {iteration.prompt}
+                        </pre>
 
-                <div className="mt-4 mb-2 font-semibold">{t("tool_call")}</div>
-                <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {JSON.stringify(scribe?.meta.function, null, 2)}
-                </pre>
-
+                        <div className="mt-4 mb-2 font-semibold">
+                          {t("tool_call")}
+                        </div>
+                        <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                          {JSON.stringify(iteration.function, null, 2)}
+                        </pre>
+                        <div className="mt-4 mb-2 font-semibold">
+                          {t("chunk_output")}
+                        </div>
+                        <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                          {JSON.stringify(iteration.output, null, 2)}
+                        </pre>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
                 <div className="mt-4 mb-2 font-semibold">
                   {t("ai_response")}
                 </div>

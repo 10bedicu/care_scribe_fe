@@ -83,15 +83,20 @@ export type ScribeModel = {
   prompt?: string;
   meta: {
     provider?: string;
-    transcription_time?: number;
-    completion_output_tokens?: number;
-    completion_input_tokens?: number;
-    completion_time?: number;
-    completion_id?: string;
+    iterations?: {
+      transcription_time?: number;
+      completion_output_tokens?: number;
+      completion_input_tokens?: number;
+      completion_time?: number;
+      completion_id?: string;
+      prompt?: string;
+      function?: Record<string, unknown>;
+      output?: {
+        [key: string]: unknown;
+      };
+    }[];
     chat_model?: string;
     audio_model?: string;
-    prompt?: string;
-    function?: Record<string, unknown>;
     error?: string;
   };
   created_date: string;

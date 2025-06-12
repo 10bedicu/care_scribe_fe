@@ -220,14 +220,26 @@ export default function HistoryListPage() {
                   <>
                     <TableCell>{scribe.meta.provider || "N/A"}</TableCell>
                     <TableCell>
-                      {scribe.meta.completion_input_tokens || "-"} +{" "}
-                      {scribe.meta.completion_output_tokens || "-"}
+                      {scribe.meta.iterations?.reduce(
+                        (acc, i) => acc + (i.completion_input_tokens || 0),
+                        0,
+                      ) || "-"}
+                      +{" "}
+                      {scribe.meta.iterations?.reduce(
+                        (acc, i) => acc + (i.completion_output_tokens || 0),
+                        0,
+                      ) || "-"}
                     </TableCell>
                     <TableCell>
-                      {(
-                        (scribe.meta.transcription_time || 0) +
-                        (scribe.meta.completion_time || 0)
-                      ).toFixed(2)}{" "}
+                      {scribe.meta.iterations
+                        ?.reduce(
+                          (acc, i) =>
+                            acc +
+                            ((i.transcription_time || 0) +
+                              (i.completion_time || 0)),
+                          0,
+                        )
+                        .toFixed(2)}{" "}
                       s
                     </TableCell>
                   </>

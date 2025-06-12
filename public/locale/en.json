@@ -72,5 +72,9 @@
   "no_fields_autofilled" : "No fields were autofilled",
   "patient_name" : "Patient Name",
   "facility_name" : "Facility Name",
-  "search_by": "Search by"
+  "search_by": "Search by",
+  "tool_call": "Tool Call",
+  "chunks" : "Chunks",
+  "chunk_number" : "Chunk {{number}}",
+  "chunk_output": "Chunk Output"
 }
