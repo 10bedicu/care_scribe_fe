@@ -65,6 +65,41 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import structures, { arbitraryStructures } from "@/utils/structures";
 import { z } from "zod";
 
+function MetaInformation(props: { meta: ScribeModel["meta"] }) {
+  const info = {
+    "Audio Model": props.meta.audio_model,
+    "Chat Model": props.meta.chat_model,
+    Provider: props.meta.provider,
+    "Input Tokens": props.meta.iterations?.reduce(
+      (acc, curr) => acc + (curr.completion_input_tokens || 0),
+      0,
+    ),
+    "Output Tokens": props.meta.iterations?.reduce(
+      (acc, curr) => acc + (curr.completion_output_tokens || 0),
+      0,
+    ),
+    "Transcription Time":
+      props.meta.iterations
+        ?.reduce((acc, curr) => acc + (curr.transcription_time || 0), 0)
+        .toFixed(2) + "s",
+    "Completion Time":
+      props.meta.iterations
+        ?.reduce((acc, curr) => acc + (curr.completion_time || 0), 0)
+        .toFixed(2) + "s",
+  };
+
+  return (
+    <table className="mt-4 w-full text-[10px]">
+      {Object.entries(info).map(([key, value]) => (
+        <tr key={key}>
+          <td>{key}</td>
+          <td>{value}</td>
+        </tr>
+      ))}
+    </table>
+  );
+}
+
 export function Controller(props: {
   formState: unknown;
   setFormState: unknown;
@@ -367,10 +402,10 @@ export function Controller(props: {
         title: questionnaire.title || "Untitled Questionnaire",
         description: questionnaire.description || "",
         fields: fields.map((field) => {
-          const id = constructFieldId(
+          const id = constructFieldId([
             questionnaire.title || "Untitled Questionnaire",
             field.question.text || "Unlabled Field",
-          );
+          ]);
           const structuredType = field.question.structured_type;
 
           const fieldType = Object.keys(arbitraryStructures).includes(
@@ -596,24 +631,7 @@ export function Controller(props: {
                 {typeof lastTranscript !== "undefined" &&
                   status === "REVIEWING" &&
                   enableStatistics &&
-                  scribe?.meta && (
-                    <div className="mt-2 text-[10px]">
-                      {Object.entries(scribe?.meta)
-                        .filter(([k]) => !["prompt", "function"].includes(k))
-                        .map(([key, value]) => (
-                          <div key={key}>
-                            {key.replace(/_/g, " ")} :{" "}
-                            {(key === "completion_time" ||
-                              key === "transcription_time") &&
-                            typeof value === "number"
-                              ? (value * 1000).toFixed(2) + " ms"
-                              : typeof value === "string"
-                                ? value
-                                : JSON.stringify(value)}
-                          </div>
-                        ))}
-                    </div>
-                  )}
+                  scribe?.meta && <MetaInformation meta={scribe.meta} />}
                 <Button
                   // loading={status !== "REVIEWING"}
                   disabled={transcript === lastTranscript && !files.length}

@@ -58,7 +58,7 @@ export const getFieldsToReview = (
     .flatMap((qn) =>
       qn.questions.map((field) => ({
         ...field,
-        id: constructFieldId(qn.title, field.question.text),
+        id: constructFieldId([qn.title, field.question.text]),
       })),
     )
     .map((f) => ({ ...f, newValue: aiResponse[f.id] }))
@@ -220,11 +220,9 @@ export const isoDateTime = z
   .string()
   .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`);
 
-export const constructFieldId = (
-  questionnaire_name: string,
-  field_name: string,
-) =>
-  (questionnaire_name + "__" + field_name)
+export const constructFieldId = (names: string[]) =>
+  names
+    .join("__")
     .replace(/\s+/g, "_")
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, "");
