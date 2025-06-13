@@ -11,7 +11,10 @@ export interface Structure<S, T extends ZodTypeAny> {
   name: string;
   description: string;
   toolStructure: T;
-  deserialize: (data: z.infer<T>) => Promise<{
+  deserialize: (
+    data: z.infer<T>,
+    currentData: S,
+  ) => Promise<{
     data: S;
     errors?: string[];
   }>;

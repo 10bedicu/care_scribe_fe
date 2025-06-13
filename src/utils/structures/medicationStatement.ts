@@ -53,7 +53,7 @@ export const medicationStatementStructure: Structure<
   name: "Medication Statement",
   description: "Structure for medication statements",
   toolStructure,
-  deserialize: async (data) => {
+  deserialize: async (data, currentData) => {
     const errors: string[] = [];
 
     const parsed = data.map(async (medicationStatement) => {
@@ -86,10 +86,17 @@ export const medicationStatementStructure: Structure<
       };
       return medStatement;
     });
+    const statements = (await Promise.all(parsed)).filter(
+      (s) => !!s,
+    ) as MedicationStatement[];
+    // remove any duplicates in currentData
+    const newCodes = new Set(statements?.map((s) => s.medication.code));
+    const merged = [
+      ...(currentData?.filter((s) => !newCodes.has(s.medication.code)) || []),
+      ...statements,
+    ];
     return {
-      data: (await Promise.all(parsed)).filter(
-        (med) => !!med,
-      ) as MedicationStatement[],
+      data: merged,
       errors,
     };
   },

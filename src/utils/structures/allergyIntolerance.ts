@@ -46,7 +46,7 @@ export const allergyIntoleranceStructure: Structure<
   name: "AllergyIntolerance",
   description: "Structure for allergy intolerance",
   toolStructure,
-  deserialize: async (data) => {
+  deserialize: async (data, currentData) => {
     const errors: string[] = [];
     const d = data.map(async (allergyIntolerance) => {
       const code = await getCodeFromQuery(
@@ -71,8 +71,17 @@ export const allergyIntoleranceStructure: Structure<
       };
       return allergyIntoleranceData;
     });
+    const allergies = (await Promise.all(d)).filter(
+      (s) => !!s,
+    ) as AllergyIntolerance[];
+    // remove any duplicates in currentData
+    const newCodes = new Set(allergies?.map((s) => s.code.code));
+    const merged = [
+      ...(currentData?.filter((s) => !newCodes.has(s.code.code)) || []),
+      ...allergies,
+    ];
     return {
-      data: ((await Promise.all(d)) as AllergyIntolerance[]).filter((s) => !!s),
+      data: merged,
       errors,
     };
   },

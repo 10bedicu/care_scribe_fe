@@ -53,7 +53,7 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
     name: "Diagnosis",
     description: "Structure for diagnosis",
     toolStructure,
-    deserialize: async (data) => {
+    deserialize: async (data, currentData) => {
       const errors: string[] = [];
       const d = data.map(async (diagnosis) => {
         const code = await getCodeFromQuery(
@@ -80,8 +80,17 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
         };
         return diagnosisData;
       });
+      const diagnosis = (await Promise.all(d)).filter(
+        (s) => !!s,
+      ) as Diagnosis[];
+      // remove any duplicates in currentData
+      const newCodes = new Set(diagnosis?.map((s) => s.code.code));
+      const merged = [
+        ...(currentData?.filter((s) => !newCodes.has(s.code.code)) || []),
+        ...diagnosis,
+      ];
       return {
-        data: ((await Promise.all(d)) as Diagnosis[]).filter((s) => !!s),
+        data: merged,
         errors,
       };
     },
