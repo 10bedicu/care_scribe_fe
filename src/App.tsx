@@ -1,10 +1,10 @@
 import { Controller } from "./components/Controller";
-import { Toaster } from "./components/ui/toaster";
 import { useEffect, useRef } from "react";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import { usePath } from "raviger";
 import { useAtom } from "jotai";
 import { containerRefAtom } from "./store";
+import { Toaster } from "./components/ui/sonner";
 
 export default function App(props: {
   formState: unknown;
@@ -43,7 +43,7 @@ export default function App(props: {
 
   return (
     <div className="scribe-container" ref={container}>
-      <Toaster />
+      <Toaster position="top-right" richColors expand />
       {SCRIBE_ENABLED && <Controller {...props} />}
     </div>
   );

@@ -359,11 +359,11 @@ export const medicationRequestStructure: Structure<
     const symptoms = (await Promise.all(parsed)).filter(
       (s) => !!s,
     ) as MedicationRequest[];
-    // remove any duplicates in currentData
-    const newCodes = new Set(symptoms?.map((s) => s.medication.code));
+    // remove any duplicates
+    const currentCodes = new Set(currentData?.map((s) => s.medication.code));
     const merged = [
-      ...(currentData?.filter((s) => !newCodes.has(s.medication.code)) || []),
-      ...symptoms,
+      ...(currentData || []),
+      ...symptoms.filter((s) => !currentCodes.has(s.medication.code)),
     ];
     return {
       data: merged,

@@ -74,11 +74,11 @@ export const symptomsStructure: Structure<Symptom[], typeof toolStructure> = {
       return symptomData;
     });
     const symptoms = (await Promise.all(d)).filter((s) => !!s) as Symptom[];
-    // remove any duplicates in currentData
-    const newCodes = new Set(symptoms?.map((s) => s.code.code));
+    // remove any duplicates
+    const currentCodes = new Set(currentData?.map((s) => s.code.code));
     const merged = [
-      ...(currentData?.filter((s) => !newCodes.has(s.code.code)) || []),
-      ...symptoms,
+      ...(currentData || []),
+      ...symptoms.filter((s) => !currentCodes.has(s.code.code)),
     ];
 
     return {
