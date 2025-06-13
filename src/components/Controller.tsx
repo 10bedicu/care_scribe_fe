@@ -10,6 +10,7 @@ import {
   constructFieldId,
   getFieldsToReview,
   getQuestionInputs,
+  sleep,
 } from "../utils/utils";
 import {
   ChevronUpIcon,
@@ -122,6 +123,8 @@ export function Controller(props: {
   const path = usePath();
   const [historySheetOpen, setHistorySheetOpen] = useState(false);
   const [containerRef] = useAtom(containerRefAtom);
+  const [beforeReviewFormState, setBeforeReviewFormState] =
+    useState<unknown>(null);
   const queryClient = useQueryClient();
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
@@ -252,7 +255,10 @@ export function Controller(props: {
             let deserializedValue: any = v;
 
             if (structure) {
-              const deserialized = await structure.deserialize(v as any);
+              const deserialized = await structure.deserialize(
+                v as any,
+                f.current as any,
+              );
               deserializedValue = deserialized.data;
               deserialized.errors?.forEach((error) => {
                 toast({
@@ -261,8 +267,6 @@ export function Controller(props: {
                 });
               });
             }
-
-            console.log("Deserialized Value", deserializedValue);
 
             if (JSON.stringify(deserializedValue) === JSON.stringify(f.current))
               return [k, null];
@@ -292,12 +296,20 @@ export function Controller(props: {
   };
 
   // gets the audio transcription
-  const getTranscript = async (scribeInstanceId: string) => {
+  const getTranscript = async (
+    scribeInstanceId: string,
+    fields?: ScribeQuestionnaire[],
+  ) => {
+    let hfields: any = undefined;
+    if (fields) {
+      hfields = await getHydratedFields(fields);
+    }
     try {
       await API.scribe.update(scribeInstanceId, {
         status: "READY",
         requested_in_facility_id: facilityId || "",
         requested_in_encounter_id: encounterId || "",
+        form_data: hfields,
       });
       const transcript = (await poller(
         scribeInstanceId,
@@ -463,6 +475,8 @@ export function Controller(props: {
   const handleUpdateTranscript = async (updatedTranscript: string) => {
     if (updatedTranscript === lastTranscript && !files.length) return;
     if (!instanceId) throw Error("Cannot find scribe instance");
+    if (beforeReviewFormState)
+      (props.setFormState as any)?.(beforeReviewFormState);
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
     try {
@@ -481,6 +495,7 @@ export function Controller(props: {
     const aiResponse = await getAIResponse(instanceId, fields);
     if (!aiResponse) return;
     setStatus("REVIEWING");
+    setBeforeReviewFormState(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
@@ -499,6 +514,11 @@ export function Controller(props: {
   };
 
   const handleStopRecording = async () => {
+    if (beforeReviewFormState) {
+      (props.setFormState as any)?.(beforeReviewFormState);
+      await sleep(150);
+    }
+    setToReview(undefined);
     timer.stop();
     timer.reset();
     setStatus("UPLOADING");
@@ -509,16 +529,19 @@ export function Controller(props: {
       : await createScribeInstance(fields);
     setInstanceId(instanceId);
     setStatus("TRANSCRIBING");
-    await getTranscript(instanceId);
+    await getTranscript(instanceId, scribe ? fields : undefined);
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     if (!aiResponse) return;
     setStatus("REVIEWING");
+    setBeforeReviewFormState(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleCancel = () => {
+    if (beforeReviewFormState)
+      (props.setFormState as any)?.(beforeReviewFormState);
     setStatus("IDLE");
     resetRecording();
     setToReview(undefined);
@@ -540,6 +563,7 @@ export function Controller(props: {
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     if (!aiResponse) return;
     setStatus("REVIEWING");
+    setBeforeReviewFormState(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
@@ -703,7 +727,7 @@ export function Controller(props: {
               <DropdownMenuGroup>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger
-                    onClick={() => setFetchMicrophones(true)}
+                    onMouseOver={() => setFetchMicrophones(true)}
                   >
                     {t("microphone")}
                   </DropdownMenuSubTrigger>
@@ -807,6 +831,7 @@ export function Controller(props: {
           setToReview(getFieldsToReview(airesponse, fields));
           setScribe(scribe);
           setStatus("REVIEWING");
+          setBeforeReviewFormState(props.formState);
           setLastTranscript(scribe.transcript);
           setTranscript(scribe.transcript);
           setInstanceId(scribe.external_id);

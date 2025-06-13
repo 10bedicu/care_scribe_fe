@@ -29,6 +29,7 @@ interface Symptom {
   verification_status: (typeof VERIFICATION_STATUS)[number];
   severity: (typeof SEVERITY)[number];
   onset: { onset_datetime: string };
+  category: "problem_list_item";
 }
 
 const toolStructure = z.array(
@@ -47,7 +48,7 @@ export const symptomsStructure: Structure<Symptom[], typeof toolStructure> = {
   name: "Symptoms",
   description: "Structure for symptoms",
   toolStructure,
-  deserialize: async (data) => {
+  deserialize: async (data, currentData) => {
     const errors: string[] = [];
     const d = data.map(async (symptom) => {
       const code = await getCodeFromQuery(
@@ -68,11 +69,20 @@ export const symptomsStructure: Structure<Symptom[], typeof toolStructure> = {
         onset: {
           onset_datetime: symptom.onset_datetime,
         },
+        category: "problem_list_item",
       };
       return symptomData;
     });
+    const symptoms = (await Promise.all(d)).filter((s) => !!s) as Symptom[];
+    // remove any duplicates in currentData
+    const newCodes = new Set(symptoms?.map((s) => s.code.code));
+    const merged = [
+      ...(currentData?.filter((s) => !newCodes.has(s.code.code)) || []),
+      ...symptoms,
+    ];
+
     return {
-      data: (await Promise.all(d)).filter((s) => !!s) as Symptom[],
+      data: merged,
       errors,
     };
   },
