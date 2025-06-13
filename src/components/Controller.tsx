@@ -32,7 +32,6 @@ import animationData from "../assets/animation.json";
 import uploadFile from "@/utils/uploadFile";
 import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
 import { useTimer } from "@/hooks/useTimer";
-import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { usePath } from "raviger";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
@@ -65,6 +64,7 @@ import { useScribeFiles } from "@/hooks/useScribeFiles";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import structures, { arbitraryStructures } from "@/utils/structures";
 import { z } from "zod";
+import { toast } from "sonner";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const info = {
@@ -153,8 +153,6 @@ export function Controller(props: {
     audioBlobs,
     setAudioBlobs,
   } = useSegmentedRecording();
-
-  const { toast } = useToast();
 
   const { audioFiles, files: imageFiles } = useScribeFiles(scribe);
 
@@ -261,10 +259,7 @@ export function Controller(props: {
               );
               deserializedValue = deserialized.data;
               deserialized.errors?.forEach((error) => {
-                toast({
-                  title: error,
-                  variant: "destructive",
-                });
+                toast.error(error);
               });
             }
 
@@ -508,7 +503,7 @@ export function Controller(props: {
       timer.start();
       setStatus("RECORDING");
     } catch {
-      toast({ title: t("audio__permission_message") });
+      toast.error(t("audio__permission_message"));
       setStatus("IDLE");
     }
   };
@@ -810,10 +805,7 @@ export function Controller(props: {
           toReview={toReview}
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);
-            if (approved)
-              toast({
-                title: t("autofilled_fields"),
-              });
+            if (approved) toast.success(t("autofilled_fields"));
             setToReview(undefined);
             setStatus("IDLE");
             setFiles([]);

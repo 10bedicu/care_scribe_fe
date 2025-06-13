@@ -90,10 +90,10 @@ export const medicationStatementStructure: Structure<
       (s) => !!s,
     ) as MedicationStatement[];
     // remove any duplicates in currentData
-    const newCodes = new Set(statements?.map((s) => s.medication.code));
+    const currentCodes = new Set(currentData?.map((s) => s.medication.code));
     const merged = [
-      ...(currentData?.filter((s) => !newCodes.has(s.medication.code)) || []),
-      ...statements,
+      ...(currentData || []),
+      ...statements.filter((s) => !currentCodes.has(s.medication.code)),
     ];
     return {
       data: merged,

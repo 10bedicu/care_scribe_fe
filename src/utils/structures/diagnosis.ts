@@ -83,11 +83,11 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
       const diagnosis = (await Promise.all(d)).filter(
         (s) => !!s,
       ) as Diagnosis[];
-      // remove any duplicates in currentData
-      const newCodes = new Set(diagnosis?.map((s) => s.code.code));
+      // remove any duplicates
+      const currentCodes = new Set(currentData?.map((s) => s.code.code));
       const merged = [
-        ...(currentData?.filter((s) => !newCodes.has(s.code.code)) || []),
-        ...diagnosis,
+        ...(currentData || []),
+        ...diagnosis.filter((s) => !currentCodes.has(s.code.code)),
       ];
       return {
         data: merged,
