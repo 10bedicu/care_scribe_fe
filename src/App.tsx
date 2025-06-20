@@ -43,7 +43,7 @@ export default function App(props: {
 
   return (
     <div className="scribe-container" ref={container}>
-      <Toaster position="top-right" richColors expand />
+      <Toaster position="top-right" richColors expand theme="light" />
       {SCRIBE_ENABLED && <Controller {...props} />}
     </div>
   );

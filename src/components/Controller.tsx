@@ -806,6 +806,7 @@ export function Controller(props: {
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);
             if (approved) toast.success(t("autofilled_fields"));
+            setBeforeReviewFormState(null);
             setToReview(undefined);
             setStatus("IDLE");
             setFiles([]);
