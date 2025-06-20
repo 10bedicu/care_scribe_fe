@@ -76,13 +76,12 @@ export const medicationStatementStructure: Structure<
         information_source: medicationStatement.information_source,
         note: medicationStatement.note,
         reason: medicationStatement.reason,
-        effective_period:
-          medicationStatement.take_from && medicationStatement.take_until
-            ? {
-                start: medicationStatement.take_from,
-                end: medicationStatement.take_until,
-              }
-            : undefined,
+        effective_period: medicationStatement.take_from
+          ? {
+              start: medicationStatement.take_from,
+              end: medicationStatement.take_until || new Date().toISOString(),
+            }
+          : undefined,
       };
       return medStatement;
     });
