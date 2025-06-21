@@ -250,7 +250,7 @@ export function Controller(props: {
             const structure = f.structuredType
               ? structures[f.structuredType as keyof typeof structures]
               : null;
-            let deserializedValue: any = v;
+            let deserializedValue = v;
 
             if (structure) {
               const deserialized = await structure.deserialize(
@@ -295,16 +295,18 @@ export function Controller(props: {
     scribeInstanceId: string,
     fields?: ScribeQuestionnaire[],
   ) => {
-    let hfields: any = undefined;
+    let hfields: ScribeModel["form_data"] | undefined = undefined;
     if (fields) {
-      hfields = await getHydratedFields(fields);
+      hfields = (await getHydratedFields(
+        fields,
+      )) as unknown as ScribeModel["form_data"];
     }
     try {
       await API.scribe.update(scribeInstanceId, {
         status: "READY",
         requested_in_facility_id: facilityId || "",
         requested_in_encounter_id: encounterId || "",
-        form_data: hfields,
+        form_data: hfields || undefined,
       });
       const transcript = (await poller(
         scribeInstanceId,
@@ -378,7 +380,7 @@ export function Controller(props: {
     const hfields = await getHydratedFields(questionnaires);
     const data = await API.scribe.create({
       status: "CREATED",
-      form_data: hfields as any,
+      form_data: hfields as unknown as ScribeModel["form_data"],
       requested_in_facility_id: facilityId || "",
       requested_in_encounter_id: encounterId || "",
       // prompt: "..."
