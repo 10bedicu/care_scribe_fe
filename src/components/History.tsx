@@ -62,7 +62,7 @@ export default function HistorySheet(props: {
   };
 
   // Handle card click
-  const handleCardClick = (scribe: any) => {
+  const handleCardClick = (scribe: ScribeModel) => {
     setSelectedScribe(scribe);
   };
 

@@ -57,9 +57,9 @@ export type ScribeModel = {
       description: string;
       example: string;
       id: string;
-      options?: any[];
+      options?: (string | number)[];
       type: string;
-      current: any;
+      current: unknown;
     }[];
   }[];
   requested_in_facility: {
