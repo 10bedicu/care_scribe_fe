@@ -32,8 +32,8 @@ const getQuestions = (questions: any[], formState: any): ScribeField[] => {
       return [
         {
           question,
-          fieldElement: document.querySelector(
-            `[data-question-id="${question.id}"]`,
+          fieldElement: document.getElementById(
+            "question-" + question.id,
           ) as Element,
           value:
             formState
@@ -133,7 +133,7 @@ export const updateFieldValue = (
   const note = useNewValue ? field.newNote : field.note;
   const element = field.fieldElement as HTMLElement;
 
-  const qId = element.getAttribute("data-question-id");
+  const qId = element.id.replace("question-", "");
 
   // just incase scribe does not include previous data
   if (qId === "encounter") {
