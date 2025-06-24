@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
 import { MEDICATION_STATEMENT_STATUS } from "../constants";
+import dedent from "dedent-js";
 
 export const INFORMATION_SOURCE = [
   "patient",
@@ -103,15 +104,16 @@ export const medicationStatementStructure: Structure<
     return data
       .map(
         (medicationStatement, i) =>
-          `
+          dedent`
         ### Medication Statement ${i + 1}: 
-        Medication: ${medicationStatement.medication}
-        Status: ${medicationStatement.status}
-        Dosage Instructions: ${medicationStatement.dosage_text || "N/A"}
-        Information Source: ${medicationStatement.information_source || "N/A"}
-        ${medicationStatement.note ? `Note: ${medicationStatement.note}` : ""}
-        ${medicationStatement.reason ? `Reason: ${medicationStatement.reason}` : ""}
-        Effective Period: ${medicationStatement.effective_period ? `${medicationStatement.effective_period.start} to ${medicationStatement.effective_period.end}` : "N/A"}`,
+        - Medication: ${medicationStatement.medication.display}
+        - Status: ${medicationStatement.status}
+        - Dosage Instructions: ${medicationStatement.dosage_text || "N/A"}
+        - Information Source: ${medicationStatement.information_source || "N/A"}
+        - Effective Period: ${medicationStatement.effective_period ? `${medicationStatement.effective_period.start} to ${medicationStatement.effective_period.end}` : "N/A"}
+        ${medicationStatement.note ? `- Note: ${medicationStatement.note}` : ""}
+        ${medicationStatement.reason ? `- Reason: ${medicationStatement.reason}` : ""}
+      `,
       )
       .join("\n");
   },

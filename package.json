@@ -42,6 +42,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
+    "dedent-js": "^1.0.1",
     "jotai": "^2.12.3",
     "lint-staged": "^15.5.1",
     "lottie-react": "^2.4.1",

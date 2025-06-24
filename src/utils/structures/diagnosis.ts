@@ -2,6 +2,7 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
+import dedent from "dedent-js";
 
 const CLINICAL_STATUS = [
   "active",
@@ -98,15 +99,15 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
       return data
         .map(
           (diagnosis, i) =>
-            `
+            dedent`
         ### Diagnosis ${i + 1}: 
-        Diagnosis: ${diagnosis.code.display}
-        Clinical Status: ${diagnosis.clinical_status}, 
-        Verification Status: ${diagnosis.verification_status}, 
-        Onset: ${diagnosis.onset.onset_datetime}
-        ${diagnosis.recorded_date ? `Recorded Date: ${diagnosis.recorded_date}` : ""}
-        ${diagnosis.note ? `Note: ${diagnosis.note}` : ""}
-        Category: ${diagnosis.category}
+        - Diagnosis: ${diagnosis.code.display}
+        - Clinical Status: ${diagnosis.clinical_status}, 
+        - Verification Status: ${diagnosis.verification_status}, 
+        - Onset: ${diagnosis.onset.onset_datetime}
+        - Category: ${diagnosis.category}
+        ${diagnosis.recorded_date ? `- Recorded Date: ${diagnosis.recorded_date}` : ""}
+        ${diagnosis.note ? `- Note: ${diagnosis.note}` : ""}
         `,
         )
         .join("\n");

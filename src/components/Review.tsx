@@ -9,6 +9,7 @@ import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useTranslation } from "react-i18next";
 import { useAtom } from "jotai/react";
 import { controllerPositionAtom } from "@/store";
+import STRUCTURES from "@/utils/structures";
 
 export default function ScribeReview(props: {
   setFormState: unknown;
@@ -22,6 +23,7 @@ export default function ScribeReview(props: {
     ScribeFieldReviewedSuggestion[]
   >([]);
   const [controllerPosition] = useAtom(controllerPositionAtom);
+  const [accepting, setAccepting] = useState(false);
 
   const { t } = useTranslation(I18NNAMESPACE);
 
@@ -84,6 +86,7 @@ export default function ScribeReview(props: {
   };
 
   const handleAcceptAll = async () => {
+    setAccepting(true);
     const accepted = toReview.map((field, idx) => ({
       ...field,
       approved: true,
@@ -95,6 +98,7 @@ export default function ScribeReview(props: {
     }
     setAcceptedSuggestions(accepted);
     handleReviewComplete(accepted);
+    setAccepting(false);
   };
 
   useEffect(() => {
@@ -121,31 +125,57 @@ export default function ScribeReview(props: {
             {toReview.map((field, index) => (
               <div
                 key={index}
-                className="flex flex-col items-start rounded-lg bg-black/20 px-4 py-2"
+                className="flex flex-col items-start overflow-hidden rounded-lg bg-black/20"
               >
-                <div className="text-xs text-neutral-400">
-                  {field.question.text}
+                <div className="p-2">
+                  <div className="text-xs text-neutral-400">
+                    {field.question.text}
+                  </div>
+                  <div
+                    className="font-bold whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: renderFieldValue(
+                        {
+                          ...field,
+                          structure: field.question.structured_type
+                            ? STRUCTURES[field.question.structured_type]
+                            : undefined,
+                        },
+                        true,
+                      ),
+                    }}
+                  />
                 </div>
-                <div className="font-bold">{renderFieldValue(field, true)}</div>
+                {field.newNote && (
+                  <div className="w-full bg-yellow-300/10 p-2 text-xs text-yellow-400">
+                    {field.newNote}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
         <div className="flex flex-col gap-2 md:flex-row">
-          <button
-            onClick={handleAcceptAll}
-            className="bg-primary-500 hover:bg-primary-600 flex w-full cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all md:w-auto"
-          >
-            <KeyboardShortcutKey shortcut={["E"]} />
-            {t("accept_all")}
-          </button>
-          <button
-            onClick={() => handleForward()}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-neutral-100 md:w-auto"
-          >
-            <KeyboardShortcutKey shortcut={["A"]} />
-            {t("start_review")}
-          </button>
+          {!accepting ? (
+            <>
+              <button
+                onClick={handleAcceptAll}
+                className="bg-primary-500 hover:bg-primary-600 flex w-full cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all md:w-auto"
+              >
+                <KeyboardShortcutKey shortcut={["E"]} />
+                {t("accept_all")}
+              </button>
+              <button
+                onClick={() => handleForward()}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-neutral-100 md:w-auto"
+              >
+                <KeyboardShortcutKey shortcut={["A"]} />
+                {t("start_review")}
+              </button>
+            </>
+          ) : (
+            <div>{t("making_changes")}...</div>
+          )}
         </div>
       </div>
     );

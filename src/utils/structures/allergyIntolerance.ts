@@ -2,6 +2,7 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
+import dedent from "dedent-js";
 
 const CLINICAL_STATUS = ["active", "inactive", "resolved"] as const;
 
@@ -89,15 +90,15 @@ export const allergyIntoleranceStructure: Structure<
     return data
       .map(
         (allergyIntolerance, i) =>
-          `
+          dedent`
         ### Allergy Intolerance ${i + 1}: 
-        Name: ${allergyIntolerance.code.display}
-        Clinical Status: ${allergyIntolerance.clinical_status}, 
-        Category: ${allergyIntolerance.category},
-        Criticality: ${allergyIntolerance.criticality},
-        Verification Status: ${allergyIntolerance.verification_status},
-        Last Occurrence: ${allergyIntolerance.last_occurrence || "N/A"},
-        ${allergyIntolerance.note ? `Note: ${allergyIntolerance.note}` : ""}
+        - Name: ${allergyIntolerance.code.display}
+        - Clinical Status: ${allergyIntolerance.clinical_status}, 
+        - Category: ${allergyIntolerance.category},
+        - Criticality: ${allergyIntolerance.criticality},
+        - Verification Status: ${allergyIntolerance.verification_status},
+        - Last Occurrence: ${allergyIntolerance.last_occurrence || "N/A"},
+        ${allergyIntolerance.note ? `- Note: ${allergyIntolerance.note}` : ""}
         `,
       )
       .join("\n");

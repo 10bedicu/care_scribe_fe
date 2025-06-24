@@ -1,6 +1,7 @@
 import { ENCOUNTER_PRIORITY } from "../constants";
 import { Structure } from ".";
 import { z } from "zod";
+import dedent from "dedent-js";
 
 const ENCOUNTER_STATUS = [
   "planned",
@@ -132,7 +133,7 @@ export const encounterStructure: Structure<Encounter, typeof toolStructure> = {
     };
   },
   toPrompt: (data) => {
-    return `
+    return dedent`
     Encounter Status: ${data.status}
     Encounter Class: ${data.encounter_class}
     Encounter Priority: ${data.priority}
@@ -142,10 +143,10 @@ export const encounterStructure: Structure<Encounter, typeof toolStructure> = {
       data.hospitalization
         ? `      
         Hospitalization Details:
-        Re-admission: ${data.hospitalization.re_admission ? "Yes" : "No"}
-        Admit Source: ${data.hospitalization.admit_source}
-        Diet Preference: ${data.hospitalization.diet_preference || ""}
-        Discharge Disposition: ${data.hospitalization.discharge_disposition || ""}`
+        - Re-admission: ${data.hospitalization.re_admission ? "Yes" : "No"}
+        - Admit Source: ${data.hospitalization.admit_source}
+        - Diet Preference: ${data.hospitalization.diet_preference || ""}
+        - Discharge Disposition: ${data.hospitalization.discharge_disposition || ""}`
         : ""
     }
     `;
