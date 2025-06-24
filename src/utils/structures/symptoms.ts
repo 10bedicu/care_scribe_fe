@@ -2,6 +2,7 @@ import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
 import { getCodeFromQuery, isoDateTime } from "../utils";
+import dedent from "dedent-js";
 
 const CLINICAL_STATUS = [
   "active",
@@ -90,13 +91,13 @@ export const symptomsStructure: Structure<Symptom[], typeof toolStructure> = {
     return data
       .map(
         (symptom, i) =>
-          `
+          dedent`
         ### Symptom ${i + 1}: 
-        Symptom: ${symptom.code.display}
-        Clinical Status: ${symptom.clinical_status}, 
-        Verification Status: ${symptom.verification_status}, 
-        Severity: ${symptom.severity}, 
-        Onset: ${symptom.onset.onset_datetime}`,
+        - Symptom: ${symptom.code.display}
+        - Clinical Status: ${symptom.clinical_status}, 
+        - Verification Status: ${symptom.verification_status}, 
+        - Severity: ${symptom.severity}, 
+        - Onset: ${symptom.onset.onset_datetime}`,
       )
       .join("\n");
   },

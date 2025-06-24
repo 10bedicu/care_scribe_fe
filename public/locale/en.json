@@ -76,5 +76,6 @@
   "tool_call": "Tool Call",
   "chunks" : "Chunks",
   "chunk_number" : "Chunk {{number}}",
-  "chunk_output": "Chunk Output"
+  "chunk_output": "Chunk Output",
+  "making_changes" : "Making Changes"
 }

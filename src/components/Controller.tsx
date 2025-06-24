@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ScribeAIResponse,
   ScribeFieldSuggestion,
   ScribeFileType,
   ScribeModel,
@@ -60,7 +61,6 @@ import {
 import { twMerge } from "tailwind-merge";
 import HistorySheet from "./History";
 import { useQueryClient } from "@tanstack/react-query";
-import { useScribeFiles } from "@/hooks/useScribeFiles";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import structures, { arbitraryStructures } from "@/utils/structures";
 import { z } from "zod";
@@ -154,19 +154,17 @@ export function Controller(props: {
     setAudioBlobs,
   } = useSegmentedRecording();
 
-  const { audioFiles, files: imageFiles } = useScribeFiles(scribe);
-
   useEffect(() => {
     // Fetch the audio files from the scribe instance.
     // Helpful when loading a previous scribe instance.
     if (audioBlobs.length) return;
-    audioFiles?.map(async (af) => {
+    scribe?.audio?.map(async (af) => {
       const audioData = await fetch(af?.read_signed_url);
       const audioBlob = await audioData.blob();
       setAudioBlobs((prev) => [...prev, audioBlob]);
     });
     if (files.length) return;
-    imageFiles?.map(async (ifile) => {
+    scribe?.documents?.map(async (ifile) => {
       const imageData = await fetch(ifile?.read_signed_url);
       const imageBlob = await imageData.blob();
       const imageFile = new File([imageBlob], ifile?.name, {
@@ -174,7 +172,7 @@ export function Controller(props: {
       });
       setFiles((prev) => [...prev, imageFile]);
     });
-  }, [audioFiles, imageFiles]);
+  }, [scribe]);
 
   // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
   const poller = async (
@@ -241,7 +239,7 @@ export function Controller(props: {
       }
       // run type validations
       const changedData = (
-        await Promise.all(
+        (await Promise.all(
           Object.entries(aiResponse).map(async ([k, v]) => {
             const f = hfields.find((f) => f.id === k);
             const ogF = fields.find((_, i) => i === Number(f?.id));
@@ -251,6 +249,7 @@ export function Controller(props: {
               ? structures[f.structuredType as keyof typeof structures]
               : null;
             let deserializedValue = v;
+            let note: string | undefined;
 
             if (structure) {
               const deserialized = await structure.deserialize(
@@ -261,6 +260,9 @@ export function Controller(props: {
               deserialized.errors?.forEach((error) => {
                 toast.error(error);
               });
+            } else {
+              deserializedValue = (v as any).value;
+              note = (v as any).note;
             }
 
             if (JSON.stringify(deserializedValue) === JSON.stringify(f.current))
@@ -276,14 +278,20 @@ export function Controller(props: {
                 return [k, null];
               }
             }
-            return [k, deserializedValue];
+            return [
+              k,
+              {
+                value: deserializedValue,
+                note,
+              },
+            ];
           }),
-        )
+        )) as Array<[string, { value: any; note?: string } | null]>
       )
-        .filter(([, v]) => !!v)
+        .filter(([, output]) => !!output?.value)
         .map(([k, v]) => ({ [k as string]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
-      return changedData;
+      return changedData as ScribeAIResponse;
     } catch (e) {
       console.error(e);
       setStatus("FAILED");
@@ -453,6 +461,13 @@ export function Controller(props: {
             }
           }
 
+          if (!structuredType) {
+            structure = z.object({
+              value: structure,
+              note: z.string().optional(),
+            }) as any;
+          }
+
           return {
             friendlyName: field.question.text || "Unlabled Field",
             current: field.value,
@@ -472,8 +487,10 @@ export function Controller(props: {
   const handleUpdateTranscript = async (updatedTranscript: string) => {
     if (updatedTranscript === lastTranscript && !files.length) return;
     if (!instanceId) throw Error("Cannot find scribe instance");
-    if (beforeReviewFormState)
+    if (beforeReviewFormState) {
       (props.setFormState as any)?.(beforeReviewFormState);
+      sleep(150);
+    }
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
     try {
@@ -768,7 +785,9 @@ export function Controller(props: {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {(status === "REVIEWING" || status === "ATTACHING") && (
+          {(status === "REVIEWING" ||
+            status === "ATTACHING" ||
+            status === "RECORDING") && (
             <button
               onClick={handleCancel}
               className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300"

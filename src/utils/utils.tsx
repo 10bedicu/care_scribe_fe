@@ -9,6 +9,7 @@ import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { API } from "./api";
 import { z } from "zod";
+import STRUCTURES from "./structures";
 
 export const getQuestionInputs: (formState: any) => ScribeQuestionnaire[] = (
   formState: any,
@@ -33,7 +34,7 @@ const getQuestions = (questions: any[], formState: any): ScribeField[] => {
           question,
           fieldElement: document.querySelector(
             `[data-question-id="${question.id}"]`,
-          ),
+          ) as Element,
           value:
             formState
               .find((qn: any) =>
@@ -44,6 +45,15 @@ const getQuestions = (questions: any[], formState: any): ScribeField[] => {
               ?.responses.find(
                 (response: any) => response.question_id === question.id,
               )?.values?.[0]?.value || null,
+          note: formState
+            .find((qn: any) =>
+              qn.responses.some(
+                (response: any) => response.question_id === question.id,
+              ),
+            )
+            ?.responses.find(
+              (response: any) => response.question_id === question.id,
+            )?.note,
         },
       ];
     })
@@ -61,7 +71,11 @@ export const getFieldsToReview = (
         id: constructFieldId([qn.title, field.question.text]),
       })),
     )
-    .map((f) => ({ ...f, newValue: aiResponse[f.id] }))
+    .map((f) => ({
+      ...f,
+      newValue: aiResponse[f.id]?.value,
+      newNote: aiResponse[f.id]?.note,
+    }))
     .filter((f) => f.newValue);
 };
 
@@ -71,53 +85,35 @@ export const renderCamelCase = (str: string) => {
 };
 
 export const renderFieldValue = (
-  field: {
-    value: ScribeField["value"];
-    newValue?: ScribeFieldSuggestion["newValue"];
+  values: {
+    value: unknown;
+    newValue?: unknown;
+    structure?: (typeof STRUCTURES)[keyof typeof STRUCTURES];
   },
   useNewValue?: boolean,
 ) => {
-  const val = useNewValue ? field.newValue : field.value;
-  if (Array.isArray(val)) {
-    return (
-      <ul className="list-disc pl-5">
-        {val.map((item, index) => (
-          <li key={index}>
-            {typeof item === "object" && item !== null ? (
-              <ul className="list-disc pl-5">
-                {Object.entries(item).map(([key, value]) => (
-                  <li key={key}>
-                    <span className="font-semibold">
-                      {renderCamelCase(key)}:
-                    </span>{" "}
-                    {typeof value === "string" || typeof value === "number"
-                      ? String(value)
-                      : "..."}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              String(item)
-            )}
-          </li>
-        ))}
-      </ul>
-    );
-  } else if (typeof val === "object" && val !== null) {
-    return (
-      <ul className="list-disc pl-5">
-        {Object.entries(val).map(([key, value]) => (
-          <li key={key}>
-            <span className="font-semibold">{renderCamelCase(key)}:</span>{" "}
-            {typeof value === "string" || typeof value === "number"
-              ? String(value)
-              : "..."}
-          </li>
-        ))}
-      </ul>
-    );
+  const val = useNewValue ? values.newValue : values.value;
+
+  let humanValue = val;
+  if (values.structure) {
+    humanValue = values.structure.toPrompt(val as any);
+  } else {
+    // convert from snake case to human readable text
+    humanValue =
+      (typeof val === "string"
+        ? renderCamelCase(val)
+        : Array.isArray(val)
+          ? val.map(renderCamelCase).join(", ")
+          : JSON.stringify(val)
+      )?.toLocaleLowerCase() || "";
   }
-  return <span>{String(val)}</span>;
+
+  // replace all lines that start with ### to bold text
+  if (typeof humanValue === "string") {
+    humanValue = humanValue.replace(/### (.*)/g, "<strong>$1</strong>");
+  }
+
+  return String(humanValue);
 };
 
 export const sleep = async (seconds: number) => {
@@ -134,6 +130,7 @@ export const updateFieldValue = (
   setFormState?: any,
 ) => {
   let val = (useNewValue ? field.newValue : field.value) as any;
+  const note = useNewValue ? field.newNote : field.note;
   const element = field.fieldElement as HTMLElement;
 
   const qId = element.getAttribute("data-question-id");
@@ -177,6 +174,7 @@ export const updateFieldValue = (
                       value: v,
                     }))
                   : [],
+              note,
             }
           : response,
       ),

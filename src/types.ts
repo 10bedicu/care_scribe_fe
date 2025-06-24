@@ -1,3 +1,5 @@
+import STRUCTURES from "./utils/structures";
+
 export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED";
 
 export type UserBareMinimum = {
@@ -59,6 +61,7 @@ export type ScribeModel = {
       id: string;
       options?: (string | number)[];
       type: string;
+      structuredType?: keyof typeof STRUCTURES;
       current: unknown;
     }[];
   }[];
@@ -101,8 +104,8 @@ export type ScribeModel = {
   };
   created_date: string;
   modified_date: string;
-  audio_file_ids: string[];
-  document_file_ids: string[];
+  audio: ScribeFileModel[];
+  documents: ScribeFileModel[];
 };
 
 export type ScribeCreateRequest = {
@@ -145,17 +148,24 @@ export type ScribeField = {
   question: FormQuestion;
   fieldElement: Element;
   value: unknown | null;
+  note?: string;
 };
 
 export type ScribeAIResponse = {
-  [field_id: string]: unknown;
+  [field_id: string]: {
+    value: unknown;
+    note?: string;
+  };
 };
 
 export type ScribePromptMap = {
   [key in QuestionType | "default"]?: { prompt: string; example: unknown };
 };
 
-export type ScribeFieldSuggestion = ScribeField & { newValue: unknown };
+export type ScribeFieldSuggestion = ScribeField & {
+  newValue: unknown;
+  newNote?: string;
+};
 
 export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & {
   suggestionIndex: number;
@@ -250,7 +260,7 @@ export type QuestionType =
 
 export interface FormQuestion {
   id: string;
-  structured_type?: string;
+  structured_type?: keyof typeof STRUCTURES;
   answer_option?: { value: string }[];
   text: string;
   required?: boolean;

@@ -9,6 +9,7 @@ import {
   MEDICATION_REQUEST_STATUS,
   MEDICATION_REQUEST_TIMING_OPTIONS,
 } from "../constants";
+import dedent from "dedent-js";
 
 const CATEGORY = ["inpatient", "outpatient", "community", "discharge"] as const;
 const PRIORITY = ["stat", "urgent", "asap", "routine"] as const;
@@ -374,36 +375,36 @@ export const medicationRequestStructure: Structure<
     return data
       .map(
         (medicationRequest, i) =>
-          `
+          dedent`
         ### Medication Request ${i + 1}: 
-        Medication: ${medicationRequest.medication}
-        Status: ${medicationRequest.status || "active"}
-        Intent: ${medicationRequest.intent || "unknown"}
-        Category: ${medicationRequest.category || "inpatient"}
-        Priority: ${medicationRequest.priority || "stat"}
-        Authored On: ${medicationRequest.authored_on}
-        Dosage Instructions: ${medicationRequest.dosage_instruction.map(
+        - Medication: ${medicationRequest.medication}
+        - Status: ${medicationRequest.status || "active"}
+        - Intent: ${medicationRequest.intent || "unknown"}
+        - Category: ${medicationRequest.category || "inpatient"}
+        - Priority: ${medicationRequest.priority || "stat"}
+        - Authored On: ${medicationRequest.authored_on}
+        - Dosage Instructions: ${medicationRequest.dosage_instruction.map(
           (instruction) => {
             return `
-          Additional Instruction: ${
+          -> Additional Instruction: ${
             instruction.additional_instruction
               ?.map((inst) => inst.display)
               .join(", ") || "N/A"
           }
-            Timing: ${instruction.timing ? `Frequency: ${instruction.timing.repeat.frequency}, Period: ${instruction.timing.repeat.period} ${instruction.timing.repeat.period_unit}, Bounds Duration: ${instruction.timing.repeat.bounds_duration.value} ${instruction.timing.repeat.bounds_duration.unit}` : "N/A"}
-            As Needed: ${instruction.as_needed_boolean ? "Yes" : "No"}
-            As Needed For: ${instruction.as_needed_for ? instruction.as_needed_for.display : "N/A"}
-            Site: ${instruction.site ? instruction.site.display : "N/A"}
-            Route: ${instruction.route ? instruction.route.display : "N/A"}
-            Method: ${instruction.method ? instruction.method.display : "N/A"}
-            Dose and Rate: ${
+            -> Timing: ${instruction.timing ? `Frequency: ${instruction.timing.repeat.frequency}, Period: ${instruction.timing.repeat.period} ${instruction.timing.repeat.period_unit}, Bounds Duration: ${instruction.timing.repeat.bounds_duration.value} ${instruction.timing.repeat.bounds_duration.unit}` : "N/A"}
+            -> As Needed: ${instruction.as_needed_boolean ? "Yes" : "No"}
+            -> As Needed For: ${instruction.as_needed_for ? instruction.as_needed_for.display : "N/A"}
+            -> Site: ${instruction.site ? instruction.site.display : "N/A"}
+            -> Route: ${instruction.route ? instruction.route.display : "N/A"}
+            -> Method: ${instruction.method ? instruction.method.display : "N/A"}
+            -> Dose and Rate: ${
               instruction.dose_and_rate
                 ? instruction.dose_and_rate.type === "ordered"
-                  ? `Ordered: ${instruction.dose_and_rate.dose_quantity?.value} ${instruction.dose_and_rate.dose_quantity?.unit.display}`
-                  : `Calculated: Low: ${instruction.dose_and_rate.dose_range?.low.value} ${instruction.dose_and_rate.dose_range?.low.unit.display}, High: ${instruction.dose_and_rate.dose_range?.high.value} ${instruction.dose_and_rate.dose_range?.high.unit.display}`
+                  ? `--> Ordered: ${instruction.dose_and_rate.dose_quantity?.value} ${instruction.dose_and_rate.dose_quantity?.unit.display}`
+                  : `--> Calculated: Low: ${instruction.dose_and_rate.dose_range?.low.value} ${instruction.dose_and_rate.dose_range?.low.unit.display}, High: ${instruction.dose_and_rate.dose_range?.high.value} ${instruction.dose_and_rate.dose_range?.high.unit.display}`
                 : "N/A"
             }
-            Max Dose Per Period: ${
+            -> Max Dose Per Period: ${
               instruction.max_dose_per_period
                 ? `Low: ${instruction.max_dose_per_period.low.value} ${instruction.max_dose_per_period.low.unit.display}, High: ${instruction.max_dose_per_period.high.value} ${instruction.max_dose_per_period.high.unit.display}`
                 : "N/A"
@@ -411,7 +412,7 @@ export const medicationRequestStructure: Structure<
             `;
           },
         )}
-        ${medicationRequest.note ? `Note: ${medicationRequest.note}` : ""}
+        ${medicationRequest.note ? `- Note: ${medicationRequest.note}` : ""}
         `,
       )
       .join("\n");

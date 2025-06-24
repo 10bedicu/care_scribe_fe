@@ -17,7 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useScribeFiles } from "@/hooks/useScribeFiles";
 import { enableStatisticsAtom } from "@/store";
 import { ScribeModel } from "@/types";
 import { API } from "@/utils/api";
@@ -57,8 +56,6 @@ export default function HistoryDetailsPage(props: {
   });
 
   const scribe = scribeQuery.data;
-
-  const { audioFiles, files } = useScribeFiles(scribe || null);
 
   const overviewDetails = [
     {
@@ -123,6 +120,7 @@ export default function HistoryDetailsPage(props: {
       icon: <GridIcon />,
       label: t("chunks"),
       value: scribe?.meta.iterations?.length || 0,
+      hidden: !statsEnabled,
     },
   ];
 
@@ -260,17 +258,19 @@ export default function HistoryDetailsPage(props: {
                 onUseScribe && "md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1",
               )}
             >
-              {overviewDetails.map((detail, index) => (
-                <div key={index} className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <div className="font-semibold text-slate-500">
-                      {detail.icon}
+              {overviewDetails
+                .filter((d) => !d.hidden)
+                .map((detail, index) => (
+                  <div key={index} className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-slate-500">
+                        {detail.icon}
+                      </div>
+                      <div className="text-sm">{detail.label}</div>
                     </div>
-                    <div className="text-sm">{detail.label}</div>
+                    <div className="mt-1">{detail.value}</div>
                   </div>
-                  <div className="mt-1">{detail.value}</div>
-                </div>
-              ))}
+                ))}
             </div>
             {onUseScribe && (
               <Button
@@ -312,21 +312,24 @@ export default function HistoryDetailsPage(props: {
                     <TableBody>
                       {Object.entries(parsedAiResponse)
                         .filter(([key]) => key !== "__scribe__transcription")
-                        .map(([key, value], index) => (
-                          <TableRow key={index}>
-                            {statsEnabled && <TableCell>{key}</TableCell>}
-                            <TableCell>
-                              {
-                                scribe?.form_data
-                                  .flatMap((f) => f.fields)
-                                  .find((f) => f.id === key)?.friendlyName
-                              }
-                            </TableCell>
-                            <TableCell className="max-w-[300px] break-words whitespace-pre-wrap">
-                              {renderFieldValue({ value } as { value: string })}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        .map(([key, value], index) => {
+                          const field = scribe?.form_data
+                            .flatMap((f) => f.fields)
+                            .find((f) => f.id === key);
+                          return (
+                            <TableRow key={index}>
+                              {statsEnabled && <TableCell>{key}</TableCell>}
+                              <TableCell>{field?.friendlyName}</TableCell>
+                              <TableCell className="max-w-[300px] break-words whitespace-pre-wrap">
+                                {field?.structuredType
+                                  ? JSON.stringify(value)
+                                  : renderFieldValue({
+                                      value: (value as { value: string }).value,
+                                    })}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                     </TableBody>
                   </Table>
                 )}
@@ -344,11 +347,11 @@ export default function HistoryDetailsPage(props: {
                 <pre className="mt-4 rounded-md bg-neutral-100 p-2 text-xs break-words whitespace-pre-wrap">
                   {scribe?.transcript}
                 </pre>
-                {!!scribe?.audio_file_ids.length && (
+                {!!scribe?.audio.length && (
                   <div>
                     <div className="mt-4 mb-2 font-semibold">{t("audio")}:</div>
                     <div className="flex flex-col gap-2">
-                      {audioFiles?.map((audio) => (
+                      {scribe.audio.map((audio) => (
                         <audio key={audio.id} controls>
                           <source
                             src={audio.read_signed_url}
@@ -366,12 +369,12 @@ export default function HistoryDetailsPage(props: {
                     </div>
                   </div>
                 )}
-                {!!scribe?.document_file_ids.length && (
+                {!!scribe?.documents.length && (
                   <div>
                     <div className="mt-4 mb-2 font-semibold">
                       {t("documents")}:
                     </div>
-                    {files?.map((file) => (
+                    {scribe.documents.map((file) => (
                       <a
                         key={file.id}
                         href={file.read_signed_url}
