@@ -108,7 +108,7 @@ export default function ScribeButton(props: {
         onMouseLeave={handleDragEnd}
         onClick={() => (!estimatedMovingPosition ? onClick() : undefined)}
         className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border border-neutral-300 bg-neutral-100 hover:bg-neutral-200"} ${estimatedMovingPosition ? "opacity-50" : ""} cursor-pointer transition-[background,top,right,left,bottom,opacity] disabled:bg-neutral-200`}
-        disabled={["TRANSCRIBING", "THINKING"].includes(status) || disabled}
+        disabled={disabled}
         style={{ touchAction: "none" }}
       >
         <div
