@@ -8,7 +8,7 @@ import { Toaster } from "./components/ui/sonner";
 
 export default function App(props: {
   formState: unknown;
-  setFormState: unknown;
+  setFormState: (formState: unknown) => void;
 }) {
   const path = usePath();
   const container = useRef<HTMLDivElement>(null);

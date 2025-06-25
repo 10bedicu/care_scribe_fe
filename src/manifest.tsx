@@ -14,7 +14,10 @@ interface Manifest {
   components: Record<
     string,
     React.LazyExoticComponent<
-      React.FC<{ formState: unknown; setFormState: unknown }>
+      React.FC<{
+        formState: unknown;
+        setFormState: (formState: unknown) => void;
+      }>
     >
   >;
   navItems?: NavigationLink[];

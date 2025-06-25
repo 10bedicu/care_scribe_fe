@@ -7,7 +7,7 @@ const queryClient = new QueryClient();
 
 export default function Providers(props: {
   formState: unknown;
-  setFormState: unknown;
+  setFormState: (formState: unknown) => void;
 }) {
   return (
     <QueryClientProvider client={queryClient}>
