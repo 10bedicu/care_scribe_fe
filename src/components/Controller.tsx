@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ScribeAIResponse,
   ScribeFieldSuggestion,
@@ -103,7 +103,7 @@ function MetaInformation(props: { meta: ScribeModel["meta"] }) {
 
 export function Controller(props: {
   formState: unknown;
-  setFormState: unknown;
+  setFormState: (formState: unknown) => void;
 }) {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
   const { t } = useTranslation(I18NNAMESPACE);
@@ -123,8 +123,9 @@ export function Controller(props: {
   const path = usePath();
   const [historySheetOpen, setHistorySheetOpen] = useState(false);
   const [containerRef] = useAtom(containerRefAtom);
-  const [beforeReviewFormState, setBeforeReviewFormState] =
-    useState<unknown>(null);
+  const isAbortedRef = useRef(false);
+  const [formStateSnapshot, setFormStateSnapshot] =
+    useState<typeof props.formState>(null);
   const queryClient = useQueryClient();
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
@@ -173,6 +174,12 @@ export function Controller(props: {
       setFiles((prev) => [...prev, imageFile]);
     });
   }, [scribe]);
+
+  useEffect(() => {
+    return () => {
+      isAbortedRef.current = true;
+    };
+  }, []);
 
   // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
   const poller = async (
@@ -488,8 +495,8 @@ export function Controller(props: {
   const handleUpdateTranscript = async (updatedTranscript: string) => {
     if (updatedTranscript === lastTranscript && !files.length) return;
     if (!instanceId) throw Error("Cannot find scribe instance");
-    if (beforeReviewFormState) {
-      (props.setFormState as any)?.(beforeReviewFormState);
+    if (formStateSnapshot) {
+      props.setFormState(formStateSnapshot);
       sleep(150);
     }
     setToReview(undefined);
@@ -510,11 +517,17 @@ export function Controller(props: {
     const aiResponse = await getAIResponse(instanceId, fields);
     if (!aiResponse) return;
     setStatus("REVIEWING");
-    setBeforeReviewFormState(props.formState);
+    setFormStateSnapshot(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleStartRecording = async () => {
+    isAbortedRef.current = true;
+    if (formStateSnapshot) {
+      props.setFormState(formStateSnapshot);
+      await sleep(150);
+    }
+
     setToReview(undefined);
     setScribe(null);
     resetRecording();
@@ -529,34 +542,48 @@ export function Controller(props: {
   };
 
   const handleStopRecording = async () => {
-    if (beforeReviewFormState) {
-      (props.setFormState as any)?.(beforeReviewFormState);
+    isAbortedRef.current = false;
+
+    if (formStateSnapshot) {
+      props.setFormState(formStateSnapshot);
       await sleep(150);
+      if (isAbortedRef.current) return;
     }
+
     setToReview(undefined);
     timer.stop();
     timer.reset();
     setStatus("UPLOADING");
     stopSegmentedRecording();
+
     const fields = getQuestionInputs(props.formState);
     const instanceId = scribe
       ? scribe.external_id
       : await createScribeInstance(fields);
+    if (isAbortedRef.current) return;
     setInstanceId(instanceId);
+
     setStatus("TRANSCRIBING");
     await getTranscript(instanceId, scribe ? fields : undefined);
+    if (isAbortedRef.current) return;
+
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
+    if (isAbortedRef.current) return;
+
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     if (!aiResponse) return;
+
     setStatus("REVIEWING");
-    setBeforeReviewFormState(props.formState);
+    setFormStateSnapshot(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleCancel = () => {
-    if (beforeReviewFormState)
-      (props.setFormState as any)?.(beforeReviewFormState);
+    isAbortedRef.current = true;
+
+    if (formStateSnapshot) props.setFormState(formStateSnapshot);
+    timer.reset();
     setStatus("IDLE");
     resetRecording();
     setToReview(undefined);
@@ -578,7 +605,7 @@ export function Controller(props: {
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     if (!aiResponse) return;
     setStatus("REVIEWING");
-    setBeforeReviewFormState(props.formState);
+    setFormStateSnapshot(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
@@ -828,7 +855,7 @@ export function Controller(props: {
           onReviewComplete={async (approvedFields) => {
             const approved = approvedFields.filter((a) => a.approved);
             if (approved) toast.success(t("autofilled_fields"));
-            setBeforeReviewFormState(null);
+            setFormStateSnapshot(null);
             setToReview(undefined);
             setStatus("IDLE");
             setFiles([]);
@@ -846,7 +873,7 @@ export function Controller(props: {
           setToReview(getFieldsToReview(airesponse, fields));
           setScribe(scribe);
           setStatus("REVIEWING");
-          setBeforeReviewFormState(props.formState);
+          setFormStateSnapshot(props.formState);
           setLastTranscript(scribe.transcript || "");
           setTranscript(scribe.transcript || "");
           setInstanceId(scribe.external_id);
