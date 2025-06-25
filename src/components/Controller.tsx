@@ -1,21 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ScribeAIResponse,
-  ScribeField,
   ScribeFieldSuggestion,
   ScribeFileType,
-  ScribeModel,
+  ScribeHydratedAndRawField,
   ScribeHydratedField,
   ScribeHydratedQuestionnaire,
+  ScribeModel,
   ScribeQuestionnaire,
   ScribeStatus,
 } from "../types";
 import {
-  constructFieldId,
   getFieldsToReview,
   getHydratedFields,
   getQuestionInputs,
-  sleep,
 } from "../utils/utils";
 import {
   ChevronUpIcon,
@@ -65,9 +63,7 @@ import {
 import { twMerge } from "tailwind-merge";
 import HistorySheet from "./History";
 import { useQueryClient } from "@tanstack/react-query";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import structures, { arbitraryStructures } from "@/utils/structures";
-import { z } from "zod";
+import structures from "@/utils/structures";
 import { toast } from "sonner";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
@@ -95,12 +91,14 @@ function MetaInformation(props: { meta: ScribeModel["meta"] }) {
 
   return (
     <table className="mt-4 w-full text-[10px]">
-      {Object.entries(info).map(([key, value]) => (
-        <tr key={key}>
-          <td>{key}</td>
-          <td>{value}</td>
-        </tr>
-      ))}
+      <tbody>
+        {Object.entries(info).map(([key, value]) => (
+          <tr key={key}>
+            <td>{key}</td>
+            <td>{value}</td>
+          </tr>
+        ))}
+      </tbody>
     </table>
   );
 }
@@ -175,14 +173,26 @@ export function Controller(props: {
   }, []);
 
   // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
-  const poller = async (
+  async function poller(
+    scribeInstanceId: string,
+    type: "transcript",
+  ): Promise<string>;
+  async function poller(
+    scribeInstanceId: string,
+    type: "ai_response",
+  ): Promise<ScribeModel["ai_response"]>;
+  async function poller(
     scribeInstanceId: string,
     type: "transcript" | "ai_response",
-  ) => {
+  ): Promise<string | ScribeModel["ai_response"]> {
     return new Promise((resolve, reject) => {
       const interval = setInterval(async () => {
         try {
           const res = await API.scribe.get(scribeInstanceId);
+          if (isAbortedRef.current) {
+            clearInterval(interval);
+            return resolve(null);
+          }
           setScribe(res);
           const { status, transcript, ai_response } = res;
           if (status === "FAILED" || status === "REFUSED") {
@@ -213,7 +223,7 @@ export function Controller(props: {
         }
       }, 2000);
     });
-  };
+  }
 
   // gets the AI response and returns only the data that has changes
   const getAIResponse = async (
@@ -221,21 +231,18 @@ export function Controller(props: {
     questionnaire: ScribeQuestionnaire[],
   ) => {
     try {
-      const fields = questionnaire.flatMap((q) => q.questions);
-      const hfields = await getHydratedFields(questionnaire);
+      const hfields = getHydratedFields(questionnaire, false);
       if (!hfields || !hfields.length) {
         return;
       }
-      const aiResponse = (await poller(
-        scribeInstanceId,
-        "ai_response",
-      )) as ScribeModel["ai_response"];
+      const aiResponse = await poller(scribeInstanceId, "ai_response");
       if (!aiResponse) {
         setStatus("FAILED");
         return;
       }
       const scribeTranscription = aiResponse?.__scribe__transcription;
       if (scribeTranscription && files.length !== 0) {
+        if (isAbortedRef.current) return;
         setTranscript(scribeTranscription);
       }
       // run type validations
@@ -243,7 +250,10 @@ export function Controller(props: {
         (await Promise.all(
           Object.entries(aiResponse).map(async ([k, v]) => {
             // Recursively find a field by id in nested hydrated fields
-            const findFieldById = (fieldsArr: any[], id: string): any => {
+            const findFieldById = (
+              fieldsArr: any[],
+              id: string,
+            ): ScribeHydratedAndRawField | undefined => {
               for (const field of fieldsArr) {
                 if ("id" in field && field.id === id) return field;
                 if ("fields" in field && Array.isArray(field.fields)) {
@@ -253,12 +263,11 @@ export function Controller(props: {
               }
               return undefined;
             };
-            const f = findFieldById(hfields, k);
-            const ogF = findFieldById(fields, f?.id);
-            if (!f) return [k, null];
+            const field = findFieldById(hfields, k);
+            if (!field) return [k, null];
 
-            const structure = f.structuredType
-              ? structures[f.structuredType as keyof typeof structures]
+            const structure = field.structuredType
+              ? structures[field.structuredType as keyof typeof structures]
               : null;
             let deserializedValue = v;
             let note: string | undefined;
@@ -266,7 +275,7 @@ export function Controller(props: {
             if (structure) {
               const deserialized = await structure.deserialize(
                 v as any,
-                f.current as any,
+                field.current as any,
               );
               deserializedValue = deserialized.data;
               deserialized.errors?.forEach((error) => {
@@ -277,14 +286,22 @@ export function Controller(props: {
               note = (v as any).note;
             }
 
-            if (JSON.stringify(deserializedValue) === JSON.stringify(f.current))
+            if (
+              JSON.stringify(deserializedValue) ===
+              JSON.stringify(field.current)
+            ) {
+              console.error(
+                "No changes detected for field",
+                k,
+                "with value",
+                deserializedValue,
+              );
               return [k, null];
+            }
 
             if (
-              ogF &&
-              "question" in ogF &&
-              ogF.question.structured_type &&
-              ogF.question.structured_type !== "encounter"
+              field.question.structured_type &&
+              field.question.structured_type !== "encounter"
             ) {
               const validation = structure?.toolStructure.safeParse(v);
               if (!validation?.success) {
@@ -305,7 +322,7 @@ export function Controller(props: {
         .filter(([, output]) => !!output?.value)
         .map(([k, v]) => ({ [k as string]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
-      console.log(changedData);
+
       return changedData as ScribeAIResponse;
     } catch (e) {
       console.error(e);
@@ -317,12 +334,12 @@ export function Controller(props: {
   const getTranscript = async (
     scribeInstanceId: string,
     fields?: ScribeQuestionnaire[],
-  ) => {
-    let hfields: ScribeModel["form_data"] | undefined = undefined;
+  ): Promise<string> => {
+    let hfields:
+      | ScribeHydratedQuestionnaire<ScribeHydratedField>[]
+      | undefined = undefined;
     if (fields) {
-      hfields = (await getHydratedFields(
-        fields,
-      )) as unknown as ScribeModel["form_data"];
+      hfields = getHydratedFields(fields, true);
     }
     try {
       await API.scribe.update(scribeInstanceId, {
@@ -332,15 +349,11 @@ export function Controller(props: {
         form_data: hfields || undefined,
         transcript: null,
       });
-      const transcript = (await poller(
-        scribeInstanceId,
-        "transcript",
-      )) as string;
-      setLastTranscript(transcript);
-      setTranscript(transcript);
+      const transcript = await poller(scribeInstanceId, "transcript");
       return transcript;
     } catch {
       setStatus("FAILED");
+      throw Error("Error getting transcript");
     }
   };
 
@@ -401,10 +414,10 @@ export function Controller(props: {
   const createScribeInstance = async (
     questionnaires: ScribeQuestionnaire[],
   ) => {
-    const hfields = await getHydratedFields(questionnaires);
+    const hfields = getHydratedFields(questionnaires, true);
     const data = await API.scribe.create({
       status: "CREATED",
-      form_data: hfields as unknown as ScribeModel["form_data"],
+      form_data: hfields,
       requested_in_facility_id: facilityId || "",
       requested_in_encounter_id: encounterId || "",
       // prompt: "..."
@@ -431,7 +444,6 @@ export function Controller(props: {
     if (!instanceId) throw Error("Cannot find scribe instance");
     if (formStateSnapshot) {
       props.setFormState(formStateSnapshot);
-      sleep(150);
     }
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
@@ -441,31 +453,22 @@ export function Controller(props: {
         transcript: updatedTranscript,
         requested_in_facility_id: facilityId || "",
         requested_in_encounter_id: encounterId || "",
-        //ai_response: null,
       });
     } catch {
       throw Error("Error updating Scribe Instance");
     }
     setStatus("THINKING");
-    const fields = getQuestionInputs(props.formState);
+    const fields = getQuestionInputs(formStateSnapshot);
     const aiResponse = await getAIResponse(instanceId, fields);
     if (!aiResponse) return;
     setStatus("REVIEWING");
-    setFormStateSnapshot(props.formState);
-    const fieldsToReview = await getFieldsToReview(aiResponse, fields);
-    setToReview(fieldsToReview);
+    setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleStartRecording = async () => {
+    handleCancel();
     isAbortedRef.current = true;
-    if (formStateSnapshot) {
-      props.setFormState(formStateSnapshot);
-      await sleep(150);
-    }
 
-    setToReview(undefined);
-    setScribe(null);
-    resetRecording();
     try {
       await startSegmentedRecording();
       timer.start();
@@ -478,13 +481,6 @@ export function Controller(props: {
 
   const handleStopRecording = async () => {
     isAbortedRef.current = false;
-
-    if (formStateSnapshot) {
-      props.setFormState(formStateSnapshot);
-      await sleep(150);
-      if (isAbortedRef.current) return;
-    }
-
     setToReview(undefined);
     timer.stop();
     timer.reset();
@@ -499,8 +495,13 @@ export function Controller(props: {
     setInstanceId(instanceId);
 
     setStatus("TRANSCRIBING");
-    await getTranscript(instanceId, scribe ? fields : undefined);
+    const transcript = await getTranscript(
+      instanceId,
+      scribe ? fields : undefined,
+    );
     if (isAbortedRef.current) return;
+    setLastTranscript(transcript);
+    setTranscript(transcript);
 
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
@@ -510,14 +511,16 @@ export function Controller(props: {
     if (!aiResponse) return;
 
     setStatus("REVIEWING");
-    setFormStateSnapshot(props.formState);
+    if (!formStateSnapshot) setFormStateSnapshot(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
-  const handleCancel = () => {
+  const handleCancel = (loadSnapshot: boolean = true) => {
     isAbortedRef.current = true;
-
-    if (formStateSnapshot) props.setFormState(formStateSnapshot);
+    if (formStateSnapshot && loadSnapshot) {
+      props.setFormState(formStateSnapshot);
+    }
+    setFormStateSnapshot(null);
     timer.reset();
     setStatus("IDLE");
     resetRecording();
@@ -534,13 +537,15 @@ export function Controller(props: {
     const instanceId = await createScribeInstance(fields);
     setInstanceId(instanceId);
     setStatus("TRANSCRIBING");
-    await getTranscript(instanceId);
+    const transcript = await getTranscript(instanceId);
+    setLastTranscript(transcript);
+    setTranscript(transcript);
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     if (!aiResponse) return;
     setStatus("REVIEWING");
-    setFormStateSnapshot(props.formState);
+    if (!formStateSnapshot) setFormStateSnapshot(props.formState);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
@@ -742,11 +747,15 @@ export function Controller(props: {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {(status === "REVIEWING" ||
-            status === "ATTACHING" ||
-            status === "RECORDING") && (
+          {[
+            "REVIEWING",
+            "ATTACHING",
+            "RECORDING",
+            "TRANSCRIBING",
+            "THINKING",
+          ].includes(status) && (
             <button
-              onClick={handleCancel}
+              onClick={() => handleCancel()}
               className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300"
               title={t("cancel")}
             >
@@ -782,12 +791,9 @@ export function Controller(props: {
           {...props}
           toReview={toReview}
           onReviewComplete={async (approvedFields) => {
-            const approved = approvedFields.filter((a) => a.approved);
-            if (approved) toast.success(t("autofilled_fields"));
-            setFormStateSnapshot(null);
-            setToReview(undefined);
-            setStatus("IDLE");
-            setFiles([]);
+            if (approvedFields.some((a) => a.approved))
+              toast.success(t("autofilled_fields"));
+            handleCancel(false);
           }}
         />
       )}
@@ -799,10 +805,10 @@ export function Controller(props: {
           const fields = getQuestionInputs(props.formState);
           const airesponse = await getAIResponse(scribe.external_id, fields);
           if (!airesponse) return;
+          setFormStateSnapshot(props.formState);
           setToReview(getFieldsToReview(airesponse, fields));
           setScribe(scribe);
           setStatus("REVIEWING");
-          setFormStateSnapshot(props.formState);
           setLastTranscript(scribe.transcript || "");
           setTranscript(scribe.transcript || "");
           setInstanceId(scribe.external_id);

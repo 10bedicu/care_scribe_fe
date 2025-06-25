@@ -1,4 +1,3 @@
-import { z } from "zod";
 import STRUCTURES from "./utils/structures";
 import { JsonSchema7AnyType } from "zod-to-json-schema";
 
@@ -170,11 +169,10 @@ export type ScribePromptMap = {
   [key in QuestionType | "default"]?: { prompt: string; example: unknown };
 };
 
-export type ScribeFieldSuggestion = ScribeHydratedField &
-  ScribeField & {
-    newValue: unknown;
-    newNote?: string;
-  };
+export type ScribeFieldSuggestion = ScribeHydratedAndRawField & {
+  newValue: unknown;
+  newNote?: string;
+};
 
 export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & {
   suggestionIndex: number;

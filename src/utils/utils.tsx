@@ -70,30 +70,33 @@ const getQuestions = (
       "question" in f ? !!f.fieldElement : f.questions.length > 0,
     );
 };
-export function getHydratedFields<
-  T extends ScribeHydratedAndRawField = ScribeHydratedAndRawField,
->(
+export function getHydratedFields(
   questionnaires: ScribeQuestionnaire[],
-  includeRawField?: true,
-): Promise<ScribeHydratedQuestionnaire<T>[] | null>;
-export function getHydratedFields<
-  T extends ScribeHydratedField = ScribeHydratedField,
->(
+  stripRawData?: true,
+): ScribeHydratedQuestionnaire<ScribeHydratedField>[];
+export function getHydratedFields(
   questionnaires: ScribeQuestionnaire[],
-  includeRawField?: false,
-): Promise<ScribeHydratedQuestionnaire<T>[] | null>;
-export async function getHydratedFields<
-  T extends ScribeHydratedField | ScribeHydratedAndRawField,
->(questionnaires: ScribeQuestionnaire[], includeRawField?: boolean) {
+  stripRawData?: false,
+): ScribeHydratedQuestionnaire<ScribeHydratedAndRawField>[];
+export function getHydratedFields(
+  questionnaires: ScribeQuestionnaire[],
+  stripRawData?: boolean,
+):
+  | ScribeHydratedQuestionnaire<ScribeHydratedField>[]
+  | ScribeHydratedQuestionnaire<ScribeHydratedAndRawField>[] {
   return questionnaires
     .map((questionnaire) => {
       const fields = questionnaire.questions;
       if (!fields || !fields.length) return null;
 
+      type ReturnField = typeof stripRawData extends true
+        ? ScribeHydratedField
+        : ScribeHydratedAndRawField;
+
       const constructHydratedField = (
         field: ScribeField | ScribeQuestionnaire,
         parentIds: string[] = [],
-      ): ScribeHydratedField | ScribeHydratedQuestionnaire<T> => {
+      ): ReturnField | ScribeHydratedQuestionnaire<ReturnField> => {
         if ("questions" in field) {
           // If the field is a questionnaire, recursively construct its fields
           const newParentIds = [...parentIds, field.title || "Untitled Group"];
@@ -165,8 +168,8 @@ export async function getHydratedFields<
           type: field.question.type,
           structuredType: field.question.structured_type || undefined,
           schema: structure ? zodToJsonSchema(structure) : undefined,
-          ...(includeRawField ? field : []),
-        };
+          ...(!stripRawData ? field : {}),
+        } as ReturnField;
       };
 
       const toReturn = {
@@ -183,16 +186,18 @@ export async function getHydratedFields<
     .filter((q) => q !== null);
 }
 
-export const getFieldsToReview = async (
+export const getFieldsToReview = (
   aiResponse: ScribeAIResponse,
   scrapedFields: ScribeQuestionnaire[],
-): Promise<ScribeFieldSuggestion[]> => {
-  const hydratedFields = await getHydratedFields(scrapedFields, true);
-  if (!hydratedFields) throw new Error("No fields to review");
+): ScribeFieldSuggestion[] => {
+  const hydratedFields = getHydratedFields(scrapedFields, false);
 
   const flattenFields = (
-    fields: (ScribeHydratedField | ScribeHydratedQuestionnaire)[],
-  ): (ScribeHydratedField & ScribeField)[] =>
+    fields: (
+      | ScribeHydratedAndRawField
+      | ScribeHydratedQuestionnaire<ScribeHydratedAndRawField>
+    )[],
+  ): ScribeHydratedAndRawField[] =>
     fields.flatMap((field) =>
       "id" in field ? [field] : flattenFields(field.fields),
     );
@@ -344,10 +349,6 @@ export async function getCodeFromQuery(query: string, type: ValueSetSystem) {
     display: validCode.display,
   };
 }
-
-export const isoDateTime = z
-  .string()
-  .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`);
 
 export const constructFieldId = (names: string[]) =>
   names

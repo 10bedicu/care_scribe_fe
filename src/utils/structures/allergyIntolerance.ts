@@ -1,7 +1,7 @@
 import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
-import { getCodeFromQuery, isoDateTime } from "../utils";
+import { getCodeFromQuery } from "../utils";
 import dedent from "dedent-js";
 
 const CLINICAL_STATUS = ["active", "inactive", "resolved"] as const;
@@ -35,7 +35,10 @@ const toolStructure = z.array(
     category: z.enum(CATEGORY).optional(),
     criticality: z.enum(CRITICALITY).optional(),
     verification_status: z.enum(VERIFICATION_STATUS).optional(),
-    last_occurrence: isoDateTime.optional().describe("ISO format"),
+    last_occurrence: z
+      .string()
+      .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`)
+      .optional(),
     note: z.string().optional(),
   }),
 );

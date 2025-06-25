@@ -1,7 +1,7 @@
 import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
-import { getCodeFromQuery, isoDateTime } from "../utils";
+import { getCodeFromQuery } from "../utils";
 import { MEDICATION_STATEMENT_STATUS } from "../constants";
 import dedent from "dedent-js";
 
@@ -19,8 +19,14 @@ const toolStructure = z.array(
     medication: z.string().describe("The medication that has been requested"),
     note: z.string().optional(),
     reason: z.string().optional(),
-    take_from: isoDateTime.optional(),
-    take_until: isoDateTime.optional(),
+    take_from: z
+      .string()
+      .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`)
+      .optional(),
+    take_until: z
+      .string()
+      .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`)
+      .optional(),
   }),
 );
 

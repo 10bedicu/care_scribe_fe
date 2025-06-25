@@ -1,7 +1,7 @@
 import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
-import { getCodeFromQuery, isoDateTime } from "../utils";
+import { getCodeFromQuery } from "../utils";
 import dedent from "dedent-js";
 
 const CLINICAL_STATUS = [
@@ -39,8 +39,13 @@ const toolStructure = z.array(
     clinical_status: z.enum(CLINICAL_STATUS),
     verification_status: z.enum(VERIFICATION_STATUS),
     severity: z.enum(SEVERITY),
-    onset_datetime: isoDateTime,
-    recorded_datetime: isoDateTime.optional(),
+    onset_datetime: z
+      .string()
+      .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`),
+    recorded_datetime: z
+      .string()
+      .describe(`ISO format, e.g. "2023-10-01T12:00:00Z"`)
+      .optional(),
     note: z.string().optional(),
   }),
 );
