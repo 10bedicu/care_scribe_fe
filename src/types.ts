@@ -76,7 +76,7 @@ export type ScribeModel = {
       name: string;
     };
   } | null;
-  transcript: string;
+  transcript: string | null;
   ai_response: {
     __scribe__transcription: string;
     [key: string]: unknown;
