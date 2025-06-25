@@ -1,4 +1,6 @@
+import { z } from "zod";
 import STRUCTURES from "./utils/structures";
+import { JsonSchema7AnyType } from "zod-to-json-schema";
 
 export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED";
 
@@ -47,24 +49,30 @@ export type UserModel = UserBareMinimum & {
   user_flags?: FeatureFlag[];
 };
 
+export type ScribeHydratedField = {
+  friendlyName: string;
+  humanValue: string;
+  description?: string;
+  id: string;
+  options?: (string | number)[];
+  type: string;
+  structuredType?: keyof typeof STRUCTURES;
+  current: unknown;
+  schema?: JsonSchema7AnyType;
+};
+
+export type ScribeHydratedAndRawField = ScribeHydratedField & ScribeField;
+
+export type ScribeHydratedQuestionnaire<T extends ScribeHydratedField> = {
+  title: string;
+  description: string;
+  fields: (T | ScribeHydratedQuestionnaire<T>)[];
+};
+
 export type ScribeModel = {
   external_id: string;
   requested_by: UserModel;
-  form_data: {
-    title: string;
-    description: string;
-    fields: {
-      friendlyName: string;
-      default: string;
-      description: string;
-      example: string;
-      id: string;
-      options?: (string | number)[];
-      type: string;
-      structuredType?: keyof typeof STRUCTURES;
-      current: unknown;
-    }[];
-  }[];
+  form_data: ScribeHydratedQuestionnaire<ScribeHydratedField>[];
   requested_in_facility: {
     id: FacilityModel["id"];
     name: FacilityModel["name"];
@@ -141,7 +149,7 @@ export type ScribeFieldOption = {
 export type ScribeQuestionnaire = {
   title: string;
   description: string;
-  questions: ScribeField[];
+  questions: (ScribeField | ScribeQuestionnaire)[];
 };
 
 export type ScribeField = {
@@ -162,10 +170,11 @@ export type ScribePromptMap = {
   [key in QuestionType | "default"]?: { prompt: string; example: unknown };
 };
 
-export type ScribeFieldSuggestion = ScribeField & {
-  newValue: unknown;
-  newNote?: string;
-};
+export type ScribeFieldSuggestion = ScribeHydratedField &
+  ScribeField & {
+    newValue: unknown;
+    newNote?: string;
+  };
 
 export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & {
   suggestionIndex: number;

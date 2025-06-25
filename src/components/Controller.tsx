@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ScribeAIResponse,
+  ScribeField,
   ScribeFieldSuggestion,
   ScribeFileType,
   ScribeModel,
+  ScribeHydratedField,
+  ScribeHydratedQuestionnaire,
   ScribeQuestionnaire,
   ScribeStatus,
 } from "../types";
 import {
   constructFieldId,
   getFieldsToReview,
+  getHydratedFields,
   getQuestionInputs,
   sleep,
 } from "../utils/utils";
@@ -136,17 +140,6 @@ export function Controller(props: {
     : undefined;
   const featureFlags = useFeatureFlags(facilityId);
 
-  //Use this to test scribe
-  const SCRIBE_TEST_INPUT = `The patient's encounter status is currently on hold, classified as an emergency with a priority of “as needed,” 
-  under hospital identifier 245. The patient was admitted from a nursing home with a diet preference of vegetarian. The care team consists of physical therapists, 
-  and the encounter started yesterday at 12 a.m., ending today at 5 p.m. The care plan focuses on stabilizing the patient's blood pressure, 
-  with a follow-up frequency of two times weekly. The next visit is scheduled for January 3, 2025. 
-  The patient's current vital signs indicate a systolic blood pressure of 20, diastolic blood pressure of 40, pulse of 84, SpO2 at 78%, 
-  and a blood sugar level of 59. Pain is reported as mild, and the patient is bed-bound, unable to move.
-  An acute symptom of left-sided ulcerative colitis has been added, with differential verification, moderate severity, beginning yesterday. 
-  Update the existing symptom's verification to confirmed, and all existing diagnoses should be removed. Nurse John Doe is filling the allergy intolerance form.
-  A resolved allergy to isomaltose has been detected.`;
-
   const {
     startRecording: startSegmentedRecording,
     stopRecording: stopSegmentedRecording,
@@ -229,9 +222,10 @@ export function Controller(props: {
   ) => {
     try {
       const fields = questionnaire.flatMap((q) => q.questions);
-      const hfields = (await getHydratedFields(questionnaire)).flatMap(
-        (qn) => qn?.fields || [],
-      );
+      const hfields = await getHydratedFields(questionnaire);
+      if (!hfields || !hfields.length) {
+        return;
+      }
       const aiResponse = (await poller(
         scribeInstanceId,
         "ai_response",
@@ -248,8 +242,19 @@ export function Controller(props: {
       const changedData = (
         (await Promise.all(
           Object.entries(aiResponse).map(async ([k, v]) => {
-            const f = hfields.find((f) => f.id === k);
-            const ogF = fields.find((_, i) => i === Number(f?.id));
+            // Recursively find a field by id in nested hydrated fields
+            const findFieldById = (fieldsArr: any[], id: string): any => {
+              for (const field of fieldsArr) {
+                if ("id" in field && field.id === id) return field;
+                if ("fields" in field && Array.isArray(field.fields)) {
+                  const found = findFieldById(field.fields, id);
+                  if (found) return found;
+                }
+              }
+              return undefined;
+            };
+            const f = findFieldById(hfields, k);
+            const ogF = findFieldById(fields, f?.id);
             if (!f) return [k, null];
 
             const structure = f.structuredType
@@ -276,7 +281,9 @@ export function Controller(props: {
               return [k, null];
 
             if (
-              ogF?.question.structured_type &&
+              ogF &&
+              "question" in ogF &&
+              ogF.question.structured_type &&
               ogF.question.structured_type !== "encounter"
             ) {
               const validation = structure?.toolStructure.safeParse(v);
@@ -298,6 +305,7 @@ export function Controller(props: {
         .filter(([, output]) => !!output?.value)
         .map(([k, v]) => ({ [k as string]: v }))
         .reduce((acc, curr) => ({ ...acc, ...curr }), {});
+      console.log(changedData);
       return changedData as ScribeAIResponse;
     } catch (e) {
       console.error(e);
@@ -417,80 +425,6 @@ export function Controller(props: {
 
     return data.external_id;
   };
-
-  const getHydratedFields = async (questionnaires: ScribeQuestionnaire[]) => {
-    return questionnaires.map((questionnaire) => {
-      const fields = questionnaire.questions;
-      if (!fields || !fields.length) return null;
-
-      const toReturn = {
-        title: questionnaire.title || "Untitled Questionnaire",
-        description: questionnaire.description || "",
-        fields: fields.map((field) => {
-          const id = constructFieldId([
-            questionnaire.title || "Untitled Questionnaire",
-            field.question.text || "Unlabled Field",
-          ]);
-          const structuredType = field.question.structured_type;
-
-          const fieldType = Object.keys(arbitraryStructures).includes(
-            field.question.type,
-          )
-            ? field.question.type
-            : "string";
-
-          let structure =
-            structuredType && Object.keys(structures).includes(structuredType)
-              ? structures[structuredType as keyof typeof structures]
-                  .toolStructure
-              : arbitraryStructures[
-                  fieldType as keyof typeof arbitraryStructures
-                ];
-
-          if (field.question.repeats) {
-            structure = z.array(structure) as z.ZodArray<any>;
-          }
-
-          const humanValue =
-            structuredType && Object.keys(structures).includes(structuredType)
-              ? structures[structuredType as keyof typeof structures].toPrompt(
-                  field.question.structured_type === "encounter"
-                    ? (field.value as any)[0]
-                    : field.value,
-                )
-              : field.value;
-
-          if (field.question.answer_option?.length) {
-            structure = z.enum(
-              field.question.answer_option.map((opt) => opt.value) as [string],
-            ) as any;
-            if (field.question.repeats) {
-              structure = z.array(structure) as z.ZodArray<any>;
-            }
-          }
-
-          if (!structuredType) {
-            structure = z.object({
-              value: structure,
-              note: z.string().optional(),
-            }) as any;
-          }
-
-          return {
-            friendlyName: field.question.text || "Unlabled Field",
-            current: field.value,
-            humanValue,
-            id,
-            type: field.question.type,
-            structuredType: field.question.structured_type || null,
-            schema: structure ? zodToJsonSchema(structure) : undefined,
-          };
-        }),
-      };
-      return toReturn;
-    });
-  };
-
   // updates the transcript and fetches a new AI response
   const handleUpdateTranscript = async (updatedTranscript: string) => {
     if (updatedTranscript === lastTranscript && !files.length) return;
@@ -518,7 +452,8 @@ export function Controller(props: {
     if (!aiResponse) return;
     setStatus("REVIEWING");
     setFormStateSnapshot(props.formState);
-    setToReview(getFieldsToReview(aiResponse, fields));
+    const fieldsToReview = await getFieldsToReview(aiResponse, fields);
+    setToReview(fieldsToReview);
   };
 
   const handleStartRecording = async () => {
@@ -679,12 +614,6 @@ export function Controller(props: {
                 <p className="mb-4 text-xs text-neutral-800">
                   {t("transcript_edit_info")}
                 </p>
-                <button
-                  onClick={() => setTranscript(SCRIBE_TEST_INPUT)}
-                  className="absolute top-2 left-2 hidden cursor-pointer text-xs"
-                >
-                  Test
-                </button>
                 <Textarea
                   name="transcript"
                   disabled={status !== "REVIEWING" || files.length > 0}

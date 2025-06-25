@@ -2,6 +2,9 @@ import {
   ScribeAIResponse,
   ScribeField,
   ScribeFieldSuggestion,
+  ScribeHydratedAndRawField,
+  ScribeHydratedField,
+  ScribeHydratedQuestionnaire,
   ScribeQuestionnaire,
   ValueSetSystem,
 } from "../types";
@@ -9,7 +12,8 @@ import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { API } from "./api";
 import { z } from "zod";
-import STRUCTURES from "./structures";
+import STRUCTURES, { arbitraryStructures } from "./structures";
+import zodToJsonSchema from "zod-to-json-schema";
 
 export const getQuestionInputs: (formState: any) => ScribeQuestionnaire[] = (
   formState: any,
@@ -23,29 +27,26 @@ export const getQuestionInputs: (formState: any) => ScribeQuestionnaire[] = (
     .filter((qn: ScribeQuestionnaire) => qn.questions.length > 0);
 };
 
-const getQuestions = (questions: any[], formState: any): ScribeField[] => {
+const getQuestions = (
+  questions: any[],
+  formState: any,
+): (ScribeField | ScribeQuestionnaire)[] => {
   return questions
-    .flatMap((question: any) => {
+    .map((question: any) => {
       if (question.type === "group") {
-        return getQuestions(question.questions, formState);
+        return {
+          title: question.text,
+          description: question.description,
+          questions: getQuestions(question.questions, formState),
+        };
       }
-      return [
-        {
-          question,
-          fieldElement: document.getElementById(
-            "question-" + question.id,
-          ) as Element,
-          value:
-            formState
-              .find((qn: any) =>
-                qn.responses.some(
-                  (response: any) => response.question_id === question.id,
-                ),
-              )
-              ?.responses.find(
-                (response: any) => response.question_id === question.id,
-              )?.values?.[0]?.value || null,
-          note: formState
+      return {
+        question,
+        fieldElement: document.getElementById(
+          "question-" + question.id,
+        ) as Element,
+        value:
+          formState
             .find((qn: any) =>
               qn.responses.some(
                 (response: any) => response.question_id === question.id,
@@ -53,30 +54,160 @@ const getQuestions = (questions: any[], formState: any): ScribeField[] => {
             )
             ?.responses.find(
               (response: any) => response.question_id === question.id,
-            )?.note,
-        },
-      ];
+            )?.values?.[0]?.value || null,
+        note: formState
+          .find((qn: any) =>
+            qn.responses.some(
+              (response: any) => response.question_id === question.id,
+            ),
+          )
+          ?.responses.find(
+            (response: any) => response.question_id === question.id,
+          )?.note,
+      };
     })
-    .filter((f) => !!f.fieldElement) as ScribeField[];
+    .filter((f) =>
+      "question" in f ? !!f.fieldElement : f.questions.length > 0,
+    );
 };
+export function getHydratedFields<
+  T extends ScribeHydratedAndRawField = ScribeHydratedAndRawField,
+>(
+  questionnaires: ScribeQuestionnaire[],
+  includeRawField?: true,
+): Promise<ScribeHydratedQuestionnaire<T>[] | null>;
+export function getHydratedFields<
+  T extends ScribeHydratedField = ScribeHydratedField,
+>(
+  questionnaires: ScribeQuestionnaire[],
+  includeRawField?: false,
+): Promise<ScribeHydratedQuestionnaire<T>[] | null>;
+export async function getHydratedFields<
+  T extends ScribeHydratedField | ScribeHydratedAndRawField,
+>(questionnaires: ScribeQuestionnaire[], includeRawField?: boolean) {
+  return questionnaires
+    .map((questionnaire) => {
+      const fields = questionnaire.questions;
+      if (!fields || !fields.length) return null;
 
-export const getFieldsToReview = (
+      const constructHydratedField = (
+        field: ScribeField | ScribeQuestionnaire,
+        parentIds: string[] = [],
+      ): ScribeHydratedField | ScribeHydratedQuestionnaire<T> => {
+        if ("questions" in field) {
+          // If the field is a questionnaire, recursively construct its fields
+          const newParentIds = [...parentIds, field.title || "Untitled Group"];
+          return {
+            title: field.title || "Untitled Group",
+            description: field.description || "",
+            fields: field.questions.map((q) =>
+              constructHydratedField(q, newParentIds),
+            ),
+          };
+        }
+        // If the field is a regular field, construct it normally
+
+        const id = constructFieldId([
+          ...parentIds,
+          field.question.text || "Unlabled Field",
+        ]);
+
+        const structuredType = field.question.structured_type;
+
+        const fieldType = Object.keys(arbitraryStructures).includes(
+          field.question.type,
+        )
+          ? field.question.type
+          : "string";
+
+        let structure =
+          structuredType && Object.keys(STRUCTURES).includes(structuredType)
+            ? STRUCTURES[structuredType as keyof typeof STRUCTURES]
+                .toolStructure
+            : arbitraryStructures[
+                fieldType as keyof typeof arbitraryStructures
+              ];
+
+        if (field.question.repeats) {
+          structure = z.array(structure) as z.ZodArray<any>;
+        }
+
+        const humanValue =
+          structuredType && Object.keys(STRUCTURES).includes(structuredType)
+            ? STRUCTURES[structuredType as keyof typeof STRUCTURES].toPrompt(
+                field.question.structured_type === "encounter"
+                  ? (field.value as any)[0]
+                  : field.value,
+              )
+            : (field.value as string);
+
+        if (field.question.answer_option?.length) {
+          structure = z.enum(
+            field.question.answer_option.map((opt) => opt.value) as [string],
+          ) as any;
+          if (field.question.repeats) {
+            structure = z.array(structure) as z.ZodArray<any>;
+          }
+        }
+
+        if (!structuredType) {
+          structure = z.object({
+            value: structure,
+            note: z.string().optional(),
+          }) as any;
+        }
+
+        return {
+          friendlyName: field.question.text || "Unlabled Field",
+          current: field.value,
+          humanValue,
+          id,
+          type: field.question.type,
+          structuredType: field.question.structured_type || undefined,
+          schema: structure ? zodToJsonSchema(structure) : undefined,
+          ...(includeRawField ? field : []),
+        };
+      };
+
+      const toReturn = {
+        title: questionnaire.title || "Untitled Questionnaire",
+        description: questionnaire.description || "",
+        fields: fields.map((field) =>
+          constructHydratedField(field, [
+            questionnaire.title || "Untitled Questionnaire",
+          ]),
+        ),
+      };
+      return toReturn;
+    })
+    .filter((q) => q !== null);
+}
+
+export const getFieldsToReview = async (
   aiResponse: ScribeAIResponse,
   scrapedFields: ScribeQuestionnaire[],
-) => {
-  return scrapedFields
-    .flatMap((qn) =>
-      qn.questions.map((field) => ({
+): Promise<ScribeFieldSuggestion[]> => {
+  const hydratedFields = await getHydratedFields(scrapedFields, true);
+  if (!hydratedFields) throw new Error("No fields to review");
+
+  const flattenFields = (
+    fields: (ScribeHydratedField | ScribeHydratedQuestionnaire)[],
+  ): (ScribeHydratedField & ScribeField)[] =>
+    fields.flatMap((field) =>
+      "id" in field ? [field] : flattenFields(field.fields),
+    );
+
+  return hydratedFields
+    .flatMap((qn) => flattenFields(qn.fields))
+    .map((field) => {
+      const id = field.id;
+      return {
         ...field,
-        id: constructFieldId([qn.title, field.question.text]),
-      })),
-    )
-    .map((f) => ({
-      ...f,
-      newValue: aiResponse[f.id]?.value,
-      newNote: aiResponse[f.id]?.note,
-    }))
-    .filter((f) => f.newValue);
+        newValue: aiResponse[id]?.value,
+        newNote: aiResponse[id]?.note,
+      };
+    })
+    .filter((f) => f.id && f.newValue);
 };
 
 export const renderCamelCase = (str: string) => {
