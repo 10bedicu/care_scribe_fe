@@ -315,6 +315,7 @@ export function Controller(props: {
         requested_in_facility_id: facilityId || "",
         requested_in_encounter_id: encounterId || "",
         form_data: hfields || undefined,
+        transcript: null,
       });
       const transcript = (await poller(
         scribeInstanceId,
@@ -846,8 +847,8 @@ export function Controller(props: {
           setScribe(scribe);
           setStatus("REVIEWING");
           setBeforeReviewFormState(props.formState);
-          setLastTranscript(scribe.transcript);
-          setTranscript(scribe.transcript);
+          setLastTranscript(scribe.transcript || "");
+          setTranscript(scribe.transcript || "");
           setInstanceId(scribe.external_id);
         }}
       />
