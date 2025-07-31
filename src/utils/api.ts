@@ -7,6 +7,9 @@ import {
   ScribeCreateRequest,
   ScribeFileModel,
   ScribeModel,
+  ScribeQuota,
+  ScribeQuotaCreateRequest,
+  ScribeQuotaFilter,
   UserModel,
 } from "../types";
 
@@ -88,6 +91,7 @@ export const API = {
         encounter_id?: string;
         patient?: string;
         facility?: string;
+        benchmark?: boolean;
         offset?: number;
         limit?: number;
       } = {},
@@ -125,20 +129,31 @@ export const API = {
   facilities: {
     getPermitted: (facilityId: string) =>
       request<FacilityModel>(`/api/v1/facility/${facilityId}/`),
+    all: (filters: { search_text?: string; offset?: number; limit?: number }) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: FacilityModel[];
+        count: number;
+      }>(`/api/v1/getallfacilities/`, "GET", filters),
   },
   users: {
     current: () => request<UserModel>(`/api/v1/users/getcurrentuser/`),
   },
   valuesets: {
     expand: (system: string, query: string) =>
-      request<{ results: Code[] }>(
-        `/api/v1/valueset/${system}/expand/`,
-        "POST",
-        {
-          search: query,
-          count: 10,
-        },
-      ),
+      request<{
+        results: (Code & {
+          designation: {
+            language: string;
+            use?: Code;
+            value: string;
+          }[];
+        })[];
+      }>(`/api/v1/valueset/${system}/expand/`, "POST", {
+        search: query,
+        count: 10,
+      }),
   },
   files: {
     get: (fileId: string, fileType: string, associatingId: string) =>
@@ -150,5 +165,32 @@ export const API = {
           associating_id: associatingId,
         },
       ),
+  },
+  quotas: {
+    list: (filters: ScribeQuotaFilter) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: ScribeQuota[];
+        count: number;
+      }>(`/api/care_scribe/quota/`, "GET", filters),
+    create: (data: ScribeQuotaCreateRequest) =>
+      request<ScribeQuota>(`/api/care_scribe/quota/`, "POST", data),
+    update: (id: string, data: Partial<ScribeQuotaCreateRequest>) =>
+      request<ScribeQuota>(`/api/care_scribe/quota/${id}/`, "PATCH", data),
+    delete: (id: string) =>
+      request<void>(`/api/care_scribe/quota/${id}/`, "DELETE"),
+    myQuota: (facility_id?: string) =>
+      request<{
+        quotas: ScribeQuota[];
+        tnc: string;
+        tnc_accepted: boolean;
+      }>(`/api/care_scribe/quota/my-quota/`, "GET", {
+        facility_id,
+      }),
+    acceptTnc: (facilityId: string) =>
+      request<void>(`/api/care_scribe/quota/accept-tnc/`, "POST", {
+        facility_id: facilityId,
+      }),
   },
 };

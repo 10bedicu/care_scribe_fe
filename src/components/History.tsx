@@ -1,22 +1,18 @@
 import { useState } from "react";
 import { useAtom } from "jotai";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { containerRefAtom } from "@/store";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { API } from "@/utils/api";
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import dayjs from "dayjs";
 import { ScribeModel } from "@/types";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { Skeleton } from "./ui/skeleton";
 import HistoryDetailsPage from "@/pages/HistoryDetails";
+import { twMerge } from "tailwind-merge";
+import { StatusBadge } from "./StatusBadge";
 
 export default function HistorySheet(props: {
   open: boolean;
@@ -38,7 +34,9 @@ export default function HistorySheet(props: {
     queryFn: async ({ pageParam = 0 }) =>
       API.scribe.list({
         offset: pageParam,
+        benchmark: false,
         limit: 10,
+        ordering: "-modified_date",
       }),
     getNextPageParam: (lastPage, _, lastPageParam) => {
       if (lastPage.count > lastPageParam + 10) {
@@ -62,7 +60,7 @@ export default function HistorySheet(props: {
   };
 
   // Handle card click
-  const handleCardClick = (scribe: any) => {
+  const handleCardClick = (scribe: ScribeModel) => {
     setSelectedScribe(scribe);
   };
 
@@ -74,9 +72,11 @@ export default function HistorySheet(props: {
           className="overflow-y-auto"
           onScroll={handleScroll}
         >
-          <SheetHeader>
-            <SheetTitle>{t("history")}</SheetTitle>
-          </SheetHeader>
+          <SheetTitle className="p-4">{t("history")}</SheetTitle>
+          <SheetDescription className="sr-only">
+            History of Scribe requests. Click on a request to view details and
+            use the transcript.
+          </SheetDescription>
           <div className="flex flex-col gap-2 px-4">
             {historyQuery.isLoading && (
               <div className="flex flex-col gap-2">
@@ -93,7 +93,11 @@ export default function HistorySheet(props: {
             {history?.map((scribe) => (
               <Card
                 key={scribe.external_id}
-                className="cursor-pointer transition-shadow hover:shadow-md"
+                className={twMerge(
+                  "cursor-pointer transition-shadow hover:shadow-md",
+                  !["FAILED", "REFUSED", "COMPLETED"].includes(scribe.status) &&
+                    "animate-pulse",
+                )}
                 onClick={() => handleCardClick(scribe)}
               >
                 <CardHeader>
@@ -101,16 +105,17 @@ export default function HistorySheet(props: {
                     {scribe.transcript && scribe.transcript.length > 100
                       ? scribe.transcript.slice(0, 100) + "..."
                       : scribe.transcript}
+                    {scribe.transcript === "" && (
+                      <span className="text-gray-500">No transcript</span>
+                    )}
+                    {scribe.status !== "COMPLETED" && (
+                      <StatusBadge status={scribe.status} />
+                    )}
                   </CardTitle>
                   <CardDescription>
                     {dayjs(scribe.created_date).format("YYYY-MM-DD hh:mm a")}
                   </CardDescription>
                 </CardHeader>
-                <CardFooter>
-                  <p className="text-muted-foreground text-sm">
-                    {t("click_to_view_details")}
-                  </p>
-                </CardFooter>
               </Card>
             ))}
             {isFetchingNextPage && (
@@ -131,6 +136,10 @@ export default function HistorySheet(props: {
           className="overflow-y-auto py-8"
           onScroll={handleScroll}
         >
+          <SheetTitle className="sr-only">Scribe Details</SheetTitle>
+          <SheetDescription className="sr-only">
+            Scribe Details
+          </SheetDescription>
           {selectedScribe && (
             <HistoryDetailsPage
               scribeId={selectedScribe?.external_id}

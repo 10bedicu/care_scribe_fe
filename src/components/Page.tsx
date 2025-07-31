@@ -1,8 +1,8 @@
-import { FeatureFlagsProvider } from "@/hooks/useFeatureFlags";
 import { containerRefAtom } from "@/store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { useEffect, useRef } from "react";
+import { Toaster } from "./ui/sonner";
 
 const queryClient = new QueryClient();
 
@@ -19,11 +19,10 @@ export default function Page(props: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <FeatureFlagsProvider>
-        <div className="scribe-container" ref={container}>
-          {props.children}
-        </div>
-      </FeatureFlagsProvider>
+      <Toaster position="top-right" richColors expand theme="light" />
+      <div className="scribe-container" ref={container}>
+        {props.children}
+      </div>
     </QueryClientProvider>
   );
 }

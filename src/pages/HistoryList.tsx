@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { enableStatisticsAtom } from "@/store";
+import { devModeAtom } from "@/store";
 import { SCRIBE_STATUS } from "@/types";
 import { API } from "@/utils/api";
 import { I18NNAMESPACE } from "@/utils/constants";
@@ -34,7 +34,7 @@ import { useTranslation } from "react-i18next";
 
 export default function HistoryListPage() {
   const { t } = useTranslation(I18NNAMESPACE);
-  const [statsEnabled, setStatsEnabled] = useAtom(enableStatisticsAtom);
+  const [statsEnabled, setStatsEnabled] = useAtom(devModeAtom);
   const [{ page: initPage }, setQueryParams] = useQueryParams();
   const page = initPage || 1;
   const [search, setSearch] = useState({
@@ -48,6 +48,7 @@ export default function HistoryListPage() {
       end: string | null;
     };
     ordering: string;
+    benchmark: boolean;
   }>({
     status: "all",
     date_range: {
@@ -55,6 +56,7 @@ export default function HistoryListPage() {
       end: null,
     },
     ordering: "-created_date",
+    benchmark: false,
   });
 
   const historyQuery = useQuery({
@@ -68,6 +70,7 @@ export default function HistoryListPage() {
         facility: search.type === "facility" ? search.value : undefined,
         encounter_id: search.type === "encounter" ? search.value : undefined,
         patient: search.type === "patient" ? search.value : undefined,
+        benchmark: filters.benchmark,
         offset: (Number(page) - 1) * 10,
         limit: 10,
       }),
@@ -194,7 +197,7 @@ export default function HistoryListPage() {
                 className="cursor-pointer"
                 onClick={() =>
                   navigate(
-                    `/facility/${scribe.requested_in_facility?.id}/users/${scribe.requested_by}/scribe-history/${scribe.external_id}`,
+                    `/facility/${scribe.requested_in_facility?.id}/users/${scribe.requested_by.username}/scribe-history/${scribe.external_id}`,
                   )
                 }
               >
@@ -220,14 +223,26 @@ export default function HistoryListPage() {
                   <>
                     <TableCell>{scribe.meta.provider || "N/A"}</TableCell>
                     <TableCell>
-                      {scribe.meta.completion_input_tokens || "-"} +{" "}
-                      {scribe.meta.completion_output_tokens || "-"}
+                      {scribe.meta.iterations?.reduce(
+                        (acc, i) => acc + (i.completion_input_tokens || 0),
+                        0,
+                      ) || "-"}
+                      +{" "}
+                      {scribe.meta.iterations?.reduce(
+                        (acc, i) => acc + (i.completion_output_tokens || 0),
+                        0,
+                      ) || "-"}
                     </TableCell>
                     <TableCell>
-                      {(
-                        (scribe.meta.transcription_time || 0) +
-                        (scribe.meta.completion_time || 0)
-                      ).toFixed(2)}{" "}
+                      {scribe.meta.iterations
+                        ?.reduce(
+                          (acc, i) =>
+                            acc +
+                            ((i.transcription_time || 0) +
+                              (i.completion_time || 0)),
+                          0,
+                        )
+                        .toFixed(2)}{" "}
                       s
                     </TableCell>
                   </>

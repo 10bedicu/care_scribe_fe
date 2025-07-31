@@ -1,14 +1,14 @@
 import { Controller } from "./components/Controller";
-import { Toaster } from "./components/ui/toaster";
 import { useEffect, useRef } from "react";
-import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import { usePath } from "raviger";
 import { useAtom } from "jotai";
 import { containerRefAtom } from "./store";
+import { Toaster } from "./components/ui/sonner";
+import { useQuota } from "./hooks/useQuota";
 
 export default function App(props: {
   formState: unknown;
-  setFormState: unknown;
+  setFormState: (formState: unknown) => void;
 }) {
   const path = usePath();
   const container = useRef<HTMLDivElement>(null);
@@ -16,8 +16,8 @@ export default function App(props: {
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
-  const featureFlags = useFeatureFlags(facilityId);
-  const SCRIBE_ENABLED = featureFlags.includes("SCRIBE_ENABLED");
+  const quota = useQuota(facilityId);
+  const SCRIBE_ENABLED = !!quota.quotas?.length;
 
   useEffect(() => {
     if (!SCRIBE_ENABLED) return;
@@ -43,7 +43,7 @@ export default function App(props: {
 
   return (
     <div className="scribe-container" ref={container}>
-      <Toaster />
+      <Toaster position="top-right" richColors expand theme="light" />
       {SCRIBE_ENABLED && <Controller {...props} />}
     </div>
   );
