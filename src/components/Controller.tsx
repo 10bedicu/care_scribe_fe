@@ -805,9 +805,14 @@ export function Controller(props: {
               {t("terms_and_conditions_description")}
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-neutral-50 p-2 text-sm">
+          <div className="max-h-[60vh] overflow-auto rounded-md bg-neutral-50 p-2 text-sm">
             <div
               className="reset-tw"
+              style={{
+                wordBreak: "normal",
+                wordWrap: "normal",
+                whiteSpace: "pre-line",
+              }}
               dangerouslySetInnerHTML={{
                 __html: quota.tnc || "LOADING...",
               }}
