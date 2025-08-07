@@ -32,6 +32,7 @@ type Diagnosis = {
   recorded_date: string;
   note?: string;
   category: (typeof CATEGORY)[number];
+  dirty: boolean;
 };
 
 const CATEGORY = ["encounter_diagnosis", "chronic_condition"] as const;
@@ -83,6 +84,7 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
           recorded_date: new Date().toISOString(),
           note: noNullStrings(diagnosis.note) || undefined,
           category: diagnosis.category || "encounter_diagnosis",
+          dirty: true,
         };
         return diagnosisData;
       });
