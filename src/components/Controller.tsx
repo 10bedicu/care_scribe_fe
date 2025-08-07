@@ -798,14 +798,17 @@ export function Controller(props: {
         }}
       />
       <Dialog open={showTnc} onOpenChange={setShowTnc}>
-        <DialogContent portalProps={{ container: containerRef?.current }}>
+        <DialogContent
+          portalProps={{ container: containerRef?.current }}
+          className="break-normal"
+        >
           <DialogHeader>
             <DialogTitle>{t("terms_and_conditions")}</DialogTitle>
             <DialogDescription>
               {t("terms_and_conditions_description")}
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-neutral-50 p-2 text-sm">
+          <div className="max-h-[60vh] overflow-auto rounded-md bg-neutral-50 p-2 text-sm">
             <div
               className="reset-tw"
               dangerouslySetInnerHTML={{
