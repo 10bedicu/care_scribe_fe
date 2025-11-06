@@ -7,8 +7,6 @@ import {
   SheetFooter,
   SheetTitle,
 } from "./ui/sheet";
-import { containerRefAtom } from "@/store";
-import { useAtom } from "jotai";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 import { Button } from "./ui/button";
@@ -24,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { useContainerRef } from "@/hooks/useContainerRef";
 
 export default function QuotaSheet(props: {
   quota?: ScribeQuota;
@@ -35,7 +34,7 @@ export default function QuotaSheet(props: {
   const { quota: initQuota, open, onClose, onSubmit } = props;
   const { t } = useTranslation(I18NNAMESPACE);
 
-  const [containerRef] = useAtom(containerRefAtom);
+  const containerRef = useContainerRef();
 
   const [quota, setQuota] = useState<ScribeQuotaCreateRequest>({
     facility_external_id: "",

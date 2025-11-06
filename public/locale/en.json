@@ -110,5 +110,16 @@
   "tokens_per_user": "Tokens per User",
   "select_facility": "Select Facility",
   "search_by_facility_name": "Search by Facility Name",
-  "cached_tokens": "Cached Tokens"
+  "cached_tokens": "Cached Tokens",
+  "estimated_cost": "Estimated Cost",
+  "thinking" : "Thinking",
+  "audio_duration" : "Audio Duration",
+  "thinking_tokens" : "Thinking Tokens",
+  "text" : "Text",
+  "cached" : "Cached",
+  "image" : "Image",
+  "estimated_audio" : "Asmd. Audio",
+  "assumed_cost" : "Assumed Cost",
+  "processing" : "Processing",
+  "processing_history": "Processing History"
 }

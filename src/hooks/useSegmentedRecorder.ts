@@ -2,15 +2,14 @@ import { useEffect, useState } from "react";
 
 import { I18NNAMESPACE } from "@/utils/constants";
 import { useTranslation } from "react-i18next";
-import { useAtom } from "jotai/react";
-import { microphoneAtom } from "@/store";
+import { useStorage } from "./useStorage";
 
 const useSegmentedRecording = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
   const [audioBlobs, setAudioBlobs] = useState<Blob[]>([]);
   const [restart, setRestart] = useState(false);
-  const [currentMicrophone] = useAtom(microphoneAtom);
+  const [currentMicrophone] = useStorage("scribe-microphone");
   const [microphoneAccess, setMicrophoneAccess] = useState(false); // New state
   const { t } = useTranslation(I18NNAMESPACE);
 

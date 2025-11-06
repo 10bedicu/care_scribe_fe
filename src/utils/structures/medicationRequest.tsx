@@ -6,7 +6,6 @@ import {
 } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
-import { lookupCode, shiftUTCToLocalClockTime } from "../utils";
 import {
   BOUNDS_DURATION_UNITS,
   DOSAGE_UNITS_CODES,
@@ -14,7 +13,6 @@ import {
   MEDICATION_REQUEST_STATUS,
   MEDICATION_REQUEST_TIMING_OPTIONS,
 } from "../constants";
-import dedent from "dedent-js";
 import dayjs from "dayjs";
 import {
   clinicalDrug,
@@ -24,6 +22,11 @@ import {
   instruction,
   site,
 } from "./code";
+import {
+  lookupCode,
+  shiftUTCToLocalClockTime,
+  validateTime,
+} from "../response-utils";
 
 const CATEGORY = ["inpatient", "outpatient", "community", "discharge"] as const;
 const PRIORITY = ["stat", "urgent", "asap", "routine"] as const;
@@ -50,7 +53,7 @@ const toolStructure = z.array(
       dosage_instructions: instruction()
         .nullable()
         .describe(
-          "To indicate when the medication should be taken or until when it should be taken, etc.",
+          "Specify when the medication should be taken, for how long it should be continued, or under what condition it should be stopped. Do not assume or infer this value unless it is explicitly stated.",
         ),
       dosage_duration: z
         .object({
@@ -65,7 +68,7 @@ const toolStructure = z.array(
         •	1 year -> the value will be 1 and unit will be “a”.
         ... and so on.
     `),
-      dosage_timing_code: enumDescription(
+      dosage_frequency: enumDescription(
         Object.values(MEDICATION_REQUEST_TIMING_OPTIONS).map(
           (timing) => timing.timing.code.display,
         ) as [string],
@@ -73,22 +76,22 @@ const toolStructure = z.array(
       dosage_as_needed_for: indicatorReason()
         .nullable()
         .describe(
-          "The indicator. Only required if the medication is PRN or as-needed",
+          "Indicator: Fill only if the medication is prescribed as needed (PRN), or if an indicator is explicitly provided. Do not assume or infer this value. If no indicator is stated, leave this field blank.",
         ),
       dosage_site: site()
         .nullable()
         .describe(
-          "The site the medication should be administered at. Only required if medication is PRN or as-needed",
+          "The site the medication should be administered at. Only required if medication is PRN or as-needed. Do not assume this value unless explicitly stated.",
         ),
       dosage_route: dosageRoute()
         .nullable()
         .describe(
-          "The route of administration. Only required if medication is PRN or as-needed",
+          "The route of administration. Only required if medication is PRN or as-needed. Do not assume this value unless explicitly stated.",
         ),
       dosage_method: dosageMethod()
         .nullable()
         .describe(
-          "The method of administration. Only required if medication is PRN or as-needed",
+          "The method of administration. Only required if medication is PRN or as-needed. Do not assume this value unless explicitly stated.",
         ),
       dosage_dose_and_rate: z
         .union([
@@ -242,11 +245,15 @@ export const medicationRequestStructure: Structure<
           )
         : undefined;
 
+      const authoredOn = validateTime(medicationRequest.authored_on)
+        ? shiftUTCToLocalClockTime(medicationRequest.authored_on)
+        : new Date().toISOString();
+
       const dosageTiming = Object.values(
         MEDICATION_REQUEST_TIMING_OPTIONS,
       )?.find(
         (timing) =>
-          timing.timing.code.display === medicationRequest.dosage_timing_code,
+          timing.timing.code.display === medicationRequest.dosage_frequency,
       );
       const medReq: MedicationRequest = {
         medication: code,
@@ -259,28 +266,31 @@ export const medicationRequestStructure: Structure<
         category: validateEnumDescription(medicationRequest.category, CATEGORY),
         priority: validateEnumDescription(medicationRequest.priority, PRIORITY),
         do_not_perform: false,
-        authored_on: medicationRequest.authored_on
-          ? shiftUTCToLocalClockTime(medicationRequest.authored_on)
-          : new Date().toISOString(),
+        authored_on: authoredOn,
         dosage_instruction: [
           {
             additional_instruction: additionalInstructions
               ? [additionalInstructions]
               : [],
-            timing: dosageTiming
-              ? {
-                  repeat: {
-                    frequency: dosageTiming?.timing.repeat.frequency,
-                    period: dosageTiming?.timing.repeat.period,
-                    period_unit: dosageTiming?.timing.repeat.period_unit,
-                    bounds_duration: {
-                      value: dosageTiming?.timing.bounds_duration?.value || 1,
-                      unit: dosageTiming?.timing.bounds_duration?.unit || "d",
+            timing:
+              dosageTiming && !medicationRequest.dosage_as_needed_for
+                ? {
+                    repeat: {
+                      frequency: dosageTiming?.timing.repeat.frequency,
+                      period: dosageTiming?.timing.repeat.period,
+                      period_unit: dosageTiming?.timing.repeat.period_unit,
+                      bounds_duration: {
+                        value: medicationRequest.dosage_duration?.value || 1,
+                        unit:
+                          validateEnumDescription(
+                            medicationRequest.dosage_duration?.unit,
+                            BOUNDS_DURATION_UNITS,
+                          ) || "d",
+                      },
                     },
-                  },
-                  code: dosageTiming?.timing.code,
-                }
-              : undefined,
+                    code: dosageTiming?.timing.code,
+                  }
+                : undefined,
             as_needed_boolean: !!medicationRequest.dosage_as_needed_for,
             as_needed_for: asNeededFor || undefined,
             site: site || undefined,
@@ -398,65 +408,104 @@ export const medicationRequestStructure: Structure<
       };
       return medReq;
     });
-    const symptoms = (await Promise.all(parsed)).filter(
+    const newMedReq = (await Promise.all(parsed)).filter(
       (s) => !!s,
     ) as MedicationRequest[];
     // remove any duplicates
     const currentCodes = new Set(currentData?.map((s) => s.medication?.code));
     const merged = [
       ...(currentData || []),
-      ...symptoms.filter((s) => !currentCodes.has(s.medication?.code)),
+      ...newMedReq.filter((s) => !currentCodes.has(s.medication?.code)),
     ];
-    console.log(merged);
     return {
       data: merged,
       errors,
     };
   },
   toPrompt: (data) => {
-    return data
-      .map(
-        (medicationRequest, i) =>
-          dedent`
-        ### Medication Request ${i + 1}: 
-        - Medication: ${medicationRequest.medication && "display" in medicationRequest.medication ? medicationRequest.medication.display : medicationRequest.requested_product_internal ? medicationRequest.requested_product_internal.code?.display : "N/A"}
-        - Status: ${medicationRequest.status || "active"}
-        - Intent: ${medicationRequest.intent || "unknown"}
-        - Category: ${medicationRequest.category || "inpatient"}
-        - Priority: ${medicationRequest.priority || "stat"}
-        - Authored On: ${dayjs(medicationRequest.authored_on).format("DD/MM/YYYY")}
-        - Dosage Instructions: ${medicationRequest.dosage_instruction.map(
-          (instruction) => {
-            return `
-          -> Additional Instruction: ${
-            instruction.additional_instruction
-              ?.map((inst) => `${inst.display} (SNOMED Code: ${inst.code})`)
-              .join(", ") || "N/A"
-          }
-            -> Timing: ${instruction.timing ? `Frequency: ${instruction.timing.repeat.frequency}, Period: ${instruction.timing.repeat.period} ${instruction.timing.repeat.period_unit}, Bounds Duration: ${instruction.timing.repeat.bounds_duration.value} ${instruction.timing.repeat.bounds_duration.unit}` : "N/A"}
-            -> As Needed: ${instruction.as_needed_boolean ? "Yes" : "No"}
-            -> As Needed For: ${instruction.as_needed_for ? `${instruction.as_needed_for.display} (SNOMED Code: ${instruction.as_needed_for.code})` : "N/A"}
-            -> Site: ${instruction.site ? `${instruction.site.display} (SNOMED Code: ${instruction.site.code})` : "N/A"}
-            -> Route: ${instruction.route ? `${instruction.route.display} (SNOMED Code: ${instruction.route.code})` : "N/A"}
-            -> Method: ${instruction.method ? `${instruction.method.display} (SNOMED Code: ${instruction.method.code})` : "N/A"}
-            -> Dose and Rate: ${
-              instruction.dose_and_rate
-                ? instruction.dose_and_rate.type === "ordered"
-                  ? `--> Ordered: ${instruction.dose_and_rate.dose_quantity?.value} ${instruction.dose_and_rate.dose_quantity?.unit.display}`
-                  : `--> Calculated: Low: ${instruction.dose_and_rate.dose_range?.low.value} ${instruction.dose_and_rate.dose_range?.low.unit.display}, High: ${instruction.dose_and_rate.dose_range?.high.value} ${instruction.dose_and_rate.dose_range?.high.unit.display}`
-                : "N/A"
-            }
-            -> Max Dose Per Period: ${
-              instruction.max_dose_per_period
-                ? `Low: ${instruction.max_dose_per_period.low.value} ${instruction.max_dose_per_period.low.unit.display}, High: ${instruction.max_dose_per_period.high.value} ${instruction.max_dose_per_period.high.unit.display}`
-                : "N/A"
-            }
-            `;
-          },
-        )}
-        ${medicationRequest.note ? `- Note: ${medicationRequest.note}` : ""}
-        `,
-      )
-      .join("\n");
+    return (
+      <div className="mt-2 flex w-full flex-col gap-2">
+        {data.map((medicationRequest, i) => (
+          <div
+            key={i}
+            className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal"
+          >
+            <div className="text-base font-semibold">
+              {medicationRequest.medication &&
+              "display" in medicationRequest.medication
+                ? medicationRequest.medication.display
+                : medicationRequest.requested_product_internal
+                  ? medicationRequest.requested_product_internal.code?.display
+                  : "N/A"}{" "}
+              <span className="ml-1 text-xs font-normal capitalize opacity-70">
+                {medicationRequest.intent?.replace("_", " ")}
+              </span>
+            </div>
+            <div className="text-xs opacity-70">
+              Authored On{" "}
+              {dayjs(medicationRequest.authored_on).format("DD/MM/YYYY")}
+            </div>
+            <div>
+              {medicationRequest.dosage_instruction.map((instruction, idx) => (
+                <div key={idx} className="mt-1">
+                  <div className="font-semibold">
+                    {instruction.dose_and_rate?.dose_quantity
+                      ? `${instruction.dose_and_rate.dose_quantity.value} ${instruction.dose_and_rate.dose_quantity.unit.display}`
+                      : instruction.dose_and_rate?.dose_range
+                        ? `${instruction.dose_and_rate.dose_range.low.value} ${instruction.dose_and_rate.dose_range.low.unit.display} -> ${instruction.dose_and_rate.dose_range.high.value} ${instruction.dose_and_rate.dose_range.high.unit.display}`
+                        : ""}
+                  </div>
+                  {instruction.as_needed_boolean && (
+                    <div className="mb-2 border-b border-b-black/10 pb-2">
+                      Take as needed (PRN){" "}
+                      {instruction.as_needed_for?.display
+                        ? "for : " + instruction.as_needed_for.display
+                        : ""}
+                    </div>
+                  )}
+                  {instruction.timing && !instruction.as_needed_boolean && (
+                    <div className="mb-2 border-b border-b-black/10 pb-2">
+                      Frequency: {instruction.timing.code.code} -{" "}
+                      {instruction.timing.code.display}
+                      <br />
+                      Duration:{" "}
+                      {instruction.timing.repeat.bounds_duration.value}{" "}
+                      {instruction.timing.repeat.bounds_duration.unit}
+                    </div>
+                  )}
+                  {instruction.additional_instruction?.[0]?.display && (
+                    <div className="mb-2 border-b border-b-black/10 pb-2">
+                      Instructions:{" "}
+                      {instruction.additional_instruction?.[0]?.display}
+                    </div>
+                  )}
+                  {instruction.site?.display && (
+                    <div className="mb-2 border-b border-b-black/10 pb-2">
+                      Site: {instruction.site?.display}
+                    </div>
+                  )}
+
+                  {instruction.route?.display && (
+                    <div className="mb-2 border-b border-b-black/10 pb-2">
+                      Route: {instruction.route?.display}
+                    </div>
+                  )}
+                  {instruction.method?.display && (
+                    <div className="mb-2 border-b border-b-black/10 pb-2">
+                      Method: {instruction.method?.display}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {medicationRequest.note && (
+              <div className="mt-1 whitespace-pre-wrap italic opacity-80">
+                Note: {medicationRequest.note}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   },
 };

@@ -2424,13 +2424,3 @@ export const BENCHMARK_AUDIOS = {
     },
   },
 } as const;
-
-export const BENCHMARK_MODELS = [
-  "openai/gpt-4.1",
-  "openai/gpt-4o",
-  "google/gemini-2.0-flash",
-  "google/gemini-2.0-flash-lite",
-  "google/gemini-2.5-flash-lite",
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-pro",
-] as const;

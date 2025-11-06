@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { useAtom } from "jotai";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
-import { containerRefAtom } from "@/store";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { API } from "@/utils/api";
 import { Card, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -13,6 +11,7 @@ import { Skeleton } from "./ui/skeleton";
 import HistoryDetailsPage from "@/pages/HistoryDetails";
 import { twMerge } from "tailwind-merge";
 import { StatusBadge } from "./StatusBadge";
+import { useContainerRef } from "@/hooks/useContainerRef";
 
 export default function HistorySheet(props: {
   open: boolean;
@@ -20,7 +19,7 @@ export default function HistorySheet(props: {
   onUseScribe: (scribe: ScribeModel) => void;
 }) {
   const { open, setOpen, onUseScribe } = props;
-  const [containerRef] = useAtom(containerRefAtom);
+  const containerRef = useContainerRef();
   const { t } = useTranslation(I18NNAMESPACE);
 
   // State for the modal

@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import { Structure } from ".";
 import { z } from "zod";
-import { shiftUTCToLocalClockTime } from "../utils";
+import { shiftUTCToLocalClockTime, validateTime } from "../response-utils";
 
 const toolStructure = z.object({
   time_of_death: z
@@ -14,8 +14,12 @@ export const timeOfDeathStructure: Structure<string[], typeof toolStructure> = {
   description: "Structure for time of death",
   toolStructure,
   deserialize: async (data) => {
+    const timeOfDeath = validateTime(data.time_of_death)
+      ? shiftUTCToLocalClockTime(data.time_of_death)
+      : undefined;
+
     return {
-      data: [shiftUTCToLocalClockTime(data.time_of_death)],
+      data: timeOfDeath ? [timeOfDeath] : [],
       errors: [],
     };
   },

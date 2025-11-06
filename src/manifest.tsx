@@ -1,6 +1,6 @@
 import { lazy } from "react";
 import Page from "./components/Page";
-import SidebarIcon from "./components/icon";
+import SidebarIcon from "./components/Icon";
 import BenchmarkPage from "./pages/Benchmark";
 import ScribeQuotas from "./pages/Quotas";
 
@@ -57,7 +57,7 @@ const manifest: Manifest = {
   },
   extends: [],
   components: {
-    Scribe: lazy(() => import("./Providers")),
+    Scribe: lazy(() => import("./providers")),
   },
   userNavItems: [
     {

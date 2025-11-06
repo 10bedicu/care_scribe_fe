@@ -2,10 +2,11 @@ import { z, ZodTypeAny } from "zod";
 import { encounterStructure } from "./encounter";
 import { symptomsStructure } from "./symptoms";
 import { medicationRequestStructure } from "./medicationRequest";
-import { medicationStatementStructure } from "./medicationStatement";
+import { medicationStatementStructure } from "./medicationStatement.tsx";
 import { diagnosisStructure } from "./diagnosis";
 import { allergyIntoleranceStructure } from "./allergyIntolerance";
 import { timeOfDeathStructure } from "./timeOfDeath";
+import { ReactNode } from "react";
 
 export interface Structure<S, T extends ZodTypeAny> {
   name: string;
@@ -18,7 +19,7 @@ export interface Structure<S, T extends ZodTypeAny> {
     data: S;
     errors?: string[];
   }>;
-  toPrompt: (data: S) => string;
+  toPrompt: (data: S) => ReactNode;
 }
 
 export const arbitraryStructures = {
@@ -56,9 +57,9 @@ export const arbitraryStructure = (
 export const noNullStrings = (string: string | undefined | null) => {
   if (
     !string ||
-    string === "null" ||
-    string === "undefined" ||
-    string === "none"
+    string.toLowerCase() === "null" ||
+    string.toLowerCase() === "undefined" ||
+    string.toLowerCase() === "none"
   )
     return undefined;
   return string;

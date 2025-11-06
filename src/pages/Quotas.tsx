@@ -1,4 +1,4 @@
-import SidebarIcon from "@/components/icon";
+import SidebarIcon from "@/components/Icon";
 import { PaginationControls } from "@/components/Pagination";
 import QuotaSheet from "@/components/QuotaSheet";
 import { Button } from "@/components/ui/button";

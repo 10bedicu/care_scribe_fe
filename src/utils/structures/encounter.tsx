@@ -1,7 +1,6 @@
 import { ENCOUNTER_PRIORITY } from "../constants";
 import { Structure } from ".";
 import { z } from "zod";
-import dedent from "dedent-js";
 
 const ENCOUNTER_STATUS = [
   "planned",
@@ -151,22 +150,66 @@ export const encounterStructure: Structure<Encounter[], typeof toolStructure> =
     },
     toPrompt: (dataArray) => {
       const data = dataArray[0];
-      return dedent`
-    Encounter Status: ${data.status}
-    Encounter Class: ${data.encounter_class}
-    Encounter Priority: ${data.priority}
-    External Identifier: ${data.external_identifier || ""}
-    ${
-      ["imp", "absenc", "emer"].includes(data.encounter_class) &&
-      data.hospitalization
-        ? `      
-        Hospitalization Details:
-        - Re-admission: ${data.hospitalization.re_admission ? "Yes" : "No"}
-        - Admit Source: ${data.hospitalization.admit_source}
-        - Diet Preference: ${data.hospitalization.diet_preference || ""}
-        - Discharge Disposition: ${data.hospitalization.discharge_disposition || ""}`
-        : ""
-    }
-    `;
+      const humanize = (str: string) => (
+        <span className="capitalize">{str.replace(/_/g, " ")}</span>
+      );
+      return (
+        <div className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal">
+          Status: {humanize(data.status)} <br />
+          Class : {humanize(data.encounter_class)} <br />
+          Priority: {humanize(data.priority)} <br />
+          External Identifier: {data.external_identifier || "N/A"}
+          {["imp", "absenc", "emer"].includes(data.encounter_class) &&
+            data.hospitalization && (
+              <div className="mt-2 border-t border-t-black/10 pt-2">
+                <div className="text-xs opacity-50">
+                  Hospitalization Details
+                </div>
+                {data.hospitalization.re_admission && (
+                  <div className="inline-block rounded-lg bg-black/10 p-1">
+                    Re-admission
+                  </div>
+                )}
+                {data.hospitalization.admit_source && (
+                  <div>
+                    Admit Source: {humanize(data.hospitalization.admit_source)}
+                  </div>
+                )}
+                {data.hospitalization.diet_preference && (
+                  <div>
+                    Diet Preference:{" "}
+                    {humanize(data.hospitalization.diet_preference)}
+                  </div>
+                )}
+                {data.hospitalization.discharge_disposition && (
+                  <div>
+                    Discharge Disposition:{" "}
+                    {humanize(data.hospitalization.discharge_disposition)}
+                  </div>
+                )}
+              </div>
+            )}
+        </div>
+      );
     },
+    // toPrompt: (dataArray) => {
+    //   const data = dataArray[0];
+    //   return dedent`
+    // Encounter Status: ${data.status}
+    // Encounter Class: ${data.encounter_class}
+    // Encounter Priority: ${data.priority}
+    // External Identifier: ${data.external_identifier || ""}
+    // ${
+    //   ["imp", "absenc", "emer"].includes(data.encounter_class) &&
+    //   data.hospitalization
+    //     ? `
+    //     Hospitalization Details:
+    //     - Re-admission: ${data.hospitalization.re_admission ? "Yes" : "No"}
+    //     - Admit Source: ${data.hospitalization.admit_source}
+    //     - Diet Preference: ${data.hospitalization.diet_preference || ""}
+    //     - Discharge Disposition: ${data.hospitalization.discharge_disposition || ""}`
+    //     : ""
+    // }
+    // `;
+    // },
   };

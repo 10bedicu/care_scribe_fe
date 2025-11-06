@@ -6,8 +6,7 @@ import { MicrophoneIcon, MicrophoneSlashIcon } from "@/utils/icons";
 import { useRef, useState } from "react";
 
 import { I18NNAMESPACE } from "@/utils/constants";
-import { useAtom } from "jotai/react";
-import { controllerPositionAtom } from "@/store";
+import { useStorage } from "@/hooks/useStorage";
 
 export default function ScribeButton(props: {
   files: File[];
@@ -17,7 +16,7 @@ export default function ScribeButton(props: {
 }) {
   const { status, onClick, disabled, files } = props;
   const { t } = useTranslation(I18NNAMESPACE);
-  const [, setControllerPosition] = useAtom(controllerPositionAtom);
+  const [, setControllerPosition] = useStorage("scribe-controller-position");
 
   const [initMousePosition, setInitMousePosition] = useState<{
     x: number;

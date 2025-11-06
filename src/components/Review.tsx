@@ -3,7 +3,7 @@ import {
   ScribeFieldSuggestion,
   ScribeModel,
 } from "../types";
-import { renderFieldValue, sleep, updateFieldValue } from "../utils/utils";
+import { renderFieldValue, sleep } from "../utils/utils";
 import { useEffect, useState } from "react";
 
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
@@ -11,11 +11,11 @@ import { I18NNAMESPACE } from "@/utils/constants";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 import useKeyboardShortcut from "use-keyboard-shortcut";
 import { useTranslation } from "react-i18next";
-import { useAtom } from "jotai/react";
-import { controllerPositionAtom } from "@/store";
 import STRUCTURES from "@/utils/structures";
 import Feedback from "./Feedback";
-import { StackedGrid } from "./stackedGrid";
+import { useStorage } from "@/hooks/useStorage";
+import { StackedGrid } from "./StackedGrid";
+import { updateFieldValue } from "@/utils/field-utils";
 
 export default function ScribeReview(props: {
   setFormState: unknown;
@@ -31,7 +31,7 @@ export default function ScribeReview(props: {
   const [acceptedSuggestions, setAcceptedSuggestions] = useState<
     ScribeFieldReviewedSuggestion[]
   >([]);
-  const [controllerPosition] = useAtom(controllerPositionAtom);
+  const [controllerPosition] = useStorage("scribe-controller-position");
   const [accepting, setAccepting] = useState(false);
 
   const { t } = useTranslation(I18NNAMESPACE);
@@ -151,24 +151,21 @@ export default function ScribeReview(props: {
               key={index}
               className="flex flex-col items-start overflow-hidden rounded-lg bg-black/20"
             >
-              <div className="p-2">
+              <div className="w-full p-2">
                 <div className="text-xs text-neutral-400">
                   {field.question.text}
                 </div>
-                <div
-                  className="font-bold whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{
-                    __html: renderFieldValue(
-                      {
-                        ...field,
-                        structure: field.question.structured_type
-                          ? STRUCTURES[field.question.structured_type]
-                          : undefined,
-                      },
-                      true,
-                    ),
-                  }}
-                />
+                <div className="font-bold whitespace-pre-wrap">
+                  {renderFieldValue(
+                    {
+                      ...field,
+                      structure: field.question.structured_type
+                        ? STRUCTURES[field.question.structured_type]
+                        : undefined,
+                    },
+                    true,
+                  )}
+                </div>
               </div>
               {field.newNote && (
                 <div className="w-full bg-yellow-300/10 p-2 text-xs text-yellow-400">

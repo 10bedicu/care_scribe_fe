@@ -6,14 +6,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "./ui/dialog";
-import { useAtom } from "jotai";
-import { containerRefAtom } from "@/store";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { API } from "@/utils/api";
 import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
+import { useContainerRef } from "@/hooks/useContainerRef";
 
 export default function Feedback(props: { scribe: ScribeModel }) {
   const { scribe } = props;
@@ -25,7 +24,7 @@ export default function Feedback(props: { scribe: ScribeModel }) {
     comments: "",
   });
 
-  const [containerRef] = useAtom(containerRefAtom);
+  const containerRef = useContainerRef();
   const [currentFeedback, setCurrentFeedback] = useState({
     isPositive: scribe.is_feedback_positive,
     comments: scribe.feedback_comments,

@@ -1,6 +1,7 @@
 import App from "@/App";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./style/index.css";
+import { ContainerRefProvider } from "./hooks/useContainerRef";
 
 const queryClient = new QueryClient();
 
@@ -10,7 +11,9 @@ export default function Providers(props: {
 }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <App {...props} />
+      <ContainerRefProvider>
+        <App {...props} />
+      </ContainerRefProvider>
     </QueryClientProvider>
   );
 }

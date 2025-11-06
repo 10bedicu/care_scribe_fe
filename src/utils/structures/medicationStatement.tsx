@@ -1,11 +1,14 @@
 import { noNullStrings, Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
-import { lookupCode, shiftUTCToLocalClockTime } from "../utils";
 import { MEDICATION_STATEMENT_STATUS } from "../constants";
-import dedent from "dedent-js";
 import dayjs from "dayjs";
 import { clinicalDrug } from "./code";
+import {
+  lookupCode,
+  shiftUTCToLocalClockTime,
+  validateTime,
+} from "../response-utils";
 
 export const INFORMATION_SOURCE = [
   "patient",
@@ -25,6 +28,7 @@ const toolStructure = z.array(
       medication: clinicalDrug().describe(
         "The medications that the patient declares they are currently taking. This is not medication that is being prescribed",
       ),
+      information_source: z.enum(INFORMATION_SOURCE).nullable(),
       note: z
         .string()
         .nullable()
@@ -39,7 +43,11 @@ const toolStructure = z.array(
         .nullable(),
       take_until: z
         .string()
-        .describe(`End date/time in ISO format, e.g. "2023-10-01T12:00:00Z"`)
+        .describe(
+          `End date/time in ISO format. 
+          Do not fill if medicine still being taken or end date not known.
+          e.g. "2023-10-01T12:00:00Z"`,
+        )
         .nullable(),
     })
     .describe(
@@ -65,7 +73,7 @@ interface MedicationStatement {
   reason?: string;
   effective_period?: {
     start: string;
-    end: string;
+    end?: string;
   };
 }
 
@@ -93,19 +101,22 @@ export const medicationStatementStructure: Structure<
         return undefined;
       }
 
+      // validate time fields
+      const takeFrom = validateTime(medicationStatement.take_from);
+
+      const takeUntil = validateTime(medicationStatement.take_until);
+
       const medStatement: MedicationStatement = {
         medication: code,
         status: "active",
         dosage_text: medicationStatement.dosage_instructions || undefined,
-        information_source: "patient",
+        information_source: medicationStatement.information_source || "patient",
         note: noNullStrings(medicationStatement.note) || undefined,
         reason: medicationStatement.reason || undefined,
-        effective_period: medicationStatement.take_from
+        effective_period: takeFrom
           ? {
-              start: medicationStatement.take_from,
-              end: medicationStatement.take_until
-                ? shiftUTCToLocalClockTime(medicationStatement.take_until)
-                : new Date().toISOString(),
+              start: shiftUTCToLocalClockTime(takeFrom),
+              end: takeUntil ? shiftUTCToLocalClockTime(takeUntil) : undefined,
             }
           : undefined,
       };
@@ -126,20 +137,52 @@ export const medicationStatementStructure: Structure<
     };
   },
   toPrompt: (data) => {
-    return data
-      .map(
-        (medicationStatement, i) =>
-          dedent`
-        ### Medication Statement ${i + 1}: 
-        - Medication: ${medicationStatement.medication.display} (SNOMED Code: ${medicationStatement.medication.code})
-        - Status: ${medicationStatement.status}
-        - Dosage Instructions: ${medicationStatement.dosage_text || "N/A"}
-        - Information Source: ${medicationStatement.information_source || "N/A"}
-        - Effective Period: ${medicationStatement.effective_period ? `${dayjs(medicationStatement.effective_period.start).format("DD/MM/YYYY")} to ${dayjs(medicationStatement.effective_period.end).format("DD/MM/YYYY")}` : "N/A"}
-        ${medicationStatement.note ? `- Note: ${medicationStatement.note}` : ""}
-        ${medicationStatement.reason ? `- Reason: ${medicationStatement.reason}` : ""}
-      `,
-      )
-      .join("\n");
+    return (
+      <div className="mt-2 flex w-full flex-col gap-2">
+        {data.map((medication, i) => (
+          <div
+            key={i}
+            className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal"
+          >
+            <div className="text-base font-semibold">
+              {medication.medication.display}
+              <span className="ml-1 text-xs font-normal opacity-70">
+                {medication.status}
+              </span>
+            </div>
+            {medication.effective_period && (
+              <div className="text-xs opacity-70">
+                Taken from{" "}
+                {dayjs(medication.effective_period.start).format("DD/MM/YYYY")}{" "}
+                {"->"}{" "}
+                {medication.effective_period.end
+                  ? dayjs(medication.effective_period.end).format("DD/MM/YYYY")
+                  : "Present"}
+              </div>
+            )}
+            {medication.dosage_text && (
+              <div className="mb-2 border-b border-b-black/10 pb-2">
+                Instructions: {medication.dosage_text}
+              </div>
+            )}
+            {medication.information_source && (
+              <div className="mb-2 border-b border-b-black/10 pb-2">
+                Source: {medication.information_source}
+              </div>
+            )}
+            {medication.reason && (
+              <div className="mb-2 border-b border-b-black/10 pb-2">
+                Reason: {medication.reason}
+              </div>
+            )}
+            {medication.note && (
+              <div className="mt-1 whitespace-pre-wrap italic opacity-80">
+                Note: {medication.note}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   },
 };

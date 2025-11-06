@@ -31,26 +31,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { benchmarkAtom, containerRefAtom } from "@/store";
 import {
   ScribeAIResponse,
+  ScribeDeseriliazedValue,
   ScribeFileType,
   ScribeModel,
   ScribeQuestionnaire,
 } from "@/types";
 import { API } from "@/utils/api";
-import {
-  BENCHMARK_AUDIOS,
-  BENCHMARK_MODELS,
-} from "@/utils/benchmark-constants";
+import { BENCHMARK_AUDIOS } from "@/utils/benchmark-constants";
 import { calculateSimilarityScore } from "@/utils/benchmark-utils";
-import { I18NNAMESPACE } from "@/utils/constants";
-import {
-  cleanAIResponse,
-  getHydratedFields,
-  getQuestionInputs,
-  uploadScribeFile,
-} from "@/utils/utils";
+import { AI_MODELS, I18NNAMESPACE } from "@/utils/constants";
 import { Label } from "@radix-ui/react-dropdown-menu";
 import {
   ArrowRightIcon,
@@ -58,20 +49,24 @@ import {
   RocketIcon,
 } from "@radix-ui/react-icons";
 import dayjs from "dayjs";
-import { useAtom } from "jotai";
 import isEqual from "lodash.isequal";
 import { Link } from "raviger";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import { distance as lev } from "fastest-levenshtein";
+import { useContainerRef } from "@/hooks/useContainerRef";
+import { useStorage } from "@/hooks/useStorage";
+import { cleanAIResponse, poller } from "@/utils/response-utils";
+import { getHydratedFields, getQuestionInputs } from "@/utils/field-utils";
+import { uploadScribeFile } from "@/utils/upload-utils";
 
 export interface BenchmarkIteration {
   id: string;
   model: string;
   status: "pending" | "in-progress" | "completed" | "failed";
   errors: string[];
-  result: ScribeAIResponse | null;
+  result: Awaited<ReturnType<typeof cleanAIResponse>>["cleaned"] | null;
   startTime: Date;
   endTime: Date | null;
   scribeInstance: ScribeModel | null;
@@ -82,14 +77,14 @@ export interface Benchmark {
   benchmark: keyof typeof BENCHMARK_AUDIOS;
   startTime: Date;
   tries: number;
-  models: (typeof BENCHMARK_MODELS)[number][];
+  models: (keyof typeof AI_MODELS)[];
   iterations: BenchmarkIteration[];
 }
 
 export default function BenchmarkPage() {
   const { t } = useTranslation(I18NNAMESPACE);
-  const [containerRef] = useAtom(containerRefAtom);
-  const [benchmarks, setBenchmarks] = useAtom(benchmarkAtom);
+  const containerRef = useContainerRef();
+  const [benchmarks, setBenchmarks] = useStorage("scribe-benchmarks");
   const [startup, setStartup] = useState(true);
   const [selectedIteration, setSelectedIteration] =
     useState<BenchmarkIteration | null>(null);
@@ -97,7 +92,7 @@ export default function BenchmarkPage() {
   const [queuedIteration, setQueuedIteration] = useState<string | null>(null);
 
   const [newBenchmarkForm, setNewBenchmarkForm] = useState<{
-    models: (typeof BENCHMARK_MODELS)[number][];
+    models: (keyof typeof AI_MODELS)[];
     benchmark: keyof typeof BENCHMARK_AUDIOS | null;
     tries: number;
   }>({
@@ -109,7 +104,9 @@ export default function BenchmarkPage() {
   const isISODateString = (value: unknown) =>
     typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value);
 
-  const normalizeDates: (input: unknown) => unknown = (input: unknown) => {
+  const normalizeDates: (input: ScribeDeseriliazedValue) => unknown = (
+    input: unknown,
+  ) => {
     if (Array.isArray(input)) {
       return input.map(normalizeDates);
     } else if (
@@ -151,8 +148,8 @@ export default function BenchmarkPage() {
 
     const perField: {
       [key: string]: {
-        expected: unknown;
-        received: unknown;
+        expected: ScribeDeseriliazedValue;
+        received: ScribeDeseriliazedValue | null;
         score: number;
       };
     } = {};
@@ -276,54 +273,6 @@ export default function BenchmarkPage() {
     );
   };
 
-  // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
-  async function poller(
-    scribeInstanceId: string,
-    type: "transcript",
-  ): Promise<string>;
-  async function poller(
-    scribeInstanceId: string,
-    type: "ai_response",
-  ): Promise<ScribeModel["ai_response"]>;
-  async function poller(
-    scribeInstanceId: string,
-    type: "transcript" | "ai_response",
-  ): Promise<string | ScribeModel["ai_response"]> {
-    return new Promise((resolve, reject) => {
-      const interval = setInterval(async () => {
-        try {
-          const res = await API.scribe.get(scribeInstanceId);
-          const { status, transcript, ai_response } = res;
-          if (status === "FAILED" || status === "REFUSED") {
-            clearInterval(interval);
-            return reject(new Error("Transcription failed"));
-          }
-
-          if (
-            type === "transcript" &&
-            ["GENERATING_AI_RESPONSE", "COMPLETED"].includes(status) &&
-            transcript !== null
-          ) {
-            clearInterval(interval);
-            return resolve(transcript);
-          }
-
-          if (
-            type === "ai_response" &&
-            status === "COMPLETED" &&
-            ai_response !== null
-          ) {
-            clearInterval(interval);
-            return resolve(ai_response);
-          }
-        } catch (error) {
-          clearInterval(interval);
-          reject(error);
-        }
-      }, 2000);
-    });
-  }
-
   const processIteration = async (iteration: BenchmarkIteration) => {
     let scribeInstance: ScribeModel | null = null;
     try {
@@ -362,7 +311,7 @@ export default function BenchmarkPage() {
       );
       updateIteration(iteration.id, {
         status: "completed",
-        result: cleaned.cleaned as ScribeAIResponse,
+        result: cleaned.cleaned,
         scribeInstance,
         endTime: new Date(),
       });
@@ -437,22 +386,24 @@ export default function BenchmarkPage() {
               <div className="">
                 <Label>Models</Label>
                 <div>
-                  {BENCHMARK_MODELS.map((model) => (
-                    <label key={model} className="flex items-center gap-2">
-                      <Checkbox
-                        checked={newBenchmarkForm.models.includes(model)}
-                        onCheckedChange={(checked) => {
-                          setNewBenchmarkForm((prev) => {
-                            const models = checked
-                              ? [...prev.models, model]
-                              : prev.models.filter((m) => m !== model);
-                            return { ...prev, models };
-                          });
-                        }}
-                      />
-                      {model}
-                    </label>
-                  ))}
+                  {(Object.keys(AI_MODELS) as (keyof typeof AI_MODELS)[]).map(
+                    (model) => (
+                      <label key={model} className="flex items-center gap-2">
+                        <Checkbox
+                          checked={newBenchmarkForm.models.includes(model)}
+                          onCheckedChange={(checked) => {
+                            setNewBenchmarkForm((prev) => {
+                              const models = checked
+                                ? [...prev.models, model]
+                                : prev.models.filter((m) => m !== model);
+                              return { ...prev, models };
+                            });
+                          }}
+                        />
+                        {model}
+                      </label>
+                    ),
+                  )}
                 </div>
               </div>
               <div className="mt-4">

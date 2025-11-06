@@ -1,10 +1,9 @@
 import { Controller } from "./components/Controller";
 import { useEffect, useRef } from "react";
 import { usePath } from "raviger";
-import { useAtom } from "jotai";
-import { containerRefAtom } from "./store";
 import { Toaster } from "./components/ui/sonner";
 import { useQuota } from "./hooks/useQuota";
+import { useContainerRef } from "./hooks/useContainerRef";
 
 export default function App(props: {
   formState: unknown;
@@ -12,7 +11,7 @@ export default function App(props: {
 }) {
   const path = usePath();
   const container = useRef<HTMLDivElement>(null);
-  const [, setContainerRef] = useAtom(containerRefAtom);
+  const containerRef = useContainerRef();
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
@@ -37,9 +36,9 @@ export default function App(props: {
 
   useEffect(() => {
     if (container.current) {
-      setContainerRef(container);
+      containerRef.current = container.current;
     }
-  }, [container, setContainerRef]);
+  }, [container, containerRef]);
 
   return (
     <div className="scribe-container" ref={container}>

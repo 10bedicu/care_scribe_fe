@@ -10,7 +10,7 @@ import {
   ScribeQuota,
   ScribeQuotaCreateRequest,
   ScribeQuotaFilter,
-  UserModel,
+  UserBareMinimum,
 } from "../types";
 
 type methods = "POST" | "GET" | "PATCH" | "DELETE" | "PUT";
@@ -138,7 +138,7 @@ export const API = {
       }>(`/api/v1/getallfacilities/`, "GET", filters),
   },
   users: {
-    current: () => request<UserModel>(`/api/v1/users/getcurrentuser/`),
+    current: () => request<UserBareMinimum>(`/api/v1/users/getcurrentuser/`),
   },
   valuesets: {
     expand: (system: string, query: string) =>

@@ -10,17 +10,9 @@ import {
   ScribeStatus,
 } from "../types";
 import {
-  cleanAIResponse,
-  getFieldsToReview,
-  getHydratedFields,
-  getQuestionInputs,
-  uploadScribeFile,
-} from "../utils/utils";
-import {
   ChevronUpIcon,
   Cross1Icon,
   CrossCircledIcon,
-  DotsVerticalIcon,
   ImageIcon,
 } from "@radix-ui/react-icons";
 import FileUpload from "./FileUpload";
@@ -37,34 +29,10 @@ import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
 import { useTimer } from "@/hooks/useTimer";
 import { useTranslation } from "react-i18next";
 import { Link, usePath } from "raviger";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { useMicrophones } from "@/hooks/useMicrophone";
-import { useAtom } from "jotai/react";
-import {
-  controllerPositionAtom,
-  microphoneAtom,
-  devModeAtom,
-  containerRefAtom,
-} from "@/store";
 import { twMerge } from "tailwind-merge";
-import HistorySheet from "./History";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useQuota } from "@/hooks/useQuota";
-import useAuthUser from "@/hooks/useAuthUser";
 import {
   Dialog,
   DialogContent,
@@ -73,32 +41,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import ControllerDropDownMenu from "./ControllerDropDownMenu";
+import { useStorage } from "@/hooks/useStorage";
+import { useContainerRef } from "@/hooks/useContainerRef";
+import { cleanAIResponse, poller } from "@/utils/response-utils";
+import {
+  getFieldsToReview,
+  getHydratedFields,
+  getQuestionInputs,
+} from "@/utils/field-utils";
+import { uploadScribeFile } from "@/utils/upload-utils";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
+  const latestProcessing =
+    props.meta.processings?.[props.meta.processings.length - 1];
+
   const info = {
-    "Audio Model": props.meta.audio_model,
-    "Chat Model": props.meta.chat_model,
-    Provider: props.meta.provider,
-    "Input Tokens": props.meta.iterations?.reduce(
-      (acc, curr) => acc + (curr.completion_input_tokens || 0),
-      0,
-    ),
-    "Cached Tokens": props.meta.iterations?.reduce(
-      (acc, curr) => acc + (curr.completion_cached_tokens || 0),
-      0,
-    ),
-    "Output Tokens": props.meta.iterations?.reduce(
-      (acc, curr) => acc + (curr.completion_output_tokens || 0),
-      0,
-    ),
+    "Audio Model": latestProcessing?.audio_model || "-",
+    "Chat Model": latestProcessing?.chat_model,
+    Provider: latestProcessing?.provider,
+    "Input Tokens": latestProcessing?.completion_input_tokens || 0,
+    "Cached Tokens": latestProcessing?.completion_cached_tokens || 0,
+    "Output Tokens": latestProcessing?.completion_output_tokens || 0,
     "Transcription Time":
-      props.meta.iterations
-        ?.reduce((acc, curr) => acc + (curr.transcription_time || 0), 0)
-        .toFixed(2) + "s",
-    "Completion Time":
-      props.meta.iterations
-        ?.reduce((acc, curr) => acc + (curr.completion_time || 0), 0)
-        .toFixed(2) + "s",
+      (latestProcessing?.transcription_time || 0).toFixed(2) + "s",
+    "Completion Time": latestProcessing?.completion_time?.toFixed(2) + "s",
   };
 
   return (
@@ -128,18 +95,13 @@ export function Controller(props: {
   const [instanceId, setInstanceId] = useState<string>();
   const [toReview, setToReview] = useState<ScribeFieldSuggestion[]>();
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
-  const [currentMic, setCurrentMic] = useAtom(microphoneAtom);
-  const [devMode, setEnableStatistics] = useAtom(devModeAtom);
-  const [fetchMicrophones, setFetchMicrophones] = useState(false);
-  const { microphones, error: micError } = useMicrophones(!fetchMicrophones);
-  const [controllerPosition] = useAtom(controllerPositionAtom);
+  const [devMode] = useStorage("scribe-enable-dev-mode");
+  const [controllerPosition] = useStorage("scribe-controller-position");
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const path = usePath();
-  const [historySheetOpen, setHistorySheetOpen] = useState(false);
-  const [containerRef] = useAtom(containerRefAtom);
+  const containerRef = useContainerRef();
   const isAbortedRef = useRef(false);
-  const user = useAuthUser();
   const [formStateSnapshot, setFormStateSnapshot] =
     useState<typeof props.formState>(null);
   const queryClient = useQueryClient();
@@ -161,6 +123,8 @@ export function Controller(props: {
     audioBlobs,
     setAudioBlobs,
   } = useSegmentedRecording();
+
+  const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 
   useEffect(() => {
     // Fetch the audio files from the scribe instance.
@@ -188,70 +152,23 @@ export function Controller(props: {
     };
   }, []);
 
-  // Keeps polling the scribe endpoint to check if transcript or ai response has been generated
-  async function poller(
-    scribeInstanceId: string,
-    type: "transcript",
-  ): Promise<string>;
-  async function poller(
-    scribeInstanceId: string,
-    type: "ai_response",
-  ): Promise<ScribeModel["ai_response"]>;
-  async function poller(
-    scribeInstanceId: string,
-    type: "transcript" | "ai_response",
-  ): Promise<string | ScribeModel["ai_response"]> {
-    return new Promise((resolve, reject) => {
-      const interval = setInterval(async () => {
-        try {
-          const res = await API.scribe.get(scribeInstanceId);
-          if (isAbortedRef.current) {
-            clearInterval(interval);
-            return resolve(null);
-          }
-          setScribe(res);
-          const { status, transcript, ai_response } = res;
-          if (status === "FAILED" || status === "REFUSED") {
-            clearInterval(interval);
-            return reject(new Error("Transcription failed"));
-          }
-
-          if (
-            type === "transcript" &&
-            ["GENERATING_AI_RESPONSE", "COMPLETED"].includes(status) &&
-            transcript !== null
-          ) {
-            clearInterval(interval);
-            return resolve(transcript);
-          }
-
-          if (
-            type === "ai_response" &&
-            status === "COMPLETED" &&
-            ai_response !== null
-          ) {
-            clearInterval(interval);
-            return resolve(ai_response);
-          }
-        } catch (error) {
-          clearInterval(interval);
-          reject(error);
-        }
-      }, 2000);
-    });
-  }
-
   // gets the AI response and returns only the data that has changes
   const getAIResponse = async (
     scribeInstanceId: string,
     questionnaire: ScribeQuestionnaire[],
+    sendProcessed: boolean = true,
   ) => {
     try {
       const hfields = getHydratedFields(questionnaire, false);
       if (!hfields || !hfields.length) {
         return;
       }
-      const aiResponse = await poller(scribeInstanceId, "ai_response");
+      const aiResponse = await poller(
+        scribeInstanceId,
+        "ai_response",
+        isAbortedRef,
+        setScribe,
+      );
       if (!aiResponse) {
         setStatus("FAILED");
         return;
@@ -272,9 +189,10 @@ export function Controller(props: {
           toast.error(error);
         });
       });
-
-      updateProcessedResponse(scribeInstanceId, cleaned.meta);
-      return cleaned.cleaned as ScribeAIResponse;
+      if (sendProcessed) {
+        updateProcessedResponse(scribeInstanceId, cleaned.meta);
+      }
+      return cleaned.cleaned;
     } catch (e) {
       console.error(e);
       setStatus("FAILED");
@@ -283,7 +201,7 @@ export function Controller(props: {
 
   const updateProcessedResponse = async (
     scribeInstanceId: string,
-    processedResponse: ScribeModel["meta"]["processed_ai_response"],
+    processedResponse: Awaited<ReturnType<typeof cleanAIResponse>>["meta"],
   ) => {
     try {
       await API.scribe.update(scribeInstanceId, {
@@ -314,7 +232,12 @@ export function Controller(props: {
         form_data: hfields || undefined,
         transcript: null,
       });
-      const transcript = await poller(scribeInstanceId, "transcript");
+      const transcript = await poller(
+        scribeInstanceId,
+        "transcript",
+        isAbortedRef,
+        setScribe,
+      );
       return transcript;
     } catch {
       setStatus("FAILED");
@@ -332,7 +255,6 @@ export function Controller(props: {
       form_data: hfields,
       requested_in_facility_id: facilityId || "",
       requested_in_encounter_id: encounterId || "",
-      // prompt: "..."
     });
 
     try {
@@ -626,9 +548,9 @@ export function Controller(props: {
               <div className="flex max-w-54 flex-col items-center justify-center gap-4 py-4 text-center">
                 <CrossCircledIcon className="h-8 w-8" />
                 {error || t("scribe_error")}
-                {scribe?.meta.error && (
+                {meta?.error && (
                   <pre className="max-h-20 w-52 overflow-auto rounded-md bg-red-100 p-2 text-xs break-words whitespace-pre-wrap text-red-500">
-                    {scribe?.meta.error}
+                    {meta?.error}
                   </pre>
                 )}
               </div>
@@ -663,68 +585,26 @@ export function Controller(props: {
             controllerPosition.includes("left") && "flex-row-reverse",
           )}
         >
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button className="flex aspect-square w-6 items-center justify-center rounded-lg text-sm transition-all hover:bg-black/10">
-                {/* Ellipsis Icon*/}
-                <DotsVerticalIcon className="text-xl" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-48"
-              portalProps={{ container: containerRef?.current }}
-            >
-              <DropdownMenuGroup>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger
-                    onMouseOver={() => setFetchMicrophones(true)}
-                  >
-                    {t("microphone")}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {micError ? (
-                      <p className="px-4 py-2 text-sm text-red-500">
-                        {t("audio__permission_message")}
-                      </p>
-                    ) : (
-                      <DropdownMenuRadioGroup
-                        value={currentMic || undefined}
-                        onValueChange={(v) => {
-                          setCurrentMic(v);
-                        }}
-                      >
-                        {microphones.map((mic) => (
-                          <DropdownMenuRadioItem
-                            key={mic.deviceId}
-                            value={mic.deviceId}
-                          >
-                            {mic.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    )}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuItem onClick={() => setHistorySheetOpen(true)}>
-                  {t("history")}
-                </DropdownMenuItem>
-                {user?.is_superuser && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuCheckboxItem
-                      checked={devMode}
-                      onCheckedChange={(checked) => {
-                        setEnableStatistics(checked);
-                      }}
-                    >
-                      {t("developer_mode")}
-                    </DropdownMenuCheckboxItem>
-                  </>
-                )}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ControllerDropDownMenu
+            onUseScribe={async (scribe) => {
+              isAbortedRef.current = false;
+              setStatus("THINKING");
+              const fields = getQuestionInputs(props.formState);
+              const airesponse = await getAIResponse(
+                scribe.external_id,
+                fields,
+                false,
+              );
+              if (!airesponse) return;
+              setFormStateSnapshot(props.formState);
+              setToReview(getFieldsToReview(airesponse, fields));
+              setScribe(scribe);
+              setStatus("REVIEWING");
+              setLastTranscript(scribe.transcript || "");
+              setTranscript(scribe.transcript || "");
+              setInstanceId(scribe.external_id);
+            }}
+          />
 
           {[
             "REVIEWING",
@@ -779,24 +659,7 @@ export function Controller(props: {
           scribe={scribe || undefined}
         />
       )}
-      <HistorySheet
-        open={historySheetOpen}
-        setOpen={setHistorySheetOpen}
-        onUseScribe={async (scribe) => {
-          isAbortedRef.current = false;
-          setStatus("THINKING");
-          const fields = getQuestionInputs(props.formState);
-          const airesponse = await getAIResponse(scribe.external_id, fields);
-          if (!airesponse) return;
-          setFormStateSnapshot(props.formState);
-          setToReview(getFieldsToReview(airesponse, fields));
-          setScribe(scribe);
-          setStatus("REVIEWING");
-          setLastTranscript(scribe.transcript || "");
-          setTranscript(scribe.transcript || "");
-          setInstanceId(scribe.external_id);
-        }}
-      />
+
       <Dialog open={showTnc} onOpenChange={setShowTnc}>
         <DialogContent
           portalProps={{ container: containerRef?.current }}

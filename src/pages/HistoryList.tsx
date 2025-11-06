@@ -1,4 +1,4 @@
-import SidebarIcon from "@/components/icon";
+import SidebarIcon from "@/components/Icon";
 import { PaginationControls } from "@/components/Pagination";
 import { getStatusConfig, StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
@@ -19,22 +19,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { devModeAtom } from "@/store";
-import { SCRIBE_STATUS } from "@/types";
+import { useStorage } from "@/hooks/useStorage";
+import { SCRIBE_STATUS, ScribeModel } from "@/types";
 import { API } from "@/utils/api";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { debounce } from "@/utils/utils";
 import { ClockIcon, TextAlignBottomIcon } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useAtom } from "jotai";
 import { navigate, useQueryParams } from "raviger";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export default function HistoryListPage() {
   const { t } = useTranslation(I18NNAMESPACE);
-  const [statsEnabled, setStatsEnabled] = useAtom(devModeAtom);
+  const [statsEnabled, setStatsEnabled] = useStorage("scribe-enable-dev-mode");
   const [{ page: initPage }, setQueryParams] = useQueryParams();
   const page = initPage || 1;
   const [search, setSearch] = useState({
@@ -88,6 +87,10 @@ export default function HistoryListPage() {
     { value: "encounter", label: t("encounter_id") },
     { value: "patient", label: t("patient_name") },
   ];
+
+  const latestMeta = (scribe: ScribeModel) => {
+    return scribe.meta.processings?.[scribe.meta.processings.length - 1];
+  };
 
   return (
     <div className="px-4 md:px-6">
@@ -221,28 +224,18 @@ export default function HistoryListPage() {
 
                 {statsEnabled && (
                   <>
-                    <TableCell>{scribe.meta.provider || "N/A"}</TableCell>
                     <TableCell>
-                      {scribe.meta.iterations?.reduce(
-                        (acc, i) => acc + (i.completion_input_tokens || 0),
-                        0,
-                      ) || "-"}
-                      +{" "}
-                      {scribe.meta.iterations?.reduce(
-                        (acc, i) => acc + (i.completion_output_tokens || 0),
-                        0,
-                      ) || "-"}
+                      {latestMeta(scribe)?.provider || "N/A"}
                     </TableCell>
                     <TableCell>
-                      {scribe.meta.iterations
-                        ?.reduce(
-                          (acc, i) =>
-                            acc +
-                            ((i.transcription_time || 0) +
-                              (i.completion_time || 0)),
-                          0,
-                        )
-                        .toFixed(2)}{" "}
+                      {latestMeta(scribe)?.completion_input_tokens || "-"}+{" "}
+                      {latestMeta(scribe)?.completion_output_tokens || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {(
+                        (latestMeta(scribe)?.transcription_time || 0) +
+                        (latestMeta(scribe)?.completion_time || 0)
+                      ).toFixed(2)}{" "}
                       s
                     </TableCell>
                   </>

@@ -1,10 +1,13 @@
 import { noNullStrings, Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
-import { lookupCode, shiftUTCToLocalClockTime } from "../utils";
-import dedent from "dedent-js";
 import dayjs from "dayjs";
 import { allergyDisposition } from "./code";
+import {
+  lookupCode,
+  shiftUTCToLocalClockTime,
+  validateTime,
+} from "../response-utils";
 export const CLINICAL_STATUS = ["active", "inactive", "resolved"] as const;
 
 export const CATEGORY = [
@@ -74,6 +77,13 @@ export const allergyIntoleranceStructure: Structure<
         );
         return undefined;
       }
+
+      const lastOccurrence =
+        allergyIntolerance.last_occurrence &&
+        validateTime(allergyIntolerance.last_occurrence)
+          ? shiftUTCToLocalClockTime(allergyIntolerance.last_occurrence)
+          : undefined;
+
       const allergyIntoleranceData: AllergyIntolerance = {
         code,
         clinical_status: allergyIntolerance.clinical_status || "active",
@@ -81,9 +91,7 @@ export const allergyIntoleranceStructure: Structure<
         criticality: allergyIntolerance.criticality || "low",
         verification_status:
           allergyIntolerance.verification_status || "confirmed",
-        last_occurrence: allergyIntolerance.last_occurrence
-          ? shiftUTCToLocalClockTime(allergyIntolerance.last_occurrence)
-          : undefined,
+        last_occurrence: lastOccurrence,
         note: noNullStrings(allergyIntolerance.note) || undefined,
       };
       return allergyIntoleranceData;
@@ -103,20 +111,27 @@ export const allergyIntoleranceStructure: Structure<
     };
   },
   toPrompt: (data) => {
-    return data
-      .map(
-        (allergyIntolerance, i) =>
-          dedent`
-        ### Allergy Intolerance ${i + 1}: 
-        - Allergy: ${allergyIntolerance.code.display} (SNOMED Code: ${allergyIntolerance.code.code})
-        - Clinical Status: ${allergyIntolerance.clinical_status}, 
-        - Category: ${allergyIntolerance.category},
-        - Criticality: ${allergyIntolerance.criticality},
-        - Verification Status: ${allergyIntolerance.verification_status},
-        - Last Occurrence: ${dayjs(allergyIntolerance.last_occurrence).format("DD/MM/YYYY HH:mm") || "N/A"},
-        ${allergyIntolerance.note ? `- Note: ${allergyIntolerance.note}` : ""}
-        `,
-      )
-      .join("\n");
+    return (
+      <div className="mt-2 flex w-full flex-col gap-2">
+        {data.map((allergy, i) => (
+          <div
+            key={i}
+            className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal"
+          >
+            <div className="text-base font-semibold">
+              {allergy.code.display}
+            </div>
+            <div className="text-xs opacity-70">
+              Last occurence :{" "}
+              {dayjs(allergy.last_occurrence).format("DD/MM/YYYY")}
+            </div>
+            <div className="capitalize">
+              {allergy.criticality} Criticality &middot;{" "}
+              {allergy.clinical_status}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   },
 };

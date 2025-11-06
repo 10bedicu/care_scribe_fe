@@ -1,10 +1,13 @@
 import { Structure } from ".";
 import { z } from "zod";
 import { Code } from "@/types";
-import { lookupCode, shiftUTCToLocalClockTime } from "../utils";
-import dedent from "dedent-js";
 import dayjs from "dayjs";
 import { finding } from "./code";
+import {
+  lookupCode,
+  shiftUTCToLocalClockTime,
+  validateTime,
+} from "../response-utils";
 
 export const CLINICAL_STATUS = [
   "active",
@@ -68,13 +71,16 @@ export const symptomsStructure: Structure<Symptom[], typeof toolStructure> = {
         );
         return undefined;
       }
+      const onsetDateTime = validateTime(symptom.onset_datetime)
+        ? shiftUTCToLocalClockTime(symptom.onset_datetime)
+        : new Date().toISOString();
       const symptomData: Symptom = {
         code,
         clinical_status: symptom.clinical_status || "active",
         verification_status: symptom.verification_status || "confirmed",
         severity: symptom.severity || "moderate",
         onset: {
-          onset_datetime: shiftUTCToLocalClockTime(symptom.onset_datetime),
+          onset_datetime: onsetDateTime,
         },
         category: "problem_list_item",
       };
@@ -94,17 +100,28 @@ export const symptomsStructure: Structure<Symptom[], typeof toolStructure> = {
     };
   },
   toPrompt: (data) => {
-    return data
-      .map(
-        (symptom, i) =>
-          dedent`
-        ### Symptom ${i + 1}: 
-        - Symptom: ${symptom.code.display} (SNOMED Code: ${symptom.code.code})
-        - Clinical Status: ${symptom.clinical_status}, 
-        - Verification Status: ${symptom.verification_status}, 
-        - Severity: ${symptom.severity}, 
-        - Onset: ${dayjs(symptom.onset.onset_datetime).format("DD/MM/YYYY HH:mm")}`,
-      )
-      .join("\n");
+    return (
+      <div className="mt-2 flex w-full flex-col gap-2">
+        {data.map((symptom, i) => (
+          <div
+            key={i}
+            className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal"
+          >
+            <div className="text-base font-semibold">
+              {symptom.code.display}
+              <span className="ml-1 text-xs font-normal opacity-70">
+                {symptom.severity}
+              </span>
+            </div>
+            <div className="text-xs opacity-70">
+              Since {dayjs(symptom.onset.onset_datetime).format("DD/MM/YYYY")}
+            </div>
+            <div className="capitalize">
+              {symptom.verification_status} &middot; {symptom.clinical_status}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   },
 };
