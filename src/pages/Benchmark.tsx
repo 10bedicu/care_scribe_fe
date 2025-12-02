@@ -81,6 +81,13 @@ export interface Benchmark {
   iterations: BenchmarkIteration[];
 }
 
+export interface CreatedBenchmark {
+  id: string;
+  createdAt: Date;
+  questionnaireIds: string[];
+  expectedResult: any;
+}
+
 export default function BenchmarkPage() {
   const { t } = useTranslation(I18NNAMESPACE);
   const containerRef = useContainerRef();
@@ -373,14 +380,14 @@ export default function BenchmarkPage() {
         </h1>
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant={"default"}>New Benchmark</Button>
+            <Button variant={"default"}>Run Benchmark</Button>
           </SheetTrigger>
           <SheetContent
             portalProps={{ container: containerRef?.current }}
             className=""
           >
             <SheetHeader>
-              <SheetTitle>New Benchmark</SheetTitle>
+              <SheetTitle>Run Benchmark</SheetTitle>
             </SheetHeader>
             <div className="p-4">
               <div className="">

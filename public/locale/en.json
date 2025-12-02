@@ -121,5 +121,8 @@
   "estimated_audio" : "Asmd. Audio",
   "assumed_cost" : "Assumed Cost",
   "processing" : "Processing",
-  "processing_history": "Processing History"
+  "processing_history": "Processing History",
+  "create_benchmark": "Create Benchmark",
+  "no_scribe_to_benchmark": "No scribe available to create benchmark",
+  "create_benchmark_information": "Create a benchmark from this completed scribe to evaluate future scribes against it. Make sure to edit the fields as necessary before creating the benchmark."
 }

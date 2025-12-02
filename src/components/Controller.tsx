@@ -51,6 +51,8 @@ import {
   getQuestionInputs,
 } from "@/utils/field-utils";
 import { uploadScribeFile } from "@/utils/upload-utils";
+import useAuthUser from "@/hooks/useAuthUser";
+import CreateBenchmark from "./CreateBenchmark";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const latestProcessing =
@@ -97,6 +99,7 @@ export function Controller(props: {
   const [openEditTranscript, setOpenEditTranscript] = useState(false);
   const [devMode] = useStorage("scribe-enable-dev-mode");
   const [controllerPosition] = useStorage("scribe-controller-position");
+  const [lastScribe, setLastScribe] = useState<ScribeModel | null>(null);
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const path = usePath();
@@ -414,9 +417,18 @@ export function Controller(props: {
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
+  useEffect(() => {
+    if (scribe) {
+      setLastScribe(scribe);
+    }
+  }, [scribe]);
+
   return (
     <>
       {/* placeholder */}
+      {lastScribe && (
+        <CreateBenchmark scribe={lastScribe} formState={props.formState} />
+      )}
       <div className="h-10" />
       <div
         className={`fixed z-40 flex ${controllerPosition.includes("top") ? "top-5 flex-col-reverse" : "bottom-5 flex-col"} ${controllerPosition.includes("right") ? "right-5 items-end" : "left-5 items-start"} gap-4 transition-all`}
