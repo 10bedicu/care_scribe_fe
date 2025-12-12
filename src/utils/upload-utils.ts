@@ -87,28 +87,32 @@ export const uploadScribeFile = async (
   });
 
   await new Promise<void>((resolve, reject) => {
-    const url = data?.signed_url;
-    const internal_name = data?.internal_name;
-    const f = blob;
-    if (f === undefined) {
-      reject(Error("No file to upload"));
-      return;
-    }
-    const newFile = new File([f], `${internal_name}`, { type: f.type });
-    const headers = {
-      "Content-type": newFile?.type?.split(";")?.[0],
-      "Content-disposition": "inline",
-    };
+    try {
+      const url = data?.signed_url;
+      const internal_name = data?.internal_name;
+      const f = blob;
+      if (f === undefined) {
+        reject(Error("No file to upload"));
+        return;
+      }
+      const newFile = new File([f], `${internal_name}`, { type: f.type });
+      const headers = {
+        "Content-type": newFile?.type?.split(";")?.[0],
+        "Content-disposition": "inline",
+      };
 
-    uploadFile(
-      url || "",
-      newFile,
-      "PUT",
-      headers,
-      (xhr: XMLHttpRequest) => (xhr.status === 200 ? resolve() : reject()),
-      null,
-      reject,
-    );
+      uploadFile(
+        url || "",
+        newFile,
+        "PUT",
+        headers,
+        (xhr: XMLHttpRequest) => (xhr.status === 200 ? resolve() : reject()),
+        null,
+        reject,
+      );
+    } catch (error) {
+      reject(error);
+    }
   });
 
   return await API.scribe.editFileUpload(
