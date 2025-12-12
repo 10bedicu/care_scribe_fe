@@ -15,14 +15,19 @@ import { I18NNAMESPACE } from "@/utils/constants";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { API } from "@/utils/api";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
 import { useContainerRef } from "@/hooks/useContainerRef";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command";
+import { CheckIcon, CaretSortIcon } from "@radix-ui/react-icons";
+import { cn } from "@/utils/utils";
+import { Skeleton } from "./ui/skeleton";
 
 export default function QuotaSheet(props: {
   quota?: ScribeQuota;
@@ -43,9 +48,14 @@ export default function QuotaSheet(props: {
     tokens_per_user: 100000,
   });
 
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+
   const facilityQuery = useQuery({
-    queryKey: ["all-facilities"],
-    queryFn: () => API.facilities.all({ limit: 50 }),
+    queryKey: ["all-facilities", debouncedSearchQuery],
+    queryFn: () =>
+      API.facilities.all({ limit: 50, search_text: debouncedSearchQuery }),
   });
 
   useEffect(() => {
@@ -59,8 +69,15 @@ export default function QuotaSheet(props: {
     }
   }, [initQuota]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
   return (
-    <Sheet open={open} onOpenChange={onClose}>
+    <Sheet open={open} onOpenChange={onClose} modal={false}>
       <SheetContent
         portalProps={{ container: containerRef?.current }}
         className=""
@@ -76,26 +93,79 @@ export default function QuotaSheet(props: {
           {!initQuota?.external_id && (
             <>
               <label>{t("facility")}</label>
-              <Select
-                value={quota.facility_external_id || ""}
-                onValueChange={(value) => {
-                  setQuota({
-                    ...quota,
-                    facility_external_id: value,
-                  });
-                }}
+              <Popover
+                modal={false}
+                open={comboboxOpen}
+                onOpenChange={setComboboxOpen}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("facility")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {facilityQuery.data?.results.map((facility) => (
-                    <SelectItem key={facility.id} value={facility.id || ""}>
-                      {facility.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboboxOpen}
+                    className="w-full justify-between"
+                  >
+                    {quota.facility_external_id
+                      ? facilityQuery.data?.results.find(
+                          (facility) =>
+                            facility.id === quota.facility_external_id,
+                        )?.name
+                      : t("facility")}
+                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  portalProps={{ container: containerRef?.current }}
+                  className="pointer-events-auto w-[400px] p-0"
+                >
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      className="border-0 ring-0"
+                      placeholder={t("facility")}
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
+                    <CommandList>
+                      {facilityQuery.isLoading && (
+                        <div className="flex w-full flex-col gap-1 p-1">
+                          <Skeleton className="h-[35px] w-full rounded-lg" />
+                          <Skeleton className="h-[35px] w-full rounded-lg" />
+                          <Skeleton className="h-[35px] w-full rounded-lg" />
+                        </div>
+                      )}
+                      {facilityQuery.isFetched &&
+                        facilityQuery.data?.results.length === 0 && (
+                          <CommandEmpty>{t("no_facility_found")}</CommandEmpty>
+                        )}
+                      <CommandGroup>
+                        {facilityQuery.data?.results.map((facility) => (
+                          <CommandItem
+                            key={facility.id}
+                            value={facility.id || ""}
+                            onSelect={(currentValue) => {
+                              setQuota({
+                                ...quota,
+                                facility_external_id: currentValue,
+                              });
+                              setComboboxOpen(false);
+                            }}
+                          >
+                            {facility.name}
+                            <CheckIcon
+                              className={cn(
+                                "ml-auto h-4 w-4",
+                                quota.facility_external_id === facility.id
+                                  ? "opacity-100"
+                                  : "opacity-0",
+                              )}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </>
           )}
           <div className="mt-4">
