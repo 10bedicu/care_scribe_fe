@@ -1,29 +1,35 @@
-import { FeatureFlagsProvider } from "@/hooks/useFeatureFlags";
-import { containerRefAtom } from "@/store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAtom } from "jotai";
 import { useEffect, useRef } from "react";
+import { Toaster } from "./ui/sonner";
+import { ContainerRefProvider, useContainerRef } from "@/hooks/useContainerRef";
 
 const queryClient = new QueryClient();
 
-export default function Page(props: { children: React.ReactNode }) {
-  const [, setContainerRef] = useAtom(containerRefAtom);
+function Providers(props: { children: React.ReactNode }) {
+  const containerRef = useContainerRef();
 
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (container.current) {
-      setContainerRef(container);
+      containerRef.current = container.current;
     }
-  }, [container, setContainerRef]);
+  }, [container, containerRef]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <FeatureFlagsProvider>
-        <div className="scribe-container" ref={container}>
-          {props.children}
-        </div>
-      </FeatureFlagsProvider>
-    </QueryClientProvider>
+    <div className="scribe-container" ref={container}>
+      {props.children}
+    </div>
+  );
+}
+
+export default function Page(props: { children: React.ReactNode }) {
+  return (
+    <ContainerRefProvider>
+      <QueryClientProvider client={queryClient}>
+        <Toaster position="top-right" richColors expand theme="light" />
+        <Providers>{props.children}</Providers>
+      </QueryClientProvider>
+    </ContainerRefProvider>
   );
 }

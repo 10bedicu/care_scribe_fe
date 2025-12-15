@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
  * @returns {Object} A set of properties and methods to control and display the timer:
  *
  * @property {number} seconds - The total elapsed time in seconds.
- * @property {JSX.Element} time - A JSX element displaying the current time in MM:SS format.
+ * @property {string} time - A string displaying the current time in MM:SS format.
  * @property {function} start - Function to start the timer.
  * @property {function} stop - Function to stop the timer.
  *
@@ -40,12 +40,7 @@ export const useTimer = (autoStart = false) => {
 
   return {
     seconds: time / 100,
-    time: (
-      <span>
-        {("0" + Math.floor((time / 6000) % 60)).slice(-2)}:
-        {("0" + Math.floor((time / 100) % 60)).slice(-2)}
-      </span>
-    ),
+    time: `${("0" + Math.floor((time / 6000) % 60)).slice(-2)}:${("0" + Math.floor((time / 100) % 60)).slice(-2)}`,
     start: () => setRunning(true),
     stop: () => setRunning(false),
     reset: () => setTime(0),

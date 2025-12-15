@@ -31,3 +31,18 @@
     cursor: pointer;
   }
 }
+
+.plain-audio::-webkit-media-controls-panel {
+  background-color: white;
+  box-shadow: none;
+  border-radius: 0px;
+  padding: 0px;
+  min-height: none;
+  height: auto;
+  max-height: none;
+}
+
+.reset-tw,
+.reset-tw * {
+    all: revert !important;
+}

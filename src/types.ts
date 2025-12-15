@@ -1,4 +1,7 @@
-export type FeatureFlag = "SCRIBE_ENABLED" | "SCRIBE_OCR_ENABLED";
+import { z } from "zod";
+import STRUCTURES, { arbitraryStructures } from "./utils/structures";
+import { JsonSchema7AnyType } from "zod-to-json-schema";
+import { cleanAIResponse } from "./utils/response-utils";
 
 export type UserBareMinimum = {
   id: number;
@@ -6,13 +9,10 @@ export type UserBareMinimum = {
   first_name: string;
   last_name: string;
   email: string;
-  user_type: unknown;
-  last_login: string | undefined;
   read_profile_picture_url?: string;
   external_id: string;
+  is_superuser: boolean;
 };
-
-export type GenderType = "Male" | "Female" | "Transgender";
 
 export const SCRIBE_STATUS = [
   "CREATED",
@@ -24,79 +24,128 @@ export const SCRIBE_STATUS = [
   "FAILED",
 ] as const;
 
-export type UserModel = UserBareMinimum & {
-  external_id: string;
-  local_body?: number;
-  district?: number;
-  state?: number;
-  video_connect_link: string;
-  phone_number?: string;
-  alt_phone_number?: string;
-  gender?: GenderType;
-  read_profile_picture_url?: string;
-  date_of_birth: Date | null | string;
-  is_superuser?: boolean;
-  verified?: boolean;
-  home_facility?: string;
-  qualification?: string;
-  doctor_experience_commenced_on?: string;
-  doctor_medical_council_registration?: string;
-  weekly_working_hours?: string | null;
-  user_flags?: FeatureFlag[];
+export type ScribeHydratedField = {
+  friendlyName: string;
+  humanValue: string;
+  description?: string;
+  id: string;
+  options?: (string | number)[];
+  type: string;
+  structuredType?: keyof typeof STRUCTURES;
+  current: ScribeDeseriliazedValue | null;
+  schema?: JsonSchema7AnyType;
+};
+
+export type ScribeValue =
+  | z.infer<(typeof STRUCTURES)[keyof typeof STRUCTURES]["toolStructure"]>
+  | {
+      value:
+        | (
+            | z.infer<
+                (typeof arbitraryStructures)[keyof typeof arbitraryStructures]
+              >
+            | z.infer<
+                (typeof arbitraryStructures)[keyof typeof arbitraryStructures]
+              >[]
+          )
+        | null;
+      note: string | null;
+    };
+
+export type ScribeDeseriliazedValue =
+  | Awaited<
+      ReturnType<(typeof STRUCTURES)[keyof typeof STRUCTURES]["deserialize"]>
+    >["data"]
+  | z.infer<(typeof arbitraryStructures)[keyof typeof arbitraryStructures]>
+  | z.infer<(typeof arbitraryStructures)[keyof typeof arbitraryStructures]>[]
+  | null;
+
+export type ScribeHydratedAndRawField = ScribeHydratedField & ScribeField;
+
+export type ScribeHydratedQuestionnaire<T extends ScribeHydratedField> = {
+  title: string;
+  description: string;
+  fields: (T | ScribeHydratedQuestionnaire<T>)[];
 };
 
 export type ScribeModel = {
   external_id: string;
-  requested_by: UserModel;
-  form_data: {
-    friendlyName: string;
-    default: string;
-    description: string;
-    example: string;
-    id: string;
-    options?: any[];
-    type: string;
-    current: any;
-  }[];
+  requested_by: UserBareMinimum;
+  form_data: ScribeHydratedQuestionnaire<ScribeHydratedField>[];
   requested_in_facility: {
     id: FacilityModel["id"];
     name: FacilityModel["name"];
-  };
+  } | null;
   requested_in_encounter: {
     external_id: string;
     patient: {
       external_id: string;
       name: string;
     };
-  };
-  transcript: string;
-  ai_response: string;
+  } | null;
+  transcript: string | null;
+  ai_response:
+    | ({
+        __scribe__transcription: string;
+      } & {
+        [key: string]: ScribeValue;
+      })
+    | null;
   status: (typeof SCRIBE_STATUS)[number];
   realtime_token: string | null;
   prompt?: string;
   meta: {
-    provider?: string;
-    transcription_time?: number;
-    completion_output_tokens?: number;
-    completion_input_tokens?: number;
-    completion_time?: number;
-    completion_id?: string;
-    chat_model?: string;
-    audio_model?: string;
-    prompt?: string;
+    processings?: ScribeProcessing[];
   };
+  is_feedback_positive: boolean | null;
+  feedback_comments: string | null;
   created_date: string;
   modified_date: string;
-  audio_file_ids: string[];
-  document_file_ids: string[];
+  audio: ScribeFileModel[];
+  documents: ScribeFileModel[];
+};
+
+export type ScribeProcessing = {
+  created_date?: string;
+  provider?: string;
+  thinking?: string;
+  transcription_time?: number;
+  completion_output_tokens?: number;
+  completion_input_tokens?: number;
+  completion_audio_input_tokens?: number;
+  completion_image_input_tokens?: number;
+  completion_text_input_tokens?: number;
+  completion_cached_tokens?: number;
+  completion_cached_audio_tokens?: number;
+  completion_cached_image_tokens?: number;
+  completion_cached_text_tokens?: number;
+  completion_thinking_tokens?: number;
+  completion_total_tokens?: number;
+  completion_time?: number;
+  completion_id?: string;
+  prompt?: string;
+  function?: Record<string, unknown>;
+  processed_ai_response?: Awaited<ReturnType<typeof cleanAIResponse>>["meta"];
+  ai_response?: ScribeModel["ai_response"];
+  form_data?: ScribeModel["form_data"];
+  chat_model?: string;
+  audio_model?: string;
+  error?: string;
 };
 
 export type ScribeCreateRequest = {
-  status: ScribeModel["status"];
+  status?: ScribeModel["status"];
   form_data?: ScribeModel["form_data"];
   requested_in_facility_id?: string;
   requested_in_encounter_id?: string;
   transcript?: ScribeModel["transcript"];
+  processed_ai_response?: ScribeProcessing["processed_ai_response"];
+  benchmark?: boolean;
+  chat_model?: string;
+  audio_model?: string;
+  chat_model_temperature?: number;
+  is_feedback_positive?: boolean | null;
+  feedback_comments?: string | null;
 };
 
 export type ScribeStatus =
@@ -116,26 +165,32 @@ export enum ScribeFileType {
   DOCUMENT = 2,
 }
 
-export type ScribeFieldOption = {
-  value: string;
-  text: string;
+export type ScribeMeta = {
+  encounterId: string;
+  currentUser: UserBareMinimum;
+  currentTime: string;
+};
+
+export type ScribeQuestionnaire = {
+  title: string;
+  description: string;
+  questions: (ScribeField | ScribeQuestionnaire)[];
 };
 
 export type ScribeField = {
   question: FormQuestion;
-  fieldElement: Element;
-  value: string | null;
+  value: ScribeDeseriliazedValue | null;
+  note?: string;
 };
 
 export type ScribeAIResponse = {
-  [field_number: number]: unknown;
+  [field_id: string]: ScribeValue;
 };
 
-export type ScribePromptMap = {
-  [key in QuestionType | "default"]?: { prompt: string; example: unknown };
+export type ScribeFieldSuggestion = ScribeHydratedAndRawField & {
+  newValue: ScribeDeseriliazedValue;
+  newNote: string | null;
 };
-
-export type ScribeFieldSuggestion = ScribeField & { newValue: unknown };
 
 export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & {
   suggestionIndex: number;
@@ -151,6 +206,7 @@ export interface CreateFileRequest {
   associating_id: string;
   original_name: string;
   mime_type: string;
+  length?: number;
 }
 
 export interface CreateFileResponse {
@@ -182,6 +238,7 @@ export interface ScribeFileModel {
   name: string;
   upload_completed: boolean;
   read_signed_url: string;
+  length: number;
 }
 
 export interface FacilityModel {
@@ -204,7 +261,6 @@ export interface FacilityModel {
   local_body?: number;
   ward?: number;
   pincode?: string;
-  flags?: FeatureFlag[];
   latitude?: string;
   longitude?: string;
   kasp_empanelled?: boolean;
@@ -230,29 +286,21 @@ export type QuestionType =
 
 export interface FormQuestion {
   id: string;
-  structured_type?: string;
+  structured_type?: keyof typeof STRUCTURES;
   answer_option?: { value: string }[];
+  description?: string;
   text: string;
   required?: boolean;
   type: QuestionType;
   repeats?: boolean;
+  unit?: {
+    code: string;
+    system: string;
+    display: string;
+  };
 }
 
-export type ValueSetSystem =
-  | "system-allergy-code"
-  | "system-condition-code"
-  | "system-medication"
-  | "system-additional-instruction"
-  | "system-administration-method"
-  | "system-as-needed-reason"
-  | "system-body-site"
-  | "system-route"
-  | "system-observation"
-  | "system-body-site-observation"
-  | "system-collection-method"
-  | "system-ucum-units";
-
-export const VALUESET_SYSTEM_NAMES: { [key in ValueSetSystem]: string } = {
+export const VALUESET_SYSTEM_NAMES = {
   "system-allergy-code": "Allergy",
   "system-condition-code": "Condition",
   "system-medication": "Medication",
@@ -265,13 +313,8 @@ export const VALUESET_SYSTEM_NAMES: { [key in ValueSetSystem]: string } = {
   "system-body-site-observation": "Body Site Observation",
   "system-collection-method": "Collection Method",
   "system-ucum-units": "UCUM Units",
-};
+} as const;
 
-export interface CodeSearchQuery {
-  code_search_type: ValueSetSystem;
-  code_search_query: string;
-  primary?: boolean;
-}
 export interface Code {
   system: string;
   code: string;
@@ -283,3 +326,32 @@ export type ScribeControllerPosition =
   | "top-right"
   | "bottom-left"
   | "bottom-right";
+
+export type ScribeQuota = {
+  external_id: string;
+  created_date: string;
+  modified_date: string;
+  user: UserBareMinimum;
+  facility: FacilityModel;
+  tokens: number;
+  tokens_per_user: number;
+  used: number;
+  allow_ocr: boolean;
+  tnc_hash: string | null;
+  tnc_accepted_date: string | null;
+};
+
+export type ScribeQuotaCreateRequest = {
+  facility_external_id?: string;
+  tokens: number;
+  allow_ocr: boolean;
+  tokens_per_user: number;
+};
+
+export type ScribeQuotaFilter = {
+  facility?: string | null;
+  allow_ocr?: boolean;
+  ordering?: string;
+  offset?: number;
+  limit?: number;
+};

@@ -405,3 +405,84 @@ export const DOSAGE_UNITS_CODES: {
     system: "http://unitsofmeasure.org",
   },
 ];
+
+export const AI_MODELS = {
+  "openai/gpt-4.1": {
+    cost: {
+      input: 2,
+      cached: 0.5,
+      output: 8,
+    },
+  },
+  "openai/gpt-4.1-mini": {
+    cost: {
+      input: 0.4,
+      cached: 0.1,
+      output: 1.6,
+    },
+  },
+  "openai/gpt-4.1-nano": {
+    cost: {
+      input: 0.1,
+      cached: 0.025,
+      output: 0.4,
+    },
+  },
+  "openai/gpt-4o": {
+    cost: {
+      input: 2.5,
+      cached: 1.25,
+      output: 10,
+    },
+  },
+  "openai/gpt-4o-mini": {
+    cost: {
+      input: 0.15,
+      cached: 0.075,
+      output: 0.06,
+    },
+  },
+  "google/gemini-2.0-flash": {
+    cost: {
+      input: 0.1,
+      audio_input: 0.7,
+      cached: 0.025,
+      audio_cached: 0.175,
+      output: 0.4,
+    },
+  },
+  "google/gemini-2.0-flash-lite": {
+    cost: {
+      input: 0.075,
+      cached: 0,
+      output: 0.3,
+    },
+  },
+  "google/gemini-2.5-flash-lite": {
+    cost: {
+      input: 0.1,
+      audio_input: 0.3,
+      cached: 0.025,
+      audio_cached: 0.125,
+      output: 0.4,
+    },
+  },
+  "google/gemini-2.5-flash": {
+    cost: {
+      input: 0.3,
+      audio_input: 1,
+      cached: 0.075,
+      audio_cached: 0.25,
+      output: 2.5,
+    },
+  },
+  "google/gemini-2.5-pro": {
+    cost: {
+      input: 1.25,
+      audio_input: 1.25,
+      cached: 0.31,
+      cached_input: 0.31,
+      output: 10,
+    },
+  },
+} as const;

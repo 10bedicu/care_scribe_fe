@@ -1,4 +1,4 @@
-import SidebarIcon from "@/components/icon";
+import SidebarIcon from "@/components/Icon";
 import { PaginationControls } from "@/components/Pagination";
 import { getStatusConfig, StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
@@ -19,22 +19,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { enableStatisticsAtom } from "@/store";
-import { SCRIBE_STATUS } from "@/types";
+import { useStorage } from "@/hooks/useStorage";
+import { SCRIBE_STATUS, ScribeModel } from "@/types";
 import { API } from "@/utils/api";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { debounce } from "@/utils/utils";
 import { ClockIcon, TextAlignBottomIcon } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useAtom } from "jotai";
 import { navigate, useQueryParams } from "raviger";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export default function HistoryListPage() {
   const { t } = useTranslation(I18NNAMESPACE);
-  const [statsEnabled, setStatsEnabled] = useAtom(enableStatisticsAtom);
+  const [statsEnabled, setStatsEnabled] = useStorage("scribe-enable-dev-mode");
   const [{ page: initPage }, setQueryParams] = useQueryParams();
   const page = initPage || 1;
   const [search, setSearch] = useState({
@@ -48,6 +47,7 @@ export default function HistoryListPage() {
       end: string | null;
     };
     ordering: string;
+    benchmark: boolean;
   }>({
     status: "all",
     date_range: {
@@ -55,6 +55,7 @@ export default function HistoryListPage() {
       end: null,
     },
     ordering: "-created_date",
+    benchmark: false,
   });
 
   const historyQuery = useQuery({
@@ -68,6 +69,7 @@ export default function HistoryListPage() {
         facility: search.type === "facility" ? search.value : undefined,
         encounter_id: search.type === "encounter" ? search.value : undefined,
         patient: search.type === "patient" ? search.value : undefined,
+        benchmark: filters.benchmark,
         offset: (Number(page) - 1) * 10,
         limit: 10,
       }),
@@ -85,6 +87,10 @@ export default function HistoryListPage() {
     { value: "encounter", label: t("encounter_id") },
     { value: "patient", label: t("patient_name") },
   ];
+
+  const latestMeta = (scribe: ScribeModel) => {
+    return scribe.meta.processings?.[scribe.meta.processings.length - 1];
+  };
 
   return (
     <div className="px-4 md:px-6">
@@ -194,7 +200,7 @@ export default function HistoryListPage() {
                 className="cursor-pointer"
                 onClick={() =>
                   navigate(
-                    `/facility/${scribe.requested_in_facility.id}/users/${scribe.requested_by}/scribe-history/${scribe.external_id}`,
+                    `/facility/${scribe.requested_in_facility?.id}/users/${scribe.requested_by.username}/scribe-history/${scribe.external_id}`,
                   )
                 }
               >
@@ -209,24 +215,26 @@ export default function HistoryListPage() {
                   <StatusBadge status={scribe.status} />
                 </TableCell>
                 <TableCell className="">
-                  {scribe.requested_in_encounter.patient.name}
+                  {scribe.requested_in_encounter?.patient.name}
                 </TableCell>
-                <TableCell>{scribe.requested_in_facility.name}</TableCell>
+                <TableCell>{scribe.requested_in_facility?.name}</TableCell>
                 <TableCell className="max-w-[100px] truncate">
-                  {scribe.requested_in_encounter.external_id}
+                  {scribe.requested_in_encounter?.external_id}
                 </TableCell>
 
                 {statsEnabled && (
                   <>
-                    <TableCell>{scribe.meta.provider || "N/A"}</TableCell>
                     <TableCell>
-                      {scribe.meta.completion_input_tokens || "-"} +{" "}
-                      {scribe.meta.completion_output_tokens || "-"}
+                      {latestMeta(scribe)?.provider || "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {latestMeta(scribe)?.completion_input_tokens || "-"}+{" "}
+                      {latestMeta(scribe)?.completion_output_tokens || "-"}
                     </TableCell>
                     <TableCell>
                       {(
-                        (scribe.meta.transcription_time || 0) +
-                        (scribe.meta.completion_time || 0)
+                        (latestMeta(scribe)?.transcription_time || 0) +
+                        (latestMeta(scribe)?.completion_time || 0)
                       ).toFixed(2)}{" "}
                       s
                     </TableCell>

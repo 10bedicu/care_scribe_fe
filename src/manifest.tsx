@@ -1,11 +1,14 @@
 import { lazy } from "react";
 import Page from "./components/Page";
-import SidebarIcon from "./components/icon";
+import SidebarIcon from "./components/Icon";
+import BenchmarkPage from "./pages/Benchmark";
+import ScribeQuotas from "./pages/Quotas";
 
 interface NavigationLink {
   url: string;
   name: string;
   icon?: React.ReactNode;
+  children?: NavigationLink[];
 }
 interface Manifest {
   plugin: string;
@@ -14,11 +17,15 @@ interface Manifest {
   components: Record<
     string,
     React.LazyExoticComponent<
-      React.FC<{ formState: unknown; setFormState: unknown }>
+      React.FC<{
+        formState: unknown;
+        setFormState: (formState: unknown) => void;
+      }>
     >
   >;
   navItems?: NavigationLink[];
   userNavItems?: NavigationLink[];
+  adminNavItems?: NavigationLink[];
 }
 
 const HistoryListLazy = lazy(() => import("./pages/HistoryList"));
@@ -37,16 +44,45 @@ const manifest: Manifest = {
         <HistoryDetailsLazy scribeId={id} />
       </Page>
     ),
+    "/admin/scribe/benchmark": () => (
+      <Page>
+        <BenchmarkPage />
+      </Page>
+    ),
+    "/admin/scribe/quotas": () => (
+      <Page>
+        <ScribeQuotas />
+      </Page>
+    ),
   },
   extends: [],
   components: {
-    Scribe: lazy(() => import("./Providers")),
+    Scribe: lazy(() => import("./providers")),
   },
   userNavItems: [
     {
       url: `scribe-history`,
       name: "Scribe History",
       icon: <SidebarIcon />,
+    },
+  ],
+  adminNavItems: [
+    {
+      url: `/admin/scribe/quotas`,
+      name: "Scribe",
+      icon: <SidebarIcon />,
+      children: [
+        {
+          url: `/admin/scribe/quotas`,
+          name: "Quotas",
+          icon: <SidebarIcon />,
+        },
+        {
+          url: `/admin/scribe/benchmark`,
+          name: "Benchmark",
+          icon: <SidebarIcon />,
+        },
+      ],
     },
   ],
 };
