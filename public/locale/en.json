@@ -124,5 +124,6 @@
   "processing_history": "Processing History",
   "create_benchmark": "Create Benchmark",
   "no_scribe_to_benchmark": "No scribe available to create benchmark",
-  "create_benchmark_information": "Create a benchmark from this completed scribe to evaluate future scribes against it. Make sure to edit the fields as necessary before creating the benchmark."
+  "create_benchmark_information": "Create a benchmark from this completed scribe to evaluate future scribes against it. Make sure to edit the fields as necessary before creating the benchmark.",
+  "no_facility_found": "No facility found"
 }
