@@ -83,9 +83,10 @@ export interface Benchmark {
 
 export interface CreatedBenchmark {
   id: string;
+  name: string;
   createdAt: Date;
-  questionnaireIds: string[];
-  expectedResult: any;
+  audioUrls: string[];
+  formState: any;
 }
 
 export default function BenchmarkPage() {

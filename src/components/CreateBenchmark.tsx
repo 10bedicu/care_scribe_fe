@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { useContainerRef } from "@/hooks/useContainerRef";
 import { useStorage } from "@/hooks/useStorage";
 import { CreatedBenchmark } from "@/pages/Benchmark";
+import { useState } from "react";
+import { Input } from "./ui/input";
 
 export default function CreateBenchmark(props: {
   scribe: ScribeModel;
@@ -17,6 +19,8 @@ export default function CreateBenchmark(props: {
   const [createdBenchmarks, setCreatedBenchmarks] = useStorage(
     "scribe-created-benchmarks",
   );
+  const [name, setName] = useState("");
+  const [open, setOpen] = useState(false);
 
   const { scribe, formState } = props;
 
@@ -29,20 +33,21 @@ export default function CreateBenchmark(props: {
     }
 
     const form: any = formState ? formState : [];
-    const qIds = form.map((f: any) => f.questionnaire.id);
     const newBenchmark: CreatedBenchmark = {
+      name: name || `Benchmark ${createdBenchmarks.length + 1}`,
       id: crypto.randomUUID(),
       createdAt: new Date(),
-      questionnaireIds: qIds,
-      expectedResult: form,
+      audioUrls: scribe.audio.map((a) => a.read_signed_url),
+      formState: form,
     };
     setCreatedBenchmarks((prev) => [...prev, newBenchmark]);
+    setOpen(false);
   };
 
   if (!user?.is_superuser) return null;
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>{t("create_benchmark")}</Button>
       </DialogTrigger>
@@ -51,6 +56,12 @@ export default function CreateBenchmark(props: {
           {t("create_benchmark")}?
         </DialogTitle>
         <p>{t("create_benchmark_information")}</p>
+        <Input
+          className="mt-4"
+          placeholder={t("benchmark_name") || ""}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         <Button onClick={handleCreateBenchmark}>{t("create_benchmark")}</Button>
       </DialogContent>
     </Dialog>
