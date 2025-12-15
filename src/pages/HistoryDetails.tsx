@@ -1,4 +1,10 @@
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -11,12 +17,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useScribeFiles } from "@/hooks/useScribeFiles";
-import { enableStatisticsAtom } from "@/store";
-import { ScribeModel } from "@/types";
+import useAuthUser from "@/hooks/useAuthUser";
+import { useStorage } from "@/hooks/useStorage";
+import { ScribeModel, ScribeProcessing } from "@/types";
 import { API } from "@/utils/api";
 import { I18NNAMESPACE } from "@/utils/constants";
-import { cn, renderFieldValue } from "@/utils/utils";
+import STRUCTURES from "@/utils/structures";
+import { calculateCost, cn, renderFieldValue } from "@/utils/utils";
 import {
   CalendarIcon,
   CheckboxIcon,
@@ -28,19 +35,17 @@ import {
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useAtom } from "jotai";
 import { Link } from "raviger";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { twMerge } from "tailwind-merge";
 
 export default function HistoryDetailsPage(props: {
   scribeId: string;
   onUseScribe?: (scribe: ScribeModel) => void;
 }) {
   const { scribeId, onUseScribe } = props;
-  const [statsEnabled, setStatsEnabled] = useAtom(enableStatisticsAtom);
-  const [parsedAiResponse, setParsedAiResponse] = useState<any>(null);
-
+  const [statsEnabled, setStatsEnabled] = useStorage("scribe-enable-dev-mode");
+  const user = useAuthUser();
   const { t } = useTranslation(I18NNAMESPACE);
 
   const scribeQuery = useQuery({
@@ -50,14 +55,28 @@ export default function HistoryDetailsPage(props: {
   });
 
   const scribe = scribeQuery.data;
+  const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 
-  const { audioFiles, files } = useScribeFiles(scribe || null);
+  const assumedAudioTokens =
+    Math.ceil(
+      (scribe?.audio.reduce((acc, curr) => acc + (curr.length || 0), 0) || 0) /
+        1000,
+    ) * 32;
 
   const overviewDetails = [
     {
       icon: <CheckboxIcon />,
       label: t("status"),
-      value: !!scribe && <StatusBadge status={scribe?.status} />,
+      value: !!scribe && (
+        <div>
+          <StatusBadge status={scribe?.status} />
+          {scribe.status === "FAILED" && (
+            <div className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-500">
+              {meta?.error || t("unknown_error")}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       icon: <PersonIcon />,
@@ -67,7 +86,7 @@ export default function HistoryDetailsPage(props: {
     {
       icon: <FilePlusIcon />,
       label: t("facility"),
-      value: scribe?.requested_in_facility.name,
+      value: scribe?.requested_in_facility?.name,
     },
     {
       icon: <FaceIcon />,
@@ -75,9 +94,9 @@ export default function HistoryDetailsPage(props: {
       value: (
         <Link
           className="text-blue-500 hover:underline"
-          href={`/facility/${scribe?.requested_in_facility.id}/patient/${scribe?.requested_in_encounter.patient.external_id}`}
+          href={`/facility/${scribe?.requested_in_facility?.id}/patient/${scribe?.requested_in_encounter?.patient.external_id}`}
         >
-          {scribe?.requested_in_encounter.patient.name}
+          {scribe?.requested_in_encounter?.patient.name}
         </Link>
       ),
     },
@@ -87,103 +106,221 @@ export default function HistoryDetailsPage(props: {
       value: (
         <Link
           className="text-blue-500 hover:underline"
-          href={`/facility/${scribe?.requested_in_facility.id}/patient/${scribe?.requested_in_encounter.patient.external_id}/encounter/${scribe?.requested_in_encounter.external_id}/updates`}
+          href={`/facility/${scribe?.requested_in_facility?.id}/patient/${scribe?.requested_in_encounter?.patient.external_id}/encounter/${scribe?.requested_in_encounter?.external_id}/updates`}
         >
-          {scribe?.requested_in_encounter.external_id}
+          {scribe?.requested_in_encounter?.external_id}
         </Link>
       ),
     },
     {
       icon: <CalendarIcon />,
       label: t("created_at"),
-      value: dayjs(scribe?.created_date).format("DD/MM/YYYY HH:mm"),
+      value: dayjs(scribe?.created_date).format("DD/MM/YYYY hh:mm a"),
     },
     {
       icon: <ClockIcon />,
       label: t("time_taken"),
       value: `
          ${(
-           (scribe?.meta.transcription_time || 0) +
-           (scribe?.meta.completion_time || 0)
+           (meta?.transcription_time || 0) + (meta?.completion_time || 0)
          ).toFixed(2)} s`,
     },
   ];
 
   const metaData = [
     {
+      label: t("thinking_tokens"),
+      value: meta?.completion_thinking_tokens,
+      hide: !meta?.completion_thinking_tokens,
+    },
+    {
       label: t("input_tokens"),
-      value: scribe?.meta.completion_input_tokens,
+      value: meta?.completion_input_tokens,
+    },
+    {
+      label: "→ " + t("audio"),
+      value: (
+        <span className="text-xs opacity-60">
+          {meta?.completion_audio_input_tokens}
+        </span>
+      ),
+      hide: !meta?.completion_audio_input_tokens,
+    },
+    {
+      label: (
+        <span>
+          → {t("estimated_audio")}{" "}
+          <span className="text-xs opacity-50">
+            {Math.ceil(
+              (scribe?.audio.reduce(
+                (acc, curr) => acc + (curr.length || 0),
+                0,
+              ) || 0) / 1000,
+            )}{" "}
+            * 32
+          </span>
+        </span>
+      ),
+      value: <span className="text-xs opacity-60">{assumedAudioTokens}</span>,
+      hide: !scribe?.audio.length || meta?.provider !== "google",
+    },
+    {
+      label: "→ " + t("image"),
+      value: (
+        <span className="text-xs opacity-60">
+          {meta?.completion_image_input_tokens}
+        </span>
+      ),
+      hide: !meta?.completion_image_input_tokens,
+    },
+    {
+      label: "→ " + t("text"),
+      value: (
+        <span className="text-xs opacity-60">
+          {meta?.completion_text_input_tokens}
+        </span>
+      ),
+      hide: !meta?.completion_text_input_tokens,
+    },
+    {
+      label: "→ " + t("cached"),
+      value: (
+        <span className="text-xs opacity-60">
+          {meta?.completion_cached_tokens || 0}
+        </span>
+      ),
+    },
+    {
+      label: <span className="pl-2">→ {t("audio")}</span>,
+      value: (
+        <span className="text-xs opacity-60">
+          {meta?.completion_cached_audio_tokens}
+        </span>
+      ),
+      hide: !meta?.completion_cached_audio_tokens,
+    },
+    {
+      label: <span className="pl-2">→ {t("image")}</span>,
+      value: (
+        <span className="text-xs opacity-60">
+          {meta?.completion_cached_image_tokens}
+        </span>
+      ),
+      hide: !meta?.completion_cached_image_tokens,
+    },
+    {
+      label: <span className="pl-2">→ {t("text")}</span>,
+      value: (
+        <span className="text-xs opacity-60">
+          {meta?.completion_cached_text_tokens}
+        </span>
+      ),
+      hide: !meta?.completion_cached_text_tokens,
     },
     {
       label: t("output_tokens"),
-      value: scribe?.meta.completion_output_tokens,
+      value: meta?.completion_output_tokens || 0,
     },
     {
       label: t("total_tokens"),
-      value:
-        (scribe?.meta.completion_input_tokens || 0) +
-        (scribe?.meta.completion_output_tokens || 0),
+      value: meta?.completion_total_tokens,
     },
     {
-      labek: t("transcription_time"),
-      value: scribe?.meta.transcription_time?.toFixed(2) + " s",
-      hide: !scribe?.meta.transcription_time,
+      label: t("audio_duration"),
+      value:
+        scribe?.audio
+          .map((a) => `${((a.length || 0) / 1000).toFixed(2)}`)
+          .join(" + ") + " s",
+      hide: !scribe?.audio?.length,
+    },
+    {
+      label: t("transcription_time"),
+      value: meta?.transcription_time?.toFixed(2) + " s",
+      hide: !meta?.transcription_time,
     },
     {
       label: t("completion_time"),
-      value: scribe?.meta.completion_time?.toFixed(2) + " s",
+      value: meta?.completion_time?.toFixed(2) + " s",
+      hide: !meta?.completion_time,
     },
     {
       label: t("total_time"),
       value:
         (
-          (scribe?.meta.transcription_time || 0) +
-          (scribe?.meta.completion_time || 0)
+          (meta?.transcription_time || 0) + (meta?.completion_time || 0)
         ).toFixed(2) + " s",
     },
     {
       label: t("completion_id"),
-      value: scribe?.meta.completion_id,
+      value: (
+        <div className="inline-block w-20 overflow-hidden text-xs text-ellipsis">
+          {meta?.completion_id}
+        </div>
+      ),
     },
     {
       label: t("audio_model"),
-      value: scribe?.meta.audio_model,
-      hide: !scribe?.meta.audio_model,
+      value: meta?.audio_model,
+      hide: !meta?.audio_model,
     },
     {
       label: t("chat_model"),
-      value: scribe?.meta.chat_model,
+      value: meta?.chat_model,
     },
     {
       label: t("provider"),
-      value: scribe?.meta.provider,
+      value: meta?.provider,
     },
     {
       label: t("start_time"),
-      value: dayjs(scribe?.created_date).format("DD/MM/YYYY HH:mm:ss"),
+      value: (
+        <div className="text-xs">
+          {dayjs(scribe?.created_date).format("d/M/YY hh:mm:ss a")}
+        </div>
+      ),
     },
     {
       label: t("end_time"),
-      value: dayjs(scribe?.created_date)
-        .add(
-          (scribe?.meta.transcription_time || 0) +
-            (scribe?.meta.completion_time || 0),
-          "second",
-        )
-        .format("DD/MM/YYYY HH:mm:ss"),
+      value: (
+        <div className="text-xs">
+          {dayjs(scribe?.created_date)
+            .add(
+              (meta?.transcription_time || 0) + (meta?.completion_time || 0),
+              "second",
+            )
+            .format("d/M/YY hh:mm:ss a")}
+        </div>
+      ),
+    },
+    {
+      label: t("estimated_cost"),
+      value:
+        calculateCost(
+          meta?.completion_input_tokens || 0,
+          meta?.completion_audio_input_tokens || 0,
+          meta?.completion_output_tokens || 0,
+          meta?.completion_cached_tokens || 0,
+          meta?.completion_cached_audio_tokens || 0,
+          `${meta?.provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+        ).toFixed(6) + "$",
+    },
+    {
+      label: t("assumed_cost"),
+      value:
+        calculateCost(
+          (meta?.completion_input_tokens || 0) -
+            (meta?.completion_audio_input_tokens || 0) +
+            assumedAudioTokens,
+          assumedAudioTokens || 0,
+          meta?.completion_output_tokens || 0,
+          meta?.completion_cached_tokens || 0,
+          meta?.completion_cached_audio_tokens || 0,
+          `${meta?.provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+        ).toFixed(6) + "$",
     },
   ];
 
-  useEffect(() => {
-    if (scribe?.ai_response) {
-      try {
-        const parsedResponse = JSON.parse(scribe.ai_response);
-        setParsedAiResponse(parsedResponse);
-      } catch (error) {
-        console.error("Failed to parse AI response:", error);
-      }
-    }
-  }, [scribe]);
+  const processingHistory = scribe?.meta.processings?.slice(0, -1).reverse();
 
   return (
     <div className="px-4 md:px-6">
@@ -192,13 +329,17 @@ export default function HistoryDetailsPage(props: {
           {t("scribe_details")}
         </h1>
         <div className="flex items-center gap-2 text-sm">
-          <Switch
-            checked={statsEnabled}
-            onCheckedChange={(checked) => {
-              setStatsEnabled(checked);
-            }}
-          />
-          {t("developer_mode")}
+          {user?.is_superuser && (
+            <>
+              <Switch
+                checked={statsEnabled}
+                onCheckedChange={(checked) => {
+                  setStatsEnabled(checked);
+                }}
+              />
+              {t("developer_mode")}
+            </>
+          )}
         </div>
       </div>
       {scribeQuery.isLoading ? (
@@ -252,55 +393,67 @@ export default function HistoryDetailsPage(props: {
             <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
               <TabsContent value="summary">
                 <h3 className="text-xl">{t("ai_summary")}</h3>
-                {parsedAiResponse && (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {statsEnabled && <TableHead>{t("field_id")}</TableHead>}
-                        <TableHead>{t("field_name")}</TableHead>
-                        <TableHead>{t("value")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Object.entries(parsedAiResponse)
-                        .filter(([key]) => key !== "__scribe__transcription")
-                        .map(([key, value], index) => (
-                          <TableRow key={index}>
-                            {statsEnabled && <TableCell>{key}</TableCell>}
-                            <TableCell>
-                              {
-                                scribe?.form_data.find((f) => f.id === key)
-                                  ?.friendlyName
-                              }
-                            </TableCell>
-                            <TableCell className="max-w-[300px] break-words whitespace-pre-wrap">
-                              {renderFieldValue({ value } as { value: string })}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
+                {scribe?.ai_response && (
+                  <RenderAutofill
+                    response={scribe.ai_response}
+                    formData={scribe.form_data}
+                    processedAIResponse={meta?.processed_ai_response}
+                    compact={!!onUseScribe}
+                  />
                 )}
-                {!parsedAiResponse ||
-                  (Object.keys(parsedAiResponse).filter(
-                    (k) => k !== "__scribe__transcription",
-                  ).length === 0 && (
-                    <div className="flex flex-col items-center justify-center gap-4 rounded-lg opacity-50">
-                      {t("no_fields_autofilled")}
-                    </div>
-                  ))}
+                {!!processingHistory?.length && (
+                  <>
+                    <h3 className="mt-4 mb-2 text-xl">
+                      {t("processing_history")}
+                    </h3>
+                    {processingHistory?.map((processing, index) => (
+                      <Accordion
+                        type="single"
+                        collapsible
+                        key={index}
+                        className="border-b"
+                      >
+                        <AccordionItem value={`item-${index}`}>
+                          <AccordionTrigger className="py-2">
+                            <div>
+                              {t("processing")}{" "}
+                              {processingHistory.length - index}
+                              <div className="text-xs opacity-50">
+                                {dayjs(processing.created_date).format(
+                                  "DD/MM/YYYY hh:mm a",
+                                )}
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            {processing.ai_response && (
+                              <RenderAutofill
+                                response={processing.ai_response}
+                                formData={processing.form_data || []}
+                                processedAIResponse={
+                                  processing.processed_ai_response
+                                }
+                                compact={!!onUseScribe}
+                              />
+                            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    ))}
+                  </>
+                )}
               </TabsContent>
               <TabsContent value="transcript">
                 <h3 className="text-xl">{t("transcript")}</h3>
                 <pre className="mt-4 rounded-md bg-neutral-100 p-2 text-xs break-words whitespace-pre-wrap">
                   {scribe?.transcript}
                 </pre>
-                {!!scribe?.audio_file_ids.length && (
+                {!!scribe?.audio.length && (
                   <div>
                     <div className="mt-4 mb-2 font-semibold">{t("audio")}:</div>
                     <div className="flex flex-col gap-2">
-                      {audioFiles?.map((audio) => (
-                        <audio key={audio.id} controls>
+                      {scribe.audio.map((audio) => (
+                        <audio key={audio.id} controls controlsList="">
                           <source
                             src={audio.read_signed_url}
                             type={
@@ -317,12 +470,12 @@ export default function HistoryDetailsPage(props: {
                     </div>
                   </div>
                 )}
-                {!!scribe?.document_file_ids.length && (
+                {!!scribe?.documents.length && (
                   <div>
                     <div className="mt-4 mb-2 font-semibold">
                       {t("documents")}:
                     </div>
-                    {files?.map((file) => (
+                    {scribe.documents.map((file) => (
                       <a
                         key={file.id}
                         href={file.read_signed_url}
@@ -338,16 +491,33 @@ export default function HistoryDetailsPage(props: {
               </TabsContent>
               <TabsContent value="metadata">
                 <h3 className="text-xl">{t("metadata")}</h3>
+
                 <div className="mt-4 mb-2 font-semibold">{t("prompt")}</div>
                 <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {scribe?.meta.prompt}
+                  {meta?.prompt}
                 </pre>
 
+                <div className="mt-4 mb-2 font-semibold">
+                  {t("output_schema")}
+                </div>
+                <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                  {JSON.stringify(meta?.function, null, 2)}
+                </pre>
+                {meta?.thinking && (
+                  <>
+                    <div className="mt-4 mb-2 font-semibold">
+                      {t("thinking")}
+                    </div>
+                    <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                      {meta?.thinking}
+                    </pre>
+                  </>
+                )}
                 <div className="mt-4 mb-2 font-semibold">
                   {t("ai_response")}
                 </div>
                 <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {scribe?.ai_response}
+                  {JSON.stringify(scribe?.ai_response, null, 2)}
                 </pre>
                 <div
                   className={cn(
@@ -362,7 +532,7 @@ export default function HistoryDetailsPage(props: {
                         .map((item, index) => (
                           <tr key={index} className="pb-2 text-sm">
                             <td className="text-left">{item.label}</td>
-                            <td className="text-right font-semibold">
+                            <td className="w-30 text-right font-semibold">
                               {item.value}
                             </td>
                           </tr>
@@ -376,5 +546,125 @@ export default function HistoryDetailsPage(props: {
         </>
       )}
     </div>
+  );
+}
+
+export function RenderAutofill(props: {
+  response: ScribeModel["ai_response"];
+  formData: ScribeModel["form_data"];
+  processedAIResponse: ScribeProcessing["processed_ai_response"];
+  compact?: boolean;
+}) {
+  const { response, formData, processedAIResponse, compact } = props;
+  const { t } = useTranslation(I18NNAMESPACE);
+  const [statsEnabled] = useStorage("scribe-enable-dev-mode");
+
+  if (
+    !response ||
+    Object.keys(response).filter((k) => k !== "__scribe__transcription")
+      .length === 0
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 rounded-lg opacity-50">
+        {t("no_fields_autofilled")}
+      </div>
+    );
+  }
+
+  return (
+    <Table>
+      {!compact && (
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("field_name")}</TableHead>
+            <TableHead>{t("value")}</TableHead>
+          </TableRow>
+        </TableHeader>
+      )}
+      <TableBody>
+        {Object.entries(response || {})
+          .filter(([key]) => key !== "__scribe__transcription")
+          .map(([key], index) => {
+            // Helper to recursively find a field by id in nested fields
+            function findFieldById(fields: any[], id: string): any | undefined {
+              for (const field of fields) {
+                if (field.id === id) return field;
+                if (field.fields) {
+                  const found = findFieldById(field.fields, id);
+                  if (found) return found;
+                }
+              }
+              return undefined;
+            }
+
+            const allFields = formData?.flatMap((f) => f.fields) ?? [];
+            const field = findFieldById(allFields, key);
+            const processedField = processedAIResponse?.successful[key];
+            const failures = processedAIResponse?.failed[key];
+            return (
+              <TableRow key={index}>
+                {!compact && (
+                  <>
+                    <TableCell className="max-w-[100px] text-wrap whitespace-normal">
+                      {field?.friendlyName}
+                      {statsEnabled && (
+                        <div className="text-xs wrap-break-word opacity-50">
+                          {key}
+                        </div>
+                      )}
+                    </TableCell>
+                  </>
+                )}
+                <TableCell
+                  className={twMerge(
+                    "max-w-[300px] break-words whitespace-pre-wrap",
+                    !!compact && "px-0",
+                  )}
+                >
+                  {!!compact && (
+                    <div>
+                      <div className="text-sm font-bold">
+                        {field?.friendlyName}
+                      </div>
+                      <div className="text-xs opacity-50">
+                        {statsEnabled && key}
+                      </div>
+                    </div>
+                  )}
+                  {!!processedField?.value && (
+                    <div>
+                      {renderFieldValue({
+                        value: processedField.value,
+                        structure: field?.structuredType
+                          ? STRUCTURES[
+                              field.structuredType as keyof typeof STRUCTURES
+                            ]
+                          : undefined,
+                      })}
+                    </div>
+                  )}
+                  {failures &&
+                    failures.length > 0 &&
+                    failures.map((failure, fIndex) => (
+                      <div key={fIndex} className="mt-1 text-xs text-red-500">
+                        {failure}
+                      </div>
+                    ))}
+                  {processedField?.note && (
+                    <div className="mt-1 text-xs text-yellow-500">
+                      {processedField.note}
+                    </div>
+                  )}
+                  {!processedField?.value && (
+                    <div className="mt-1 text-xs text-red-500">
+                      {t("no_autofill")}
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+      </TableBody>
+    </Table>
   );
 }
