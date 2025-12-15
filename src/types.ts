@@ -165,6 +165,12 @@ export enum ScribeFileType {
   DOCUMENT = 2,
 }
 
+export type ScribeMeta = {
+  encounterId: string;
+  currentUser: UserBareMinimum;
+  currentTime: string;
+};
+
 export type ScribeQuestionnaire = {
   title: string;
   description: string;

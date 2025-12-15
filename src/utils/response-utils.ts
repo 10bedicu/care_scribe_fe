@@ -2,6 +2,7 @@ import {
   ScribeAIResponse,
   ScribeDeseriliazedValue,
   ScribeHydratedAndRawField,
+  ScribeMeta,
   ScribeModel,
   ScribeQuestionnaire,
   VALUESET_SYSTEM_NAMES,
@@ -16,6 +17,7 @@ import dayjs from "dayjs";
 export const cleanAIResponse = async (
   aiResponse: ScribeAIResponse,
   questionnaire: ScribeQuestionnaire[],
+  meta: ScribeMeta,
 ) => {
   const processAiResponse = {
     successful: {} as Record<
@@ -64,6 +66,7 @@ export const cleanAIResponse = async (
           const deserialized = await structure.deserialize(
             v as any,
             field.current as any,
+            meta,
           );
           deserializedValue = deserialized.data;
           processAiResponse.successful[k] = {

@@ -51,6 +51,7 @@ import {
   getQuestionInputs,
 } from "@/utils/field-utils";
 import { uploadScribeFile } from "@/utils/upload-utils";
+import useAuthUser from "@/hooks/useAuthUser";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const latestProcessing =
@@ -108,6 +109,10 @@ export function Controller(props: {
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
+
+  const [currentTime] = useState(new Date().toISOString());
+
+  const user = useAuthUser();
 
   const [showTnc, setShowTnc] = useState(false);
 
@@ -182,6 +187,7 @@ export function Controller(props: {
       const cleaned = await cleanAIResponse(
         aiResponse as ScribeAIResponse,
         questionnaire,
+        { encounterId: encounterId!, currentUser: user!, currentTime },
       );
 
       Object.values(cleaned.meta.failed).forEach((errors) => {

@@ -60,6 +60,7 @@ import { useStorage } from "@/hooks/useStorage";
 import { cleanAIResponse, poller } from "@/utils/response-utils";
 import { getHydratedFields, getQuestionInputs } from "@/utils/field-utils";
 import { uploadScribeFile } from "@/utils/upload-utils";
+import useAuthUser from "@/hooks/useAuthUser";
 
 export interface BenchmarkIteration {
   id: string;
@@ -90,6 +91,7 @@ export default function BenchmarkPage() {
     useState<BenchmarkIteration | null>(null);
 
   const [queuedIteration, setQueuedIteration] = useState<string | null>(null);
+  const user = useAuthUser();
 
   const [newBenchmarkForm, setNewBenchmarkForm] = useState<{
     models: (keyof typeof AI_MODELS)[];
@@ -308,6 +310,11 @@ export default function BenchmarkPage() {
       const cleaned = await cleanAIResponse(
         aiResponse as ScribeAIResponse,
         fields,
+        {
+          encounterId: "",
+          currentUser: user!,
+          currentTime: new Date().toISOString(),
+        },
       );
       updateIteration(iteration.id, {
         status: "completed",
