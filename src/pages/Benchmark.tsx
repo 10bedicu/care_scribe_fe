@@ -85,7 +85,11 @@ export interface CreatedBenchmark {
   id: string;
   name: string;
   createdAt: Date;
-  audioUrls: string[];
+  files: {
+    type: "audio" | "document";
+    url: string;
+    mimeType: string;
+  };
   formState: any;
 }
 
@@ -93,6 +97,7 @@ export default function BenchmarkPage() {
   const { t } = useTranslation(I18NNAMESPACE);
   const containerRef = useContainerRef();
   const [benchmarks, setBenchmarks] = useStorage("scribe-benchmarks");
+  const [userBenchmarks] = useStorage("scribe-created-benchmarks");
   const [startup, setStartup] = useState(true);
   const [selectedIteration, setSelectedIteration] =
     useState<BenchmarkIteration | null>(null);
@@ -373,6 +378,28 @@ export default function BenchmarkPage() {
     return data;
   };
 
+  // Convert to dict
+
+  const USER_BENCHMARKS = userBenchmarks.reduce(
+    (acc, ub) => {
+      acc[ub.name] = {
+        path: ub.audioUrls[0],
+        type: ub.audioUrls[0].split(".").pop() || "mp3",
+        form: ub.formState,
+        formFill: {},
+      };
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        path: string;
+        type: string;
+        form: any;
+        formFill: Record<string, any>;
+      }
+    >,
+  );
   return (
     <div className="px-4 md:px-6">
       <div className="flex items-center justify-between">
@@ -429,7 +456,10 @@ export default function BenchmarkPage() {
                     <SelectValue placeholder="Select Benchmark Audio" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(BENCHMARK_AUDIOS).map(([key]) => (
+                    {Object.entries({
+                      ...BENCHMARK_AUDIOS,
+                      ...USER_BENCHMARKS,
+                    }).map(([key]) => (
                       <SelectItem key={key} value={key}>
                         {key}
                       </SelectItem>

@@ -37,7 +37,11 @@ export default function CreateBenchmark(props: {
       name: name || `Benchmark ${createdBenchmarks.length + 1}`,
       id: crypto.randomUUID(),
       createdAt: new Date(),
-      audioUrls: scribe.audio.map((a) => a.read_signed_url),
+      files: scribe.audio.map((a) => ({
+        url: a.read_signed_url,
+        type: "audio",
+        mimeType: a.mime_type,
+      })),
       formState: form,
     };
     setCreatedBenchmarks((prev) => [...prev, newBenchmark]);
