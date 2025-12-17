@@ -112,6 +112,10 @@ export function Controller(props: {
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
 
+  const [currentTime] = useState(new Date().toISOString());
+
+  const user = useAuthUser();
+
   const [showTnc, setShowTnc] = useState(false);
 
   const encounterId = path?.includes("/encounter/")
@@ -185,6 +189,7 @@ export function Controller(props: {
       const cleaned = await cleanAIResponse(
         aiResponse as ScribeAIResponse,
         questionnaire,
+        { encounterId: encounterId!, currentUser: user!, currentTime },
       );
 
       Object.values(cleaned.meta.failed).forEach((errors) => {

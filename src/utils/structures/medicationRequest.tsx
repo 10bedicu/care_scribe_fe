@@ -5,7 +5,7 @@ import {
   validateEnumDescription,
 } from ".";
 import { z } from "zod";
-import { Code } from "@/types";
+import { Code, UserBareMinimum } from "@/types";
 import {
   BOUNDS_DURATION_UNITS,
   DOSAGE_UNITS_CODES,
@@ -181,6 +181,7 @@ interface MedicationRequest {
   requested_product?: string;
   requested_product_internal?: ProductKnowledgeBase;
   dispense_status?: unknown;
+  requester: UserBareMinimum;
 }
 
 export const medicationRequestStructure: Structure<
@@ -190,7 +191,7 @@ export const medicationRequestStructure: Structure<
   name: "Medication Request",
   description: "Structure for medication requests",
   toolStructure,
-  deserialize: async (data, currentData) => {
+  deserialize: async (data, currentData, meta) => {
     const errors: string[] = [];
 
     const parsed = data.map(async (medicationRequest) => {
@@ -405,6 +406,7 @@ export const medicationRequestStructure: Structure<
           },
         ],
         note: noNullStrings(medicationRequest.note) || undefined,
+        requester: meta.currentUser,
       };
       return medReq;
     });

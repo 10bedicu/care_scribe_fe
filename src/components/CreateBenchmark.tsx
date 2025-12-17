@@ -9,6 +9,7 @@ import { useStorage } from "@/hooks/useStorage";
 import { CreatedBenchmark } from "@/pages/Benchmark";
 import { useState } from "react";
 import { Input } from "./ui/input";
+import { openDB, putAudio } from "@/utils/idb";
 
 export default function CreateBenchmark(props: {
   scribe: ScribeModel;
@@ -32,13 +33,29 @@ export default function CreateBenchmark(props: {
       return;
     }
 
+    const storedIdentifier = crypto.randomUUID();
+    const db = await openDB();
+
+    for (const audio of scribe.audio) {
+      const response = await fetch(audio.read_signed_url);
+      const arrayBuffer = await response.arrayBuffer();
+
+      await putAudio(db, storedIdentifier, {
+        identifier: storedIdentifier,
+        mimeType: audio.mime_type,
+        data: arrayBuffer,
+      });
+    }
+
+    db.close();
+
     const form: any = formState ? formState : [];
     const newBenchmark: CreatedBenchmark = {
       name: name || `Benchmark ${createdBenchmarks.length + 1}`,
       id: crypto.randomUUID(),
       createdAt: new Date(),
       files: scribe.audio.map((a) => ({
-        url: a.read_signed_url,
+        identifier: storedIdentifier,
         type: "audio",
         mimeType: a.mime_type,
       })),

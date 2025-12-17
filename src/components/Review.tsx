@@ -33,20 +33,25 @@ export default function ScribeReview(props: {
   >([]);
   const [controllerPosition] = useStorage("scribe-controller-position");
   const [accepting, setAccepting] = useState(false);
+  const [reviewingFieldRect, setReviewingFieldRect] = useState<
+    DOMRect | undefined
+  >();
 
   const { t } = useTranslation(I18NNAMESPACE);
 
   const reviewingField =
     reviewIndex !== -1 ? toReview?.[reviewIndex] : undefined;
 
-  const fieldElement = document.getElementById(
-    "question-" + reviewingField?.question.id,
-  );
-
-  const reviewingFieldRect = fieldElement?.getBoundingClientRect();
-
   useEffect(() => {
-    if (!reviewingField) return;
+    if (!reviewingField) {
+      setReviewingFieldRect(undefined);
+      return;
+    }
+
+    const fieldElement = document.getElementById(
+      "question-" + reviewingField.question.id,
+    );
+
     if (!fieldElement) {
       console.warn("Field element not found for:", reviewingField.question.id);
       // jump to the next field, or end the review
@@ -57,11 +62,19 @@ export default function ScribeReview(props: {
         return;
       }
     }
+
     fieldElement?.scrollIntoView({
       behavior: "instant",
       block: "center",
       inline: "center",
     });
+
+    setTimeout(() => {
+      const rect = fieldElement?.getBoundingClientRect();
+      setReviewingFieldRect(rect);
+      // Add delay so DOM settles
+    }, 100);
+
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";

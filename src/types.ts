@@ -165,6 +165,12 @@ export enum ScribeFileType {
   DOCUMENT = 2,
 }
 
+export type ScribeMeta = {
+  encounterId: string;
+  currentUser: UserBareMinimum;
+  currentTime: string;
+};
+
 export type ScribeQuestionnaire = {
   title: string;
   description: string;
@@ -233,6 +239,7 @@ export interface ScribeFileModel {
   upload_completed: boolean;
   read_signed_url: string;
   length: number;
+  mime_type: string;
 }
 
 export interface FacilityModel {

@@ -47,13 +47,6 @@ export function useStorage<K extends StorageKeys>(
             : newValueOrUpdater;
 
         localStorage.setItem(key, JSON.stringify(newValue));
-        // trigger same-tab listeners manually
-        window.dispatchEvent(
-          new StorageEvent("storage", {
-            key,
-            newValue: JSON.stringify(newValue),
-          }),
-        );
 
         return newValue;
       });
