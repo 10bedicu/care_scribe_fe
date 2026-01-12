@@ -125,6 +125,14 @@
   "create_benchmark": "Create Benchmark",
   "no_scribe_to_benchmark": "No scribe available to create benchmark",
   "create_benchmark_information": "Create a benchmark from this completed scribe to evaluate future scribes against it. Make sure to edit the fields as necessary before creating the benchmark.",
-  "no_facility_found": "No facility found",
-  "benchmark_name": "Benchmark Name"
+  "benchmark_name": "Benchmark Name",
+  "actions": "Actions",
+  "usage_details": "Usage Details",
+  "quota_details": "Quota Details",
+  "search_by_username": "Search by Username",
+  "most_tokens_used": "Most Tokens Used",
+  "least_tokens_used": "Least Tokens Used",
+  "no_quotas_found": "No Quotas found",
+  "started_using_since": "Started Using Since",
+  "no_facility_found": "No facility found"
 }

@@ -351,6 +351,9 @@ export type ScribeQuotaCreateRequest = {
 
 export type ScribeQuotaFilter = {
   facility?: string | null;
+  username?: string | null;
+  facility_id?: string;
+  users?: boolean;
   allow_ocr?: boolean;
   ordering?: string;
   offset?: number;

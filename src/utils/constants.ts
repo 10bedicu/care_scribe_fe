@@ -442,6 +442,34 @@ export const AI_MODELS = {
       output: 0.06,
     },
   },
+  "openai/gpt-5": {
+    cost: {
+      input: 1.25,
+      cached: 0.125,
+      output: 10,
+    },
+  },
+  "openai/gpt-5-mini": {
+    cost: {
+      input: 0.25,
+      cached: 0.025,
+      output: 2,
+    },
+  },
+  "openai/gpt-5-nano": {
+    cost: {
+      input: 0.05,
+      cached: 0.005,
+      output: 0.4,
+    },
+  },
+  "openai/gpt-5.1": {
+    cost: {
+      input: 1.25,
+      cached: 0.125,
+      output: 10,
+    },
+  },
   "google/gemini-2.0-flash": {
     cost: {
       input: 0.1,
@@ -483,6 +511,15 @@ export const AI_MODELS = {
       cached: 0.31,
       cached_input: 0.31,
       output: 10,
+    },
+  },
+  "google/gemini-3-pro-preview": {
+    cost: {
+      input: 2,
+      output: 12,
+      cached: 0.2,
+      cached_input: 0.2,
+      audio_input: 2,
     },
   },
 } as const;
