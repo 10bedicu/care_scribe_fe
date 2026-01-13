@@ -456,11 +456,7 @@ export default function HistoryDetailsPage(props: {
                         <audio key={audio.id} controls controlsList="">
                           <source
                             src={audio.read_signed_url}
-                            type={
-                              audio.mime_type ||
-                              "audio/" +
-                                (audio.internal_name.split(".").pop() || "mpeg") // Fallback
-                            }
+                            type={audio.mime_type}
                           />
                           Your browser does not support the audio element.
                         </audio>
