@@ -4,8 +4,10 @@ import {
   CreateFileResponse,
   FacilityModel,
   FileUploadModel,
+  ScribeAdminListFilter,
   ScribeCreateRequest,
   ScribeFileModel,
+  ScribeListFilter,
   ScribeModel,
   ScribeQuota,
   ScribeQuotaCreateRequest,
@@ -84,24 +86,20 @@ const request = async <T>(
 
 export const API = {
   scribe: {
-    list: (
-      filters: {
-        ordering?: string;
-        status?: string;
-        encounter_id?: string;
-        patient?: string;
-        facility?: string;
-        benchmark?: boolean;
-        offset?: number;
-        limit?: number;
-      } = {},
-    ) =>
+    list: (filters: ScribeListFilter = {}) =>
       request<{
         next: string | null;
         previous: string | null;
         results: ScribeModel[];
         count: number;
       }>("/api/care_scribe/scribe/", "GET", filters),
+    all: (filters: ScribeAdminListFilter = {}) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: ScribeModel[];
+        count: number;
+      }>("/api/care_scribe/scribe/all", "GET", filters),
     create: (req: ScribeCreateRequest) =>
       request<ScribeModel>("/api/care_scribe/scribe/", "POST", req),
     get: (scribeId: string) =>

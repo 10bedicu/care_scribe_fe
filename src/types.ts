@@ -359,3 +359,18 @@ export type ScribeQuotaFilter = {
   offset?: number;
   limit?: number;
 };
+
+export type ScribeListFilter = {
+  ordering?: string;
+  status?: string;
+  encounter_id?: string;
+  patient?: string;
+  facility?: string;
+  benchmark?: boolean;
+  offset?: number;
+  limit?: number;
+};
+
+export type ScribeAdminListFilter = ScribeListFilter & {
+  username?: string;
+};

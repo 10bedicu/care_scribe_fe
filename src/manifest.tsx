@@ -60,6 +60,11 @@ const manifest: Manifest = {
         <ScribeQuotaUsageLazy quotaId={quotaId} />
       </Page>
     ),
+    "/admin/scribe/history": () => (
+      <Page>
+        <HistoryListLazy admin={true} />
+      </Page>
+    ),
   },
   extends: [],
   components: {
@@ -86,6 +91,11 @@ const manifest: Manifest = {
         {
           url: `/admin/scribe/benchmark`,
           name: "Benchmark",
+          icon: <SidebarIcon />,
+        },
+        {
+          url: `/admin/scribe/history`,
+          name: "History",
           icon: <SidebarIcon />,
         },
       ],
