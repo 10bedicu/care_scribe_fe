@@ -7,6 +7,7 @@ import { diagnosisStructure } from "./diagnosis";
 import { allergyIntoleranceStructure } from "./allergyIntolerance";
 import { timeOfDeathStructure } from "./timeOfDeath";
 import { ReactNode } from "react";
+import { ScribeMeta } from "@/types.ts";
 
 export interface Structure<S, T extends ZodTypeAny> {
   name: string;
@@ -15,6 +16,7 @@ export interface Structure<S, T extends ZodTypeAny> {
   deserialize: (
     data: z.infer<T>,
     currentData: S,
+    meta: ScribeMeta,
   ) => Promise<{
     data: S;
     errors?: string[];

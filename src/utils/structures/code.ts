@@ -17,6 +17,7 @@ Example: "376771007" for "Zinc 25 mg oral capsule".`,
    - Ingredient name (e.g. "Zinc")  
    - Exact numeric strength (e.g. "25 mg")  
    - **Dosage form with route** (e.g. "oral capsule", "intravenous solution")  
+   - ALWAYS add a space between strength and dosage form. Never write 25mg. Write 25 mg.
    Example: "Zinc 25 mg oral capsule"
 
 2. **Fully specified name** — include the full formulation (e.g. salt/ester), strength, route, and dosage form.  

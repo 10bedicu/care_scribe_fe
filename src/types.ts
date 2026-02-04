@@ -165,6 +165,12 @@ export enum ScribeFileType {
   DOCUMENT = 2,
 }
 
+export type ScribeMeta = {
+  encounterId: string;
+  currentUser: UserBareMinimum;
+  currentTime: string;
+};
+
 export type ScribeQuestionnaire = {
   title: string;
   description: string;
@@ -346,6 +352,9 @@ export type ScribeQuotaCreateRequest = {
 
 export type ScribeQuotaFilter = {
   facility?: string | null;
+  username?: string | null;
+  facility_id?: string;
+  users?: boolean;
   allow_ocr?: boolean;
   ordering?: string;
   offset?: number;

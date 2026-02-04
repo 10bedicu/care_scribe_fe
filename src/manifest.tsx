@@ -2,7 +2,6 @@ import { lazy } from "react";
 import Page from "./components/Page";
 import SidebarIcon from "./components/Icon";
 import BenchmarkPage from "./pages/Benchmark";
-import ScribeQuotas from "./pages/Quotas";
 
 interface NavigationLink {
   url: string;
@@ -30,6 +29,8 @@ interface Manifest {
 
 const HistoryListLazy = lazy(() => import("./pages/HistoryList"));
 const HistoryDetailsLazy = lazy(() => import("./pages/HistoryDetails"));
+const ScribeQuotaUsageLazy = lazy(() => import("./pages/Usage"));
+const ScribeQuotasLazy = lazy(() => import("./pages/Quotas"));
 
 const manifest: Manifest = {
   plugin: "care-scribe",
@@ -51,7 +52,12 @@ const manifest: Manifest = {
     ),
     "/admin/scribe/quotas": () => (
       <Page>
-        <ScribeQuotas />
+        <ScribeQuotasLazy />
+      </Page>
+    ),
+    "/admin/scribe/quotas/:quotaId": ({ quotaId }) => (
+      <Page>
+        <ScribeQuotaUsageLazy quotaId={quotaId} />
       </Page>
     ),
   },

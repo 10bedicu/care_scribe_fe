@@ -5,7 +5,7 @@ import {
   validateEnumDescription,
 } from ".";
 import { z } from "zod";
-import { Code } from "@/types";
+import { Code, UserBareMinimum } from "@/types";
 import {
   BOUNDS_DURATION_UNITS,
   DOSAGE_UNITS_CODES,
@@ -181,6 +181,7 @@ interface MedicationRequest {
   requested_product?: string;
   requested_product_internal?: ProductKnowledgeBase;
   dispense_status?: unknown;
+  requester: UserBareMinimum;
 }
 
 export const medicationRequestStructure: Structure<
@@ -190,7 +191,7 @@ export const medicationRequestStructure: Structure<
   name: "Medication Request",
   description: "Structure for medication requests",
   toolStructure,
-  deserialize: async (data, currentData) => {
+  deserialize: async (data, currentData, meta) => {
     const errors: string[] = [];
 
     const parsed = data.map(async (medicationRequest) => {
@@ -405,6 +406,7 @@ export const medicationRequestStructure: Structure<
           },
         ],
         note: noNullStrings(medicationRequest.note) || undefined,
+        requester: meta.currentUser,
       };
       return medReq;
     });
@@ -430,15 +432,21 @@ export const medicationRequestStructure: Structure<
             key={i}
             className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal"
           >
-            <div className="text-base font-semibold">
+            <div className="flex flex-wrap items-center gap-x-1 text-base font-semibold">
               {medicationRequest.medication &&
               "display" in medicationRequest.medication
                 ? medicationRequest.medication.display
                 : medicationRequest.requested_product_internal
                   ? medicationRequest.requested_product_internal.code?.display
                   : "N/A"}{" "}
-              <span className="ml-1 text-xs font-normal capitalize opacity-70">
+              <span className="text-xs font-normal capitalize opacity-70">
                 {medicationRequest.intent?.replace("_", " ")}
+              </span>
+              <span className="rounded-xl bg-white/10 px-2 py-1 text-[10px] italic">
+                SNOMED:{" "}
+                {medicationRequest.medication?.code ||
+                  medicationRequest.requested_product_internal?.code?.code ||
+                  "N/A"}
               </span>
             </div>
             <div className="text-xs opacity-70">
