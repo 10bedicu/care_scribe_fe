@@ -2,6 +2,21 @@ import { ScribeFileType } from "@/types";
 import { Dispatch, SetStateAction } from "react";
 import { API } from "./api";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const safeParseJson = (value: string): unknown => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const notifyUploadError = (message?: string) => {
+  window.alert(message || "Something went wrong!");
+};
+
 export function handleUploadPercentage(
   event: ProgressEvent,
   setUploadPercent: Dispatch<SetStateAction<number>>,
@@ -12,15 +27,25 @@ export function handleUploadPercentage(
   }
 }
 
-const uploadFile = (
-  url: string,
-  file: File | FormData,
-  reqMethod: string,
-  headers: object,
-  onLoad: (xhr: XMLHttpRequest) => void,
-  setUploadPercent: Dispatch<SetStateAction<number>> | null,
-  onError: () => void,
-) => {
+type UploadFileParams = {
+  url: string;
+  file: File | FormData;
+  reqMethod: "PUT" | "POST" | "PATCH";
+  headers: Record<string, string>;
+  onLoad: (xhr: XMLHttpRequest) => void;
+  setUploadPercent: Dispatch<SetStateAction<number>> | null;
+  onError: () => void;
+};
+
+const uploadFile = ({
+  url,
+  file,
+  reqMethod,
+  headers,
+  onLoad,
+  setUploadPercent,
+  onError,
+}: UploadFileParams) => {
   const xhr = new XMLHttpRequest();
   xhr.open(reqMethod, url);
 
@@ -31,14 +56,14 @@ const uploadFile = (
   xhr.onload = () => {
     onLoad(xhr);
     if (400 <= xhr.status && xhr.status <= 499) {
-      const error = JSON.parse(xhr.responseText);
-      if (typeof error === "object" && !Array.isArray(error)) {
+      const error = safeParseJson(xhr.responseText ?? "");
+      if (isRecord(error)) {
         Object.values(error).forEach((msg) => {
-          window.alert(msg || "Something went wrong!");
+          notifyUploadError(typeof msg === "string" ? msg : undefined);
         });
-      } else {
-        window.alert(error || "Something went wrong!");
+        return;
       }
+      notifyUploadError(typeof error === "string" ? error : undefined);
     }
   };
 
@@ -64,16 +89,20 @@ export const uploadScribeFile = async (
   type: ScribeFileType,
 ) => {
   const category = type === ScribeFileType.AUDIO ? "AUDIO" : "UNSPECIFIED";
-  const extension = blob?.type?.split("/")?.[1].split(";")?.[0];
+  const extension = blob.type?.split("/")?.[1].split(";")?.[0];
   const name = "file" + (extension ? `.${extension}` : "");
   const filename = Date.now().toString();
 
-  let length = undefined;
+  let length: number | undefined;
   if (type === ScribeFileType.AUDIO) {
     const arrayBuffer = await blob.arrayBuffer();
     const audioContext = new AudioContext();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    length = Number(audioBuffer.duration.toFixed(2));
+    try {
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      length = Number(audioBuffer.duration.toFixed(2));
+    } finally {
+      await audioContext.close();
+    }
   }
 
   const data = await API.scribe.createFileUpload({
@@ -82,42 +111,33 @@ export const uploadScribeFile = async (
     name: filename,
     associating_id: scribeInstanceId,
     file_category: category,
-    mime_type: blob?.type?.split(";")?.[0],
+    mime_type: blob.type?.split(";")?.[0],
     length,
   });
 
   await new Promise<void>((resolve, reject) => {
-    try {
-      const url = data?.signed_url;
-      const internal_name = data?.internal_name;
-
-      if (!url) return reject(new Error("Missing signed_url for upload"));
-      if (!internal_name)
-        return reject(new Error("Missing internal_name for upload"));
-
-      const f = blob;
-      if (f === undefined) {
-        reject(new Error("No file to upload"));
-        return;
-      }
-      const newFile = new File([f], `${internal_name}`, { type: f.type });
-      const headers = {
-        "Content-type": newFile.type.split(";")?.[0],
-        "Content-disposition": "inline",
-      };
-
-      uploadFile(
-        url || "",
-        newFile,
-        "PUT",
-        headers,
-        (xhr: XMLHttpRequest) => (xhr.status === 200 ? resolve() : reject()),
-        null,
-        reject,
-      );
-    } catch (error) {
-      reject(error);
+    const url = data?.signed_url;
+    const internalName = data?.internal_name;
+    if (!url || !internalName) {
+      reject(Error("Missing upload metadata"));
+      return;
     }
+    const newFile = new File([blob], internalName, { type: blob.type });
+    const headers = {
+      "Content-type": newFile.type?.split(";")?.[0] || "",
+      "Content-disposition": "inline",
+    };
+
+    uploadFile({
+      url,
+      file: newFile,
+      reqMethod: "PUT",
+      headers,
+      onLoad: (xhr: XMLHttpRequest) =>
+        xhr.status === 200 ? resolve() : reject(),
+      setUploadPercent: null,
+      onError: reject,
+    });
   });
 
   return await API.scribe.editFileUpload(
