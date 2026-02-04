@@ -1,5 +1,4 @@
 import { ScribeFileType } from "@/types";
-import { Dispatch, SetStateAction } from "react";
 import { API } from "./api";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -13,41 +12,15 @@ const safeParseJson = (value: string): unknown => {
   }
 };
 
-const notifyUploadError = (message?: string) => {
-  window.alert(message || "Something went wrong!");
-};
-
-export function handleUploadPercentage(
-  event: ProgressEvent,
-  setUploadPercent: Dispatch<SetStateAction<number>>,
-) {
-  if (event.lengthComputable) {
-    const percentComplete = Math.round((event.loaded / event.total) * 100);
-    setUploadPercent(percentComplete);
-  }
-}
-
-type UploadFileParams = {
-  url: string;
-  file: File | FormData;
-  reqMethod: "PUT" | "POST" | "PATCH";
-  headers: Record<string, string>;
-  onLoad: (xhr: XMLHttpRequest) => void;
-  setUploadPercent: Dispatch<SetStateAction<number>> | null;
-  onError: () => void;
-};
-
-const uploadFile = ({
-  url,
-  file,
-  reqMethod,
-  headers,
-  onLoad,
-  setUploadPercent,
-  onError,
-}: UploadFileParams) => {
+const uploadFile = (
+  url: string,
+  file: File | FormData,
+  headers: Record<string, string>,
+  onLoad: (xhr: XMLHttpRequest) => void,
+  onError: (error?: string) => void,
+) => {
   const xhr = new XMLHttpRequest();
-  xhr.open(reqMethod, url);
+  xhr.open("PUT", url);
 
   Object.entries(headers).forEach(([key, value]) => {
     xhr.setRequestHeader(key, value);
@@ -59,19 +32,13 @@ const uploadFile = ({
       const error = safeParseJson(xhr.responseText ?? "");
       if (isRecord(error)) {
         Object.values(error).forEach((msg) => {
-          notifyUploadError(typeof msg === "string" ? msg : undefined);
+          onError(typeof msg === "string" ? msg : "An error occurred.");
         });
         return;
       }
-      notifyUploadError(typeof error === "string" ? error : undefined);
+      onError(typeof error === "string" ? error : "An error occurred");
     }
   };
-
-  if (setUploadPercent != null) {
-    xhr.upload.onprogress = (event: ProgressEvent) => {
-      handleUploadPercentage(event, setUploadPercent);
-    };
-  }
 
   xhr.onerror = () => {
     window.alert("Network Failure. Please check your internet connectivity.");
@@ -89,8 +56,15 @@ export const uploadScribeFile = async (
   type: ScribeFileType,
 ) => {
   const category = type === ScribeFileType.AUDIO ? "AUDIO" : "UNSPECIFIED";
-  const extension = blob.type?.split("/")?.[1].split(";")?.[0];
-  const name = "file" + (extension ? `.${extension}` : "");
+  const extension = blob.type.split("/")[1]?.split(";")?.[0];
+
+  if (!extension) {
+    throw new Error(
+      "Could not determine file extension. Got mime type: " + blob.type,
+    );
+  }
+
+  const name = `file.${extension}`;
   const filename = Date.now().toString();
 
   let length: number | undefined;
@@ -116,28 +90,26 @@ export const uploadScribeFile = async (
   });
 
   await new Promise<void>((resolve, reject) => {
-    const url = data?.signed_url;
-    const internalName = data?.internal_name;
+    const url = data.signed_url;
+    const internalName = data.internal_name;
     if (!url || !internalName) {
       reject(Error("Missing upload metadata"));
       return;
     }
     const newFile = new File([blob], internalName, { type: blob.type });
+
     const headers = {
-      "Content-type": newFile.type?.split(";")?.[0] || "",
+      "Content-type": newFile.type.split(";")[0],
       "Content-disposition": "inline",
     };
 
-    uploadFile({
+    uploadFile(
       url,
-      file: newFile,
-      reqMethod: "PUT",
+      newFile,
       headers,
-      onLoad: (xhr: XMLHttpRequest) =>
-        xhr.status === 200 ? resolve() : reject(),
-      setUploadPercent: null,
-      onError: reject,
-    });
+      (xhr: XMLHttpRequest) => (xhr.status === 200 ? resolve() : reject()),
+      (e) => reject(Error(e)),
+    );
   });
 
   return await API.scribe.editFileUpload(
