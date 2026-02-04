@@ -83,6 +83,11 @@ export type ScribeModel = {
       name: string;
     };
   } | null;
+  requested_in_questionnaires: {
+    external_id: string;
+    title: string;
+    slug: string;
+  }[];
   transcript: string | null;
   ai_response:
     | ({
@@ -138,6 +143,7 @@ export type ScribeCreateRequest = {
   form_data?: ScribeModel["form_data"];
   requested_in_facility_id?: string;
   requested_in_encounter_id?: string;
+  requested_in_questionnaire_ids?: string[];
   transcript?: ScribeModel["transcript"];
   processed_ai_response?: ScribeProcessing["processed_ai_response"];
   benchmark?: boolean;

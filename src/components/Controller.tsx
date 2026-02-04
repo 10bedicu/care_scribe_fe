@@ -263,6 +263,9 @@ export function Controller(props: {
       form_data: hfields,
       requested_in_facility_id: facilityId || "",
       requested_in_encounter_id: encounterId || "",
+      requested_in_questionnaire_ids: (props.formState as any).map(
+        (q: any) => q.questionnaire.id,
+      ) as string[],
     });
 
     try {

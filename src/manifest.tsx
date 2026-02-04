@@ -45,6 +45,11 @@ const manifest: Manifest = {
         <HistoryDetailsLazy scribeId={id} />
       </Page>
     ),
+    "/admin/scribe/history/:id": ({ id }) => (
+      <Page>
+        <HistoryDetailsLazy scribeId={id} />
+      </Page>
+    ),
     "/admin/scribe/benchmark": () => (
       <Page>
         <BenchmarkPage />

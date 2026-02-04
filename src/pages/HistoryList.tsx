@@ -207,7 +207,9 @@ export default function HistoryListPage(props: { admin?: boolean }) {
                 className="cursor-pointer"
                 onClick={() =>
                   navigate(
-                    `/facility/${scribe.requested_in_facility?.id}/users/${scribe.requested_by.username}/scribe-history/${scribe.external_id}`,
+                    admin
+                      ? `/admin/scribe/history/${scribe.external_id}`
+                      : `/facility/${scribe.requested_in_facility?.id}/users/${scribe.requested_by.username}/scribe-history/${scribe.external_id}`,
                   )
                 }
               >
