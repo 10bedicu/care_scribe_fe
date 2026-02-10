@@ -165,7 +165,9 @@ export default function ScribeQuotas() {
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {quota.facility ? <HomeIcon /> : <PersonIcon />}
-                    {quota.facility ? quota.facility.name : quota.user.username}
+                    {quota.facility
+                      ? quota.facility?.name
+                      : quota.user?.username}
                   </div>
                 </TableCell>
                 <TableCell>{quota.tokens.toLocaleString()}</TableCell>
