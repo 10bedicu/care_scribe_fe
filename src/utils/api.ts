@@ -195,4 +195,19 @@ export const API = {
         facility_id: facilityId,
       }),
   },
+  liveTranscription: {
+    getToken: (data: {
+      facility_id?: string;
+      language?: string;
+      model?: string;
+    }) =>
+      request<{
+        id: string;
+        model: string;
+        client_secret: {
+          value: string;
+          expires_at: number;
+        };
+      }>(`/api/care_scribe/live-transcription/token/`, "POST", data),
+  },
 };

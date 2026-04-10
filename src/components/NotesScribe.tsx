@@ -4,13 +4,9 @@ import { MicrophoneIcon } from "@/utils/icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "../style/index.css";
 import { ContainerRefProvider, useContainerRef } from "@/hooks/useContainerRef";
-import { useEffect, useRef, useState } from "react";
-import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
+import { useEffect, useRef } from "react";
 import { useTimer } from "@/hooks/useTimer";
-import { API } from "@/utils/api";
-import { uploadScribeFile } from "@/utils/upload-utils";
-import { ScribeFileType } from "@/types";
-import { poller } from "@/utils/response-utils";
+import { useLiveTranscription } from "@/hooks/useLiveTranscription";
 import { usePath } from "raviger";
 
 export type NotesScribeProps = {
@@ -26,22 +22,13 @@ export function NotesScribe(props: NotesScribeProps) {
   const containerRef = useContainerRef();
   const timer = useTimer();
   const path = usePath();
-  const [isRecording, setIsRecording] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const {
-    startRecording,
-    stopRecording,
-    resetRecording,
-    audioBlobs,
-    setAudioBlobs,
-  } = useSegmentedRecording();
 
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
-  const encounterId = path?.includes("/encounter/")
-    ? path.split("/encounter/")[1].split("/")[0]
-    : undefined;
+
+  const { isRecording, transcript, error, startRecording, stopRecording } =
+    useLiveTranscription({ facilityId });
 
   useEffect(() => {
     if (container.current) {
@@ -49,76 +36,26 @@ export function NotesScribe(props: NotesScribeProps) {
     }
   }, [container, containerRef]);
 
-  const handleSubmitRecording = async () => {
-    if (!audioBlobs.length) return;
-    setIsSubmitting(true);
-    try {
-      const scribeInstance = await API.scribe.create({
-        status: "CREATED",
-        form_data: [
-          {
-            title: "",
-            description: "",
-            fields: [
-              {
-                id: "transcription",
-                friendlyName: "transcription",
-                humanValue: "",
-                type: "text",
-                current: null,
-              },
-            ],
-          },
-        ],
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
-      });
-
-      await Promise.all(
-        audioBlobs.map((blob) =>
-          uploadScribeFile(
-            blob,
-            scribeInstance.external_id,
-            ScribeFileType.AUDIO,
-          ),
-        ),
-      );
-
-      await API.scribe.update(scribeInstance.external_id, {
-        status: "READY",
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
-        transcript: null,
-      });
-
-      const transcript = await poller(scribeInstance.external_id, "transcript");
-      if (transcript) {
-        setMessage(transcript);
-      }
-
-      resetRecording();
-      setAudioBlobs([]);
-    } catch (error) {
-      console.error("Failed to process NotesScribe recording", error);
-    } finally {
-      setIsSubmitting(false);
+  // Update the parent message with the live transcript
+  useEffect(() => {
+    if (transcript) {
+      setMessage(transcript);
     }
-  };
+  }, [transcript, setMessage]);
 
   const handleToggleRecording = async () => {
     if (isRecording) {
       stopRecording();
       timer.stop();
-      setIsRecording(false);
-      await handleSubmitRecording();
       return;
     }
 
-    resetRecording();
-    setAudioBlobs([]);
-    await startRecording();
-    timer.start();
-    setIsRecording(true);
+    try {
+      await startRecording();
+      timer.start();
+    } catch (err) {
+      console.error("Failed to start live transcription", err);
+    }
   };
 
   return (
@@ -126,6 +63,11 @@ export function NotesScribe(props: NotesScribeProps) {
       {isRecording && (
         <div className="absolute -top-12 left-1/2 z-10 -translate-x-1/2 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
           {timer.time}
+        </div>
+      )}
+      {error && (
+        <div className="absolute -top-12 left-1/2 z-10 -translate-x-1/2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
+          {error}
         </div>
       )}
       <Button
@@ -138,13 +80,8 @@ export function NotesScribe(props: NotesScribeProps) {
         )}
         onClick={handleToggleRecording}
         type="button"
-        disabled={isSubmitting}
       >
-        {isSubmitting ? (
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-        ) : (
-          <MicrophoneIcon className="size-8 fill-current text-white" />
-        )}
+        <MicrophoneIcon className="size-8 fill-current text-white" />
       </Button>
     </div>
   );
