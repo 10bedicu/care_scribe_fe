@@ -3,6 +3,28 @@ import STRUCTURES, { arbitraryStructures } from "./utils/structures";
 import { JsonSchema7AnyType } from "zod-to-json-schema";
 import { cleanAIResponse } from "./utils/response-utils";
 
+export type OpenAILiveTranscriptionSession = {
+  id: string;
+  model: string;
+  client_secret: {
+    value: string;
+    expires_at: number;
+  };
+};
+
+export type GoogleLiveTranscriptionSession = {
+  provider: "google";
+  url: string;
+  config: {
+    language?: string;
+    model?: string;
+  };
+};
+
+export type LiveTranscriptionSession =
+  | OpenAILiveTranscriptionSession
+  | GoogleLiveTranscriptionSession;
+
 export type UserBareMinimum = {
   id: number;
   username: string;

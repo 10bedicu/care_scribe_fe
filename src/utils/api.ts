@@ -4,6 +4,7 @@ import {
   CreateFileResponse,
   FacilityModel,
   FileUploadModel,
+  LiveTranscriptionSession,
   ScribeCreateRequest,
   ScribeFileModel,
   ScribeModel,
@@ -201,13 +202,10 @@ export const API = {
       language?: string;
       model?: string;
     }) =>
-      request<{
-        id: string;
-        model: string;
-        client_secret: {
-          value: string;
-          expires_at: number;
-        };
-      }>(`/api/care_scribe/live-transcription/token/`, "POST", data),
+      request<LiveTranscriptionSession>(
+        `/api/care_scribe/live-transcription/token/`,
+        "POST",
+        data,
+      ),
   },
 };

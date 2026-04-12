@@ -1,5 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import { API } from "@/utils/api";
+import type {
+  GoogleLiveTranscriptionSession,
+  LiveTranscriptionSession,
+  OpenAILiveTranscriptionSession,
+} from "@/types";
 
 interface TranscriptItem {
   itemId: string;
@@ -22,6 +27,14 @@ interface UseLiveTranscriptionReturn {
   stopRecording: () => void;
 }
 
+const CARE_ACCESS_TOKEN_KEY = "care_access_token";
+
+function isGoogleSession(
+  session: LiveTranscriptionSession,
+): session is GoogleLiveTranscriptionSession {
+  return "provider" in session && session.provider === "google";
+}
+
 export function useLiveTranscription(
   options: UseLiveTranscriptionOptions = {},
 ): UseLiveTranscriptionReturn {
@@ -37,6 +50,8 @@ export function useLiveTranscription(
   const streamRef = useRef<MediaStream | null>(null);
   const itemsRef = useRef<Map<string, TranscriptItem>>(new Map());
   const orderRef = useRef<string[]>([]);
+
+  // ── OpenAI ordered-transcript helpers ──────────────────────────
 
   const buildOrderedTranscript = useCallback(() => {
     const items = itemsRef.current;
@@ -58,7 +73,6 @@ export function useLiveTranscription(
       if (order.includes(itemId)) return;
 
       if (!previousItemId) {
-        // No previous item - insert at start if order is empty, else append
         if (order.length === 0) {
           order.push(itemId);
         } else {
@@ -75,6 +89,8 @@ export function useLiveTranscription(
     },
     [],
   );
+
+  // ── Shared cleanup ─────────────────────────────────────────────
 
   const cleanup = useCallback(() => {
     if (workletRef.current) {
@@ -101,36 +117,125 @@ export function useLiveTranscription(
     setIsRecording(false);
   }, []);
 
-  const startRecording = useCallback(async () => {
-    setError(null);
-    setTranscript("");
-    itemsRef.current.clear();
-    orderRef.current = [];
+  // ── Google STT provider ────────────────────────────────────────
 
-    try {
-      // Step 1: Get ephemeral token from backend
-      const session = await API.liveTranscription.getToken({
-        facility_id: options.facilityId,
-        language: options.language,
+  const startGoogleRecording = useCallback(
+    async (session: GoogleLiveTranscriptionSession) => {
+      const token = localStorage.getItem(CARE_ACCESS_TOKEN_KEY);
+      if (!token) throw new Error("No access token available");
+
+      // Build WS URL with JWT token
+      const wsUrl = `${session.url}?token=${encodeURIComponent(token)}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        ws.onopen = () => {
+          if (!settled) {
+            settled = true;
+            setIsConnected(true);
+
+            // Send config as first text message
+            ws.send(
+              JSON.stringify({
+                language: session.config.language,
+                model: session.config.model,
+                sample_rate: 16000,
+                interim_results: true,
+              }),
+            );
+            resolve();
+          }
+        };
+        ws.onerror = () => {
+          if (!settled) {
+            settled = true;
+            reject(new Error("WebSocket connection failed"));
+          }
+        };
+        ws.onclose = (e) => {
+          if (!settled) {
+            settled = true;
+            reject(new Error(`WebSocket closed: ${e.code} ${e.reason}`));
+          }
+        };
+        setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            ws.close();
+            reject(new Error("WebSocket connection timeout"));
+          }
+        }, 10000);
       });
 
-      console.log("Live transcription session:", {
-        id: session.id,
-        model: session.model,
-        hasClientSecret: !!session.client_secret?.value,
-        expiresAt: session.client_secret?.expires_at,
+      // Wait for the "ready" message from middleware
+      await new Promise<void>((resolve, reject) => {
+        const onMessage = (event: MessageEvent) => {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "ready") {
+            ws.removeEventListener("message", onMessage);
+            resolve();
+          } else if (msg.type === "error") {
+            ws.removeEventListener("message", onMessage);
+            reject(new Error(msg.detail || "Transcription session error"));
+          }
+        };
+        ws.addEventListener("message", onMessage);
+        setTimeout(() => {
+          ws.removeEventListener("message", onMessage);
+          reject(new Error("Timed out waiting for transcription session"));
+        }, 15000);
       });
 
-      // Step 2: Connect WebSocket to OpenAI
+      // Handle incoming transcript messages
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+
+        switch (msg.type) {
+          case "transcript": {
+            if (msg.is_final) {
+              setTranscript((prev) =>
+                prev ? `${prev} ${msg.text}` : msg.text,
+              );
+            }
+            break;
+          }
+          case "error": {
+            console.error("Google STT error:", msg.detail);
+            setError(msg.detail || "Transcription error");
+            break;
+          }
+        }
+      };
+
+      ws.onclose = () => setIsConnected(false);
+      ws.onerror = () => {
+        setError("WebSocket error");
+        cleanup();
+      };
+
+      // Audio capture at 16kHz for Google STT (sends raw PCM16 binary)
+      await setupAudioCapture(ws, 16000, "binary");
+      setIsRecording(true);
+    },
+    [cleanup],
+  );
+
+  // ── OpenAI provider ────────────────────────────────────────────
+
+  const startOpenAIRecording = useCallback(
+    async (session: OpenAILiveTranscriptionSession) => {
       const model = session.model || "gpt-4o-transcribe";
       const wsUrl = "wss://api.openai.com/v1/realtime?intent=transcription";
-      console.log("Connecting to:", wsUrl, "with model:", model);
       const ws = new WebSocket(wsUrl, [
         "realtime",
         `openai-insecure-api-key.${session.client_secret.value}`,
         "openai-beta.realtime-v1",
       ]);
       wsRef.current = ws;
+
+      console.log("Connecting to:", wsUrl, "with model:", model);
 
       await new Promise<void>((resolve, reject) => {
         let settled = false;
@@ -165,7 +270,7 @@ export function useLiveTranscription(
         }, 10000);
       });
 
-      // Step 3: Handle incoming transcription events
+      // Handle incoming transcription events
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
 
@@ -181,7 +286,6 @@ export function useLiveTranscription(
                 delta: msg.delta,
                 transcript: null,
               });
-              // If not yet in order, append (committed event may arrive later)
               if (!orderRef.current.includes(msg.item_id)) {
                 orderRef.current.push(msg.item_id);
               }
@@ -233,17 +337,24 @@ export function useLiveTranscription(
         }
       };
 
-      ws.onclose = () => {
-        setIsConnected(false);
-      };
-
+      ws.onclose = () => setIsConnected(false);
       ws.onerror = () => {
         setError("WebSocket error");
         cleanup();
       };
 
-      // Step 4: Set up microphone audio capture at 24kHz PCM16
-      const audioContext = new AudioContext({ sampleRate: 24000 });
+      // Audio capture at 24kHz for OpenAI (sends base64 JSON)
+      await setupAudioCapture(ws, 24000, "base64");
+      setIsRecording(true);
+    },
+    [buildOrderedTranscript, insertInOrder, cleanup],
+  );
+
+  // ── Shared audio capture setup ─────────────────────────────────
+
+  const setupAudioCapture = useCallback(
+    async (ws: WebSocket, sampleRate: number, mode: "binary" | "base64") => {
+      const audioContext = new AudioContext({ sampleRate });
       audioContextRef.current = audioContext;
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -252,7 +363,29 @@ export function useLiveTranscription(
       const source = audioContext.createMediaStreamSource(stream);
       sourceRef.current = source;
 
-      // Use AudioWorklet for efficient processing - fall back to ScriptProcessor
+      const sendAudio =
+        mode === "binary"
+          ? (pcm16Buffer: ArrayBuffer) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(pcm16Buffer);
+              }
+            }
+          : (pcm16Buffer: ArrayBuffer) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                const bytes = new Uint8Array(pcm16Buffer);
+                let binary = "";
+                for (let i = 0; i < bytes.length; i++) {
+                  binary += String.fromCharCode(bytes[i]);
+                }
+                ws.send(
+                  JSON.stringify({
+                    type: "input_audio_buffer.append",
+                    audio: btoa(binary),
+                  }),
+                );
+              }
+            };
+
       try {
         const workletCode = `
           class PCM16Processor extends AudioWorkletProcessor {
@@ -286,22 +419,7 @@ export function useLiveTranscription(
         source.connect(workletNode);
         workletNode.connect(audioContext.destination);
 
-        workletNode.port.onmessage = (e) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            const bytes = new Uint8Array(e.data);
-            let binary = "";
-            for (let i = 0; i < bytes.length; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            const base64 = btoa(binary);
-            ws.send(
-              JSON.stringify({
-                type: "input_audio_buffer.append",
-                audio: base64,
-              }),
-            );
-          }
-        };
+        workletNode.port.onmessage = (e) => sendAudio(e.data);
       } catch {
         // Fallback to ScriptProcessorNode (deprecated but widely supported)
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -309,7 +427,6 @@ export function useLiveTranscription(
         processor.connect(audioContext.destination);
 
         processor.onaudioprocess = (e) => {
-          if (ws.readyState !== WebSocket.OPEN) return;
           const float32 = e.inputBuffer.getChannelData(0);
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
@@ -318,26 +435,34 @@ export function useLiveTranscription(
               Math.min(32767, Math.floor(float32[i] * 32768)),
             );
           }
-          const bytes = new Uint8Array(int16.buffer);
-          let binary = "";
-          for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const base64 = btoa(binary);
-          ws.send(
-            JSON.stringify({
-              type: "input_audio_buffer.append",
-              audio: base64,
-            }),
-          );
+          sendAudio(int16.buffer);
         };
 
-        // Store processor reference for cleanup via a workaround
-        // ScriptProcessorNode doesn't have a clean ref, so store in worklet ref
         workletRef.current = processor as unknown as AudioWorkletNode;
       }
+    },
+    [],
+  );
 
-      setIsRecording(true);
+  // ── Entry point ────────────────────────────────────────────────
+
+  const startRecording = useCallback(async () => {
+    setError(null);
+    setTranscript("");
+    itemsRef.current.clear();
+    orderRef.current = [];
+
+    try {
+      const session = await API.liveTranscription.getToken({
+        facility_id: options.facilityId,
+        language: options.language,
+      });
+
+      if (isGoogleSession(session)) {
+        await startGoogleRecording(session);
+      } else {
+        await startOpenAIRecording(session);
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -350,12 +475,20 @@ export function useLiveTranscription(
   }, [
     options.facilityId,
     options.language,
-    buildOrderedTranscript,
-    insertInOrder,
+    startGoogleRecording,
+    startOpenAIRecording,
     cleanup,
   ]);
 
   const stopRecording = useCallback(() => {
+    // Send stop signal for Google provider before cleanup
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ type: "stop" }));
+      } catch {
+        // Ignore send errors during cleanup
+      }
+    }
     cleanup();
   }, [cleanup]);
 
