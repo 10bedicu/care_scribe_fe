@@ -45,6 +45,7 @@ export default function QuotaSheet(props: {
     facility_external_id: "",
     tokens: 1000000,
     allow_ocr: false,
+    enable_live_transcription: false,
     tokens_per_user: 100000,
   });
 
@@ -64,6 +65,7 @@ export default function QuotaSheet(props: {
         facility_external_id: initQuota?.facility.id || "",
         tokens: initQuota.tokens,
         allow_ocr: initQuota.allow_ocr,
+        enable_live_transcription: initQuota.enable_live_transcription,
         tokens_per_user: initQuota.tokens_per_user,
       });
     }
@@ -202,6 +204,15 @@ export default function QuotaSheet(props: {
               }
             />
           </div>
+          <div className="mt-4 flex items-center gap-2">
+            <label>{t("live_transcription")}</label>
+            <Switch
+              checked={quota.enable_live_transcription}
+              onCheckedChange={(checked) =>
+                setQuota({ ...quota, enable_live_transcription: checked })
+              }
+            />
+          </div>
           <SheetFooter className="p-0">
             <SheetClose>
               <Button
@@ -212,6 +223,7 @@ export default function QuotaSheet(props: {
                     facility_external_id: "",
                     tokens: 1000000,
                     allow_ocr: false,
+                    enable_live_transcription: false,
                     tokens_per_user: 100000,
                   });
                 }}

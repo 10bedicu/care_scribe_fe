@@ -13,8 +13,17 @@ interface TranscriptItem {
   transcript: string | null;
 }
 
+export interface RecordingResult {
+  sessionId: string;
+  transcript: string;
+  audioBlob: Blob;
+  audioDuration: number;
+  mimeType: string;
+}
+
 interface UseLiveTranscriptionOptions {
   facilityId?: string;
+  encounterId?: string;
   language?: string;
 }
 
@@ -24,10 +33,8 @@ interface UseLiveTranscriptionReturn {
   transcript: string;
   error: string | null;
   startRecording: () => Promise<void>;
-  stopRecording: () => void;
+  stopRecording: () => Promise<RecordingResult | null>;
 }
-
-const CARE_ACCESS_TOKEN_KEY = "care_access_token";
 
 function isGoogleSession(
   session: LiveTranscriptionSession,
@@ -42,6 +49,7 @@ export function useLiveTranscription(
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const transcriptRef = useRef("");
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -50,6 +58,16 @@ export function useLiveTranscription(
   const streamRef = useRef<MediaStream | null>(null);
   const itemsRef = useRef<Map<string, TranscriptItem>>(new Map());
   const orderRef = useRef<string[]>([]);
+
+  // Local audio recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const mimeTypeRef = useRef<string>("audio/webm");
+  const recordingStartTimeRef = useRef<number>(0);
+
+  // Session tracking refs
+  const sessionIdRef = useRef<string | null>(null);
+  const providerRef = useRef<"google" | "openai" | null>(null);
 
   // ── OpenAI ordered-transcript helpers ──────────────────────────
 
@@ -93,6 +111,21 @@ export function useLiveTranscription(
   // ── Shared cleanup ─────────────────────────────────────────────
 
   const cleanup = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      if (mediaRecorderRef.current.state !== "inactive") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          // Ignore stop errors during cleanup
+        }
+      }
+      mediaRecorderRef.current = null;
+    }
+    audioChunksRef.current = [];
+    sessionIdRef.current = null;
+    providerRef.current = null;
+    recordingStartTimeRef.current = 0;
+    mimeTypeRef.current = "audio/webm";
     if (workletRef.current) {
       workletRef.current.disconnect();
       workletRef.current = null;
@@ -121,11 +154,8 @@ export function useLiveTranscription(
 
   const startGoogleRecording = useCallback(
     async (session: GoogleLiveTranscriptionSession) => {
-      const token = localStorage.getItem(CARE_ACCESS_TOKEN_KEY);
-      if (!token) throw new Error("No access token available");
-
-      // Build WS URL with JWT token
-      const wsUrl = `${session.url}?token=${encodeURIComponent(token)}`;
+      // Build WS URL with session JWT token
+      const wsUrl = `${session.url}?token=${encodeURIComponent(session.token)}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -195,10 +225,16 @@ export function useLiveTranscription(
         switch (msg.type) {
           case "transcript": {
             if (msg.is_final) {
-              setTranscript((prev) =>
-                prev ? `${prev} ${msg.text}` : msg.text,
-              );
+              setTranscript((prev) => {
+                const next = prev ? `${prev} ${msg.text}` : msg.text;
+                transcriptRef.current = next;
+                return next;
+              });
             }
+            break;
+          }
+          case "usage": {
+            // Usage tracking handled server-side
             break;
           }
           case "error": {
@@ -217,6 +253,7 @@ export function useLiveTranscription(
 
       // Audio capture at 16kHz for Google STT (sends raw PCM16 binary)
       await setupAudioCapture(ws, 16000, "binary");
+      providerRef.current = "google";
       setIsRecording(true);
     },
     [cleanup],
@@ -290,7 +327,11 @@ export function useLiveTranscription(
                 orderRef.current.push(msg.item_id);
               }
             }
-            setTranscript(buildOrderedTranscript());
+            {
+              const next = buildOrderedTranscript();
+              transcriptRef.current = next;
+              setTranscript(next);
+            }
             break;
           }
 
@@ -309,7 +350,11 @@ export function useLiveTranscription(
                 orderRef.current.push(msg.item_id);
               }
             }
-            setTranscript(buildOrderedTranscript());
+            {
+              const next = buildOrderedTranscript();
+              transcriptRef.current = next;
+              setTranscript(next);
+            }
             break;
           }
 
@@ -345,6 +390,7 @@ export function useLiveTranscription(
 
       // Audio capture at 24kHz for OpenAI (sends base64 JSON)
       await setupAudioCapture(ws, 24000, "base64");
+      providerRef.current = "openai";
       setIsRecording(true);
     },
     [buildOrderedTranscript, insertInOrder, cleanup],
@@ -359,6 +405,19 @@ export function useLiveTranscription(
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+
+      // Start local recording for later upload
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mimeTypeRef.current = mediaRecorder.mimeType || "audio/webm";
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      mediaRecorder.start(1000);
+      mediaRecorderRef.current = mediaRecorder;
+      recordingStartTimeRef.current = Date.now();
 
       const source = audioContext.createMediaStreamSource(stream);
       sourceRef.current = source;
@@ -449,14 +508,20 @@ export function useLiveTranscription(
   const startRecording = useCallback(async () => {
     setError(null);
     setTranscript("");
+    transcriptRef.current = "";
     itemsRef.current.clear();
     orderRef.current = [];
 
     try {
       const session = await API.liveTranscription.getToken({
         facility_id: options.facilityId,
+        encounter_id: options.encounterId,
         language: options.language,
       });
+
+      sessionIdRef.current = isGoogleSession(session)
+        ? session.session_id
+        : session.session_id;
 
       if (isGoogleSession(session)) {
         await startGoogleRecording(session);
@@ -474,23 +539,75 @@ export function useLiveTranscription(
     }
   }, [
     options.facilityId,
+    options.encounterId,
     options.language,
     startGoogleRecording,
     startOpenAIRecording,
     cleanup,
   ]);
 
-  const stopRecording = useCallback(() => {
-    // Send stop signal for Google provider before cleanup
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      try {
-        wsRef.current.send(JSON.stringify({ type: "stop" }));
-      } catch {
-        // Ignore send errors during cleanup
+  const stopRecording =
+    useCallback(async (): Promise<RecordingResult | null> => {
+      // Capture values before cleanup resets them
+      const sessionId = sessionIdRef.current;
+      const currentTranscript = transcriptRef.current;
+      const startTime = recordingStartTimeRef.current;
+
+      // Stop MediaRecorder and collect recorded audio
+      const audioBlob = await new Promise<Blob>((resolve) => {
+        const recorder = mediaRecorderRef.current;
+        if (!recorder || recorder.state === "inactive") {
+          resolve(
+            new Blob(audioChunksRef.current, { type: mimeTypeRef.current }),
+          );
+          return;
+        }
+        recorder.addEventListener(
+          "stop",
+          () => {
+            resolve(
+              new Blob(audioChunksRef.current, { type: mimeTypeRef.current }),
+            );
+          },
+          { once: true },
+        );
+        recorder.stop();
+      });
+
+      const audioDuration = startTime
+        ? Number(((Date.now() - startTime) / 1000).toFixed(2))
+        : 0;
+      const mimeType = mimeTypeRef.current;
+      const provider = providerRef.current;
+      const ws = wsRef.current;
+
+      // For Google: send stop signal before cleanup
+      if (provider === "google" && ws?.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ type: "stop" }));
+        } catch {
+          // Ignore send errors during cleanup
+        }
+      } else if (ws?.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ type: "stop" }));
+        } catch {
+          // Ignore send errors during cleanup
+        }
       }
-    }
-    cleanup();
-  }, [cleanup]);
+
+      cleanup();
+
+      if (!sessionId) return null;
+
+      return {
+        sessionId,
+        transcript: currentTranscript,
+        audioBlob,
+        audioDuration,
+        mimeType,
+      };
+    }, [cleanup]);
 
   return {
     isConnected,

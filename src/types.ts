@@ -4,6 +4,7 @@ import { JsonSchema7AnyType } from "zod-to-json-schema";
 import { cleanAIResponse } from "./utils/response-utils";
 
 export type OpenAILiveTranscriptionSession = {
+  session_id: string;
   id: string;
   model: string;
   client_secret: {
@@ -14,7 +15,9 @@ export type OpenAILiveTranscriptionSession = {
 
 export type GoogleLiveTranscriptionSession = {
   provider: "google";
+  session_id: string;
   url: string;
+  token: string;
   config: {
     language?: string;
     model?: string;
@@ -114,6 +117,7 @@ export type ScribeModel = {
       })
     | null;
   status: (typeof SCRIBE_STATUS)[number];
+  live: boolean;
   realtime_token: string | null;
   prompt?: string;
   meta: {
@@ -152,6 +156,7 @@ export type ScribeProcessing = {
   form_data?: ScribeModel["form_data"];
   chat_model?: string;
   audio_model?: string;
+  transcription_model?: string;
   error?: string;
 };
 
@@ -359,6 +364,7 @@ export type ScribeQuota = {
   tokens_per_user: number;
   used: number;
   allow_ocr: boolean;
+  enable_live_transcription: boolean;
   tnc_hash: string | null;
   tnc_accepted_date: string | null;
 };
@@ -367,6 +373,7 @@ export type ScribeQuotaCreateRequest = {
   facility_external_id?: string;
   tokens: number;
   allow_ocr: boolean;
+  enable_live_transcription: boolean;
   tokens_per_user: number;
 };
 
