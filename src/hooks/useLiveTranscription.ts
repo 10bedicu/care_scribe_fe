@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API } from "@/utils/api";
 import type {
   GoogleLiveTranscriptionSession,
@@ -608,6 +608,13 @@ export function useLiveTranscription(
         mimeType,
       };
     }, [cleanup]);
+
+  // Cleanup on unmount to release mic, WebSocket, and AudioContext
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
 
   return {
     isConnected,
