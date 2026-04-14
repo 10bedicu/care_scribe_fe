@@ -76,29 +76,3 @@ export function useControlState<T>(
 
   return [value, setValue];
 }
-
-/**
- * Write-only variant of `useControlState`. Returns only the setter without
- * subscribing to value changes — the component won't re-render when the
- * store value changes.
- */
-export function useControlStateSetter<T>(
-  key: string,
-  initialValue: T,
-): Dispatch<SetStateAction<T>> {
-  const store = getOrCreateStore(key, initialValue);
-
-  return useCallback(
-    (action) => {
-      const nextValue =
-        typeof action === "function"
-          ? (action as (prev: T) => T)(store.value)
-          : action;
-      if (!Object.is(nextValue, store.value)) {
-        store.value = nextValue;
-        store.listeners.forEach((l) => l());
-      }
-    },
-    [store],
-  );
-}

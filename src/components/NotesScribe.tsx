@@ -5,7 +5,6 @@ import { ReloadIcon } from "@radix-ui/react-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "../style/index.css";
 import { ContainerRefProvider, useContainerRef } from "@/hooks/useContainerRef";
-import { useControlStateSetter } from "@/hooks/useControlState";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTimer } from "@/hooks/useTimer";
@@ -20,6 +19,7 @@ import { ScribeFileType } from "@/types";
 import TncDialog from "./TncDialog";
 import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
+import { useControlState } from "@/hooks/useControlState";
 
 export type NotesScribeProps = {
   className?: string;
@@ -27,11 +27,12 @@ export type NotesScribeProps = {
 
 export function NotesScribe(props: NotesScribeProps) {
   const { className } = props;
-  const setMessage = useControlStateSetter("noteMessage", "");
+  const [message, setMessage] = useControlState("noteMessage", "");
 
   const container = useRef<HTMLDivElement>(null);
   const containerRef = useContainerRef();
   const timer = useTimer();
+  const messageBeforeRecording = useRef("");
   const path = usePath();
   const [showTnc, setShowTnc] = useState(false);
 
@@ -59,10 +60,11 @@ export function NotesScribe(props: NotesScribeProps) {
     }
   }, [container, containerRef]);
 
-  // Update the shared message state with the live transcript
+  // Append the live transcript to whatever was already in the message
   useEffect(() => {
     if (transcript) {
-      setMessage(transcript);
+      const prefix = messageBeforeRecording.current;
+      setMessage(prefix ? `${prefix} ${transcript}` : transcript);
     }
   }, [transcript, setMessage]);
 
@@ -138,6 +140,7 @@ export function NotesScribe(props: NotesScribeProps) {
 
     try {
       setIsStarting(true);
+      messageBeforeRecording.current = message;
       await startRecording();
       timer.start();
     } catch (err) {
