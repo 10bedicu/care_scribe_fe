@@ -118,11 +118,15 @@ export const allergyIntoleranceStructure: Structure<
             key={i}
             className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal"
           >
-            <div className="text-base font-semibold">
+            <div className="flex flex-wrap items-center gap-x-1 text-base font-semibold">
               {allergy.code.display}
+              <span className="rounded-xl bg-white/10 px-2 py-1 text-[10px] italic">
+                SNOMED: {allergy.code.code}
+              </span>
             </div>
+
             <div className="text-xs opacity-70">
-              Last occurence :{" "}
+              Last occurrence :{" "}
               {dayjs(allergy.last_occurrence).format("DD/MM/YYYY")}
             </div>
             <div className="capitalize">
