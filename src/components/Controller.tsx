@@ -129,7 +129,14 @@ export function Controller(props: {
     error: liveError,
     startRecording: startLiveTranscription,
     stopRecording: stopLiveTranscription,
+    prefetchToken: prefetchLiveToken,
   } = useLiveTranscription({ facilityId, encounterId });
+
+  // Prefetch the ephemeral token on mount so start-recording is snappy.
+  useEffect(() => {
+    if (!quota.tncAccepted) return;
+    prefetchLiveToken();
+  }, [quota.tncAccepted, prefetchLiveToken]);
 
   const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 

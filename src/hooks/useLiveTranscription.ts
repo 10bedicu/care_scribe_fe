@@ -34,6 +34,7 @@ interface UseLiveTranscriptionReturn {
   error: string | null;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<RecordingResult | null>;
+  prefetchToken: () => Promise<void>;
 }
 
 function isGoogleSession(
@@ -68,6 +69,12 @@ export function useLiveTranscription(
   // Session tracking refs
   const sessionIdRef = useRef<string | null>(null);
   const providerRef = useRef<"google" | "openai" | null>(null);
+
+  // Prefetched ephemeral session (consumed by next startRecording call)
+  const prefetchedSessionRef = useRef<LiveTranscriptionSession | null>(null);
+  const prefetchInFlightRef = useRef<Promise<LiveTranscriptionSession> | null>(
+    null,
+  );
 
   // ── OpenAI ordered-transcript helpers ──────────────────────────
 
@@ -505,6 +512,32 @@ export function useLiveTranscription(
 
   // ── Entry point ────────────────────────────────────────────────
 
+  const fetchSession = useCallback(async () => {
+    if (prefetchInFlightRef.current) return prefetchInFlightRef.current;
+    const promise = API.liveTranscription.getToken({
+      facility_id: options.facilityId,
+      encounter_id: options.encounterId,
+      language: options.language,
+    });
+    prefetchInFlightRef.current = promise;
+    try {
+      const session = await promise;
+      return session;
+    } finally {
+      prefetchInFlightRef.current = null;
+    }
+  }, [options.facilityId, options.encounterId, options.language]);
+
+  const prefetchToken = useCallback(async () => {
+    if (prefetchedSessionRef.current) return;
+    try {
+      prefetchedSessionRef.current = await fetchSession();
+    } catch (err) {
+      // Silent: we'll retry on actual startRecording
+      console.warn("Live transcription token prefetch failed", err);
+    }
+  }, [fetchSession]);
+
   const startRecording = useCallback(async () => {
     setError(null);
     setTranscript("");
@@ -513,11 +546,8 @@ export function useLiveTranscription(
     orderRef.current = [];
 
     try {
-      const session = await API.liveTranscription.getToken({
-        facility_id: options.facilityId,
-        encounter_id: options.encounterId,
-        language: options.language,
-      });
+      const session = prefetchedSessionRef.current ?? (await fetchSession());
+      prefetchedSessionRef.current = null;
 
       sessionIdRef.current = isGoogleSession(session)
         ? session.session_id
@@ -537,14 +567,7 @@ export function useLiveTranscription(
       cleanup();
       throw err;
     }
-  }, [
-    options.facilityId,
-    options.encounterId,
-    options.language,
-    startGoogleRecording,
-    startOpenAIRecording,
-    cleanup,
-  ]);
+  }, [fetchSession, startGoogleRecording, startOpenAIRecording, cleanup]);
 
   const stopRecording =
     useCallback(async (): Promise<RecordingResult | null> => {
@@ -616,5 +639,6 @@ export function useLiveTranscription(
     error,
     startRecording,
     stopRecording,
+    prefetchToken,
   };
 }

@@ -51,8 +51,21 @@ export function NotesScribe(props: NotesScribeProps) {
 
   const [isStarting, setIsStarting] = useState(false);
 
-  const { isRecording, transcript, error, startRecording, stopRecording } =
-    useLiveTranscription({ facilityId, encounterId });
+  const {
+    isRecording,
+    transcript,
+    error,
+    startRecording,
+    stopRecording,
+    prefetchToken,
+  } = useLiveTranscription({ facilityId, encounterId });
+
+  // Prefetch the ephemeral token on mount so the first click is responsive.
+  useEffect(() => {
+    if (!SCRIBE_ENABLED) return;
+    if (!quota.tncAccepted) return;
+    prefetchToken();
+  }, [SCRIBE_ENABLED, quota.tncAccepted, prefetchToken]);
 
   useEffect(() => {
     if (container.current) {
