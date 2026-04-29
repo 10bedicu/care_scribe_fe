@@ -32,6 +32,13 @@ const HistoryDetailsLazy = lazy(() => import("./pages/HistoryDetails"));
 const ScribeQuotaUsageLazy = lazy(() => import("./pages/Usage"));
 const ScribeQuotasLazy = lazy(() => import("./pages/Quotas"));
 
+const QuestionnaireInstructionsLazy = lazy(
+  () => import("./pages/QuestionnaireInstructions"),
+);
+const QuestionnaireInstructionsUpdateLazy = lazy(
+  () => import("./pages/QuestionnaireInstructionsUpdate"),
+);
+
 const manifest: Manifest = {
   plugin: "care-scribe",
   routes: {
@@ -60,6 +67,16 @@ const manifest: Manifest = {
         <ScribeQuotaUsageLazy quotaId={quotaId} />
       </Page>
     ),
+    "/admin/scribe/questionnaire-instructions": () => (
+      <Page>
+        <QuestionnaireInstructionsLazy />
+      </Page>
+    ),
+    "/admin/scribe/questionnaire-instructions/:id": ({ id }) => (
+      <Page>
+        <QuestionnaireInstructionsUpdateLazy instructionId={id} />
+      </Page>
+    ),
   },
   extends: [],
   components: {
@@ -81,6 +98,11 @@ const manifest: Manifest = {
         {
           url: `/admin/scribe/quotas`,
           name: "Quotas",
+          icon: <SidebarIcon />,
+        },
+        {
+          url: "/admin/scribe/questionnaire-instructions",
+          name: "Questionnaire Instructions",
           icon: <SidebarIcon />,
         },
         {

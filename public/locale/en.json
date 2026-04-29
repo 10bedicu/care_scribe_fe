@@ -130,5 +130,21 @@
   "least_tokens_used": "Least Tokens Used",
   "no_quotas_found": "No Quotas found",
   "started_using_since": "Started Using Since",
-  "no_facility_found": "No facility found"
+  "no_facility_found": "No facility found",
+  "scribe_instructions" : "Scribe Instructions",
+  "overall_instructions" : "Overall Instructions",
+  "save" : "Save",
+  "question_instruction_placeholder": "Add question instructions here",
+  "instruction_deleted_successfully": "Instructions deleted",
+  "error_deleting_instruction": "Error deleting instructions",
+  "instruction_updated_successfully": "Instructions updated",
+  "error_updating_instruction": "Error updating instructions",
+  "delete" : "Delete",
+  "add_instructions": "Add Instructions",
+  "search_by_questionnaire_title" : "Search by Questionnaire Title",
+  "questionnaire" : "Questionnaire",
+  "questionnaire_instructions": "Questionnaire Instructions",
+  "instruction_added_successfully": "Instructions added",
+  "error_adding_instruction": "Error adding instructions",
+  "remove_instructions": "Remove Instructions"
 }
