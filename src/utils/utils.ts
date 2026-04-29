@@ -26,11 +26,15 @@ export const renderFieldValue = (
   } else {
     // convert from snake case to human readable text
     humanValue =
-      (typeof val === "string"
-        ? renderCamelCase(val)
-        : Array.isArray(val)
-          ? val.map((val) => renderCamelCase(String(val))).join(", ")
-          : JSON.stringify(val)
+      (typeof val === "boolean"
+        ? val
+          ? "yes"
+          : "no"
+        : typeof val === "string"
+          ? renderCamelCase(val)
+          : Array.isArray(val)
+            ? val.map((val) => renderCamelCase(String(val))).join(", ")
+            : JSON.stringify(val)
       )?.toLocaleLowerCase() || "";
   }
 
