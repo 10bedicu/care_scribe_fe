@@ -48,7 +48,6 @@ import {
   useLiveTranscription,
   type RecordingResult,
 } from "@/hooks/useLiveTranscription";
-import { updateFieldValue } from "@/utils/field-utils";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const latestProcessing =
@@ -131,17 +130,6 @@ export function Controller(props: {
     startRecording: startLiveTranscription,
     stopRecording: stopLiveTranscription,
   } = useLiveTranscription({ facilityId, encounterId });
-
-  // Live chunk processing refs
-  const formStateRef = useRef(props.formState);
-  const processedLengthRef = useRef(0);
-  const chunkQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pendingChunks, setPendingChunks] = useState(0);
-
-  useEffect(() => {
-    formStateRef.current = props.formState;
-  }, [props.formState]);
 
   const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 
@@ -328,97 +316,6 @@ export function Controller(props: {
   // Process a transcribed text chunk: create a scribe instance with current
   // form state, get AI response, and apply suggestions directly to the form
   // (no review step).
-  const processTranscriptChunk = async (chunkText: string) => {
-    if (isAbortedRef.current) return;
-    const fields = getQuestionInputs(formStateRef.current);
-    if (!fields.length) return;
-    const hfields = getHydratedFields(fields, true);
-    if (!hfields.length) return;
-
-    try {
-      const created = await API.scribe.create({
-        status: "READY",
-        form_data: hfields,
-        transcript: chunkText,
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
-      });
-      if (isAbortedRef.current) return;
-
-      const aiResponse = await poller(
-        created.external_id,
-        "ai_response",
-        isAbortedRef,
-      );
-      if (!aiResponse || isAbortedRef.current) return;
-
-      const cleaned = await cleanAIResponse(
-        aiResponse as ScribeAIResponse,
-        fields,
-        { encounterId: encounterId!, currentUser: user!, currentTime },
-      );
-      if (isAbortedRef.current) return;
-
-      Object.values(cleaned.meta.failed).forEach((errors) => {
-        errors.forEach((err) => toast.error(err));
-      });
-
-      const suggestions = getFieldsToReview(cleaned.cleaned, fields);
-      suggestions.forEach((s) => updateFieldValue(s, true, props.setFormState));
-
-      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
-    } catch (e) {
-      console.error("Failed to process transcript chunk", e);
-    }
-  };
-
-  const enqueueChunk = (chunkText: string) => {
-    setPendingChunks((c) => c + 1);
-    chunkQueueRef.current = chunkQueueRef.current
-      .then(() => processTranscriptChunk(chunkText))
-      .finally(() => setPendingChunks((c) => Math.max(0, c - 1)));
-    return chunkQueueRef.current;
-  };
-
-  const flushPendingChunk = (immediate = false) => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    const full = liveTranscript;
-    const delta = full.slice(processedLengthRef.current).trim();
-    if (!delta) return;
-    processedLengthRef.current = full.length;
-    if (immediate) {
-      return enqueueChunk(delta);
-    }
-    enqueueChunk(delta);
-  };
-
-  // Watch the live transcript and process chunks once it stabilizes briefly,
-  // or when sentence-ending punctuation is reached.
-  useEffect(() => {
-    if (status !== "RECORDING") return;
-    if (!liveTranscript) return;
-    const delta = liveTranscript.slice(processedLengthRef.current).trim();
-    if (!delta) return;
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const endsWithSentence = /[.!?\n]\s*$/.test(liveTranscript);
-    const wait = endsWithSentence && delta.length >= 20 ? 500 : 1800;
-    debounceRef.current = setTimeout(() => {
-      const full = liveTranscript;
-      const d = full.slice(processedLengthRef.current).trim();
-      if (!d) return;
-      processedLengthRef.current = full.length;
-      enqueueChunk(d);
-    }, wait);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [liveTranscript, status]);
-
   // Surface live transcription errors
   useEffect(() => {
     if (liveError) {
@@ -489,14 +386,11 @@ export function Controller(props: {
     }
     handleCancel();
     isAbortedRef.current = false;
-    processedLengthRef.current = 0;
-    chunkQueueRef.current = Promise.resolve();
-    setPendingChunks(0);
     setTranscript("");
     setLastTranscript(undefined);
 
     try {
-      // Snapshot the form state so cancel can restore it.
+      // Snapshot the form state so cancel/review can restore it.
       setFormStateSnapshot(props.formState);
       await startLiveTranscription();
       timer.start();
@@ -510,11 +404,9 @@ export function Controller(props: {
 
   const handleStopRecording = async () => {
     setError(null);
+    setToReview(undefined);
     timer.stop();
     timer.reset();
-
-    // Flush any pending chunk before stopping the stream.
-    flushPendingChunk(true);
 
     let result: RecordingResult | null = null;
     try {
@@ -523,25 +415,57 @@ export function Controller(props: {
       console.error(e);
     }
 
-    // Wait for queued chunk processing to complete before returning to idle.
-    setStatus("THINKING");
-    try {
-      await chunkQueueRef.current;
-    } catch (e) {
-      console.error(e);
-    }
+    const finalTranscript = (result?.transcript ?? liveTranscript ?? "").trim();
+    setLastTranscript(finalTranscript);
+    setTranscript(finalTranscript);
 
     if (result) {
-      const finalTranscript = result.transcript || liveTranscript;
-      setLastTranscript(finalTranscript);
-      setTranscript(finalTranscript);
       // Fire-and-forget: upload audio + close live session.
       uploadAndCompleteLiveSession(result).catch(console.error);
     }
 
-    setStatus("IDLE");
-    setFormStateSnapshot(null);
-    processedLengthRef.current = 0;
+    if (!finalTranscript) {
+      setStatus("IDLE");
+      setFormStateSnapshot(null);
+      return;
+    }
+
+    const fields = getQuestionInputs(props.formState);
+    if (!fields.length) {
+      setStatus("IDLE");
+      setFormStateSnapshot(null);
+      return;
+    }
+
+    setStatus("THINKING");
+    let createdId: string;
+    try {
+      const hfields = getHydratedFields(fields, true);
+      const created = await API.scribe.create({
+        status: "READY",
+        form_data: hfields,
+        transcript: finalTranscript,
+        requested_in_facility_id: facilityId || "",
+        requested_in_encounter_id: encounterId || "",
+      });
+      createdId = created.external_id;
+    } catch (e) {
+      console.error(e);
+      setStatus("FAILED");
+      return;
+    }
+    if (isAbortedRef.current) return;
+    setInstanceId(createdId);
+
+    const aiResponse = await getAIResponse(createdId, fields);
+    if (isAbortedRef.current) return;
+
+    queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+    if (!aiResponse) return;
+
+    setStatus("REVIEWING");
+    if (!formStateSnapshot) setFormStateSnapshot(props.formState);
+    setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleCancel = (
@@ -556,13 +480,6 @@ export function Controller(props: {
     if (isLiveRecording) {
       stopLiveTranscription().catch(console.error);
     }
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    processedLengthRef.current = 0;
-    chunkQueueRef.current = Promise.resolve();
-    setPendingChunks(0);
     setError(null);
     setFormStateSnapshot(null);
     timer.reset();
@@ -644,11 +561,6 @@ export function Controller(props: {
                   </span>
                 )}
               </div>
-              {pendingChunks > 0 && (
-                <div className="text-[10px] text-neutral-500">
-                  {t("copilot_thinking")}
-                </div>
-              )}
             </div>
           )}
           {(openEditTranscript || !toReview?.length) &&
