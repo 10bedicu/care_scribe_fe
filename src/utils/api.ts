@@ -174,6 +174,8 @@ export const API = {
         results: ScribeQuota[];
         count: number;
       }>(`/api/care_scribe/quota/`, "GET", filters),
+    get: (id: string) =>
+      request<ScribeQuota>(`/api/care_scribe/quota/${id}/`, "GET"),
     create: (data: ScribeQuotaCreateRequest) =>
       request<ScribeQuota>(`/api/care_scribe/quota/`, "POST", data),
     update: (id: string, data: Partial<ScribeQuotaCreateRequest>) =>

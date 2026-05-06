@@ -27,10 +27,15 @@ export const VERIFICATION_STATUS = [
   "entered-in-error",
 ] as const;
 
+export const DIAGNOSIS_SEVERITY = ["severe", "moderate", "mild"] as const;
+
+export type DiagnosisSeverity = (typeof DIAGNOSIS_SEVERITY)[number];
+
 type Diagnosis = {
   code: Code;
   clinical_status: (typeof CLINICAL_STATUS)[number];
   verification_status: (typeof VERIFICATION_STATUS)[number];
+  severity: DiagnosisSeverity | null;
   onset: { onset_datetime: string };
   recorded_date: string;
   note?: string;
@@ -43,6 +48,10 @@ const toolStructure = z.array(
     snomed_info: finding(),
     clinical_status: z.enum(CLINICAL_STATUS).nullable(),
     verification_status: z.enum(VERIFICATION_STATUS).nullable(),
+    severity: z
+      .enum(DIAGNOSIS_SEVERITY)
+      .nullable()
+      .describe("Severity of the diagnosis. Only fill if explicitly known."),
     onset_datetime: z
       .string()
       .describe(
@@ -82,6 +91,7 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
           onset: {
             onset_datetime: onsetDateTime,
           },
+          severity: diagnosis.severity,
           recorded_date: new Date().toISOString(),
           note: noNullStrings(diagnosis.note) || undefined,
           category: "encounter_diagnosis",
@@ -111,8 +121,14 @@ export const diagnosisStructure: Structure<Diagnosis[], typeof toolStructure> =
               key={i}
               className="w-full rounded-lg border border-black/5 bg-black/5 p-2 font-normal"
             >
-              <div className="text-base font-semibold">
-                {diagnosis.code.display}
+              <div className="flex flex-wrap items-center gap-x-1 text-base font-semibold">
+                {diagnosis.code.display}{" "}
+                {diagnosis.severity && (
+                  <i className="text-xs italic">{diagnosis.severity}</i>
+                )}
+                <span className="rounded-xl bg-white/10 px-2 py-1 text-[10px] italic">
+                  SNOMED: {diagnosis.code.code}
+                </span>
               </div>
               <div className="text-xs opacity-70">
                 Since{" "}

@@ -62,8 +62,8 @@ export default function QuotaSheet(props: {
     if (initQuota) {
       setQuota({
         facility_external_id: initQuota?.facility.id || "",
-        tokens: quota.tokens,
-        allow_ocr: quota.allow_ocr,
+        tokens: initQuota.tokens,
+        allow_ocr: initQuota.allow_ocr,
         tokens_per_user: initQuota.tokens_per_user,
       });
     }
@@ -223,7 +223,7 @@ export default function QuotaSheet(props: {
             {initQuota?.external_id && (
               <SheetClose>
                 <Button
-                  variant="destructive"
+                  variant="secondary"
                   className="w-full"
                   onClick={props.onDelete}
                 >

@@ -19,11 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ScribeQuota,
-  ScribeQuotaCreateRequest,
-  ScribeQuotaFilter,
-} from "@/types";
+import { ScribeQuotaCreateRequest, ScribeQuotaFilter } from "@/types";
 import { API } from "@/utils/api";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { debounce } from "@/utils/utils";
@@ -42,7 +38,7 @@ import { toast } from "sonner";
 export default function ScribeQuotas() {
   const { t } = useTranslation(I18NNAMESPACE);
 
-  const [selectedQuota, setSelectedQuota] = useState<ScribeQuota | null>();
+  const [showCreateQuotaSheet, setShowCreateQuotaSheet] = useState(false);
 
   const [{ page: initPage }, setQueryParams] = useQueryParams();
   const page = initPage || 1;
@@ -55,8 +51,7 @@ export default function ScribeQuotas() {
     queryKey: ["scribe-quotas", page, search, filters],
     queryFn: () =>
       API.quotas.list({
-        ordering:
-          filters.ordering === "all" ? "-created_date" : filters.ordering,
+        ordering: filters.ordering,
         facility: search || undefined,
         allow_ocr:
           filters.allow_ocr === true
@@ -87,43 +82,6 @@ export default function ScribeQuotas() {
     },
   });
 
-  const updateQuotaMutation = useMutation({
-    mutationFn: ({
-      quotaId,
-      quota,
-    }: {
-      quotaId: string;
-      quota: { tokens?: number; allow_ocr?: boolean; tokens_per_user?: number };
-    }) =>
-      API.quotas.update(quotaId, {
-        ...quota,
-      }),
-    onSuccess: () => {
-      toast.success(t("quota_updated_successfully"));
-      quotasQuery.refetch();
-      setSelectedQuota(undefined);
-    },
-    onError: (error: any) => {
-      toast.error(
-        error?.error?.non_field_errors?.[0] || t("quota_update_failed"),
-      );
-    },
-  });
-
-  const deleteQuotaMutation = useMutation({
-    mutationFn: (quotaId: string) => API.quotas.delete(quotaId),
-    onSuccess: () => {
-      toast.success(t("quota_deleted"));
-      quotasQuery.refetch();
-      setSelectedQuota(undefined);
-    },
-    onError: (error: any) => {
-      toast.error(
-        error?.error?.non_field_errors?.[0] || t("quota_deletion_failed"),
-      );
-    },
-  });
-
   const handleSearch = debounce((value: string) => {
     setSearch(value);
     setQueryParams({ page: 1 });
@@ -137,33 +95,19 @@ export default function ScribeQuotas() {
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
           {t("scribe_quotas")}
         </h1>
-        <Button onClick={() => setSelectedQuota(null)}>{t("new_quota")}</Button>
+        <Button onClick={() => setShowCreateQuotaSheet(true)}>
+          {t("new_quota")}
+        </Button>
         <QuotaSheet
-          open={typeof selectedQuota !== "undefined"}
-          onClose={() => setSelectedQuota(undefined)}
+          open={showCreateQuotaSheet}
+          onClose={() => setShowCreateQuotaSheet(false)}
           onSubmit={(quota) => {
-            if (selectedQuota === null) {
-              newQuotaMutation.mutate({
-                ...quota,
-                facility_external_id: quota.facility_external_id || undefined,
-              });
-            } else {
-              updateQuotaMutation.mutate({
-                quotaId: selectedQuota?.external_id || "",
-                quota: {
-                  tokens: quota.tokens,
-                  allow_ocr: quota.allow_ocr,
-                  tokens_per_user: quota.tokens_per_user,
-                },
-              });
-            }
+            newQuotaMutation.mutate({
+              ...quota,
+              facility_external_id: quota.facility_external_id || undefined,
+            });
           }}
-          onDelete={() => {
-            if (selectedQuota) {
-              deleteQuotaMutation.mutate(selectedQuota.external_id);
-            }
-          }}
-          quota={selectedQuota || undefined}
+          onDelete={() => console.log("Delete not possible")}
         />
       </div>
       <div className="mt-4 flex flex-col gap-2">
@@ -215,12 +159,14 @@ export default function ScribeQuotas() {
                 key={quota.external_id}
                 className="cursor-pointer"
                 onClick={() => {
-                  setSelectedQuota(quota);
+                  navigate(`/admin/scribe/quotas/${quota.external_id}`);
                 }}
               >
-                <TableCell className="flex items-center gap-2">
-                  {quota.facility ? <HomeIcon /> : <PersonIcon />}
-                  {quota.facility ? quota.facility.name : quota.user.username}
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {quota.facility ? <HomeIcon /> : <PersonIcon />}
+                    {quota.facility ? quota.facility.name : quota.user.username}
+                  </div>
                 </TableCell>
                 <TableCell>{quota.tokens.toLocaleString()}</TableCell>
                 <TableCell>{quota.tokens_per_user.toLocaleString()}</TableCell>
@@ -243,7 +189,7 @@ export default function ScribeQuotas() {
             <Skeleton className="h-[50px] rounded-lg" />
           </div>
         )}
-        {quotasQuery.isFetched && history?.length === 0 && (
+        {quotasQuery.isFetched && quotas?.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-4 rounded-lg opacity-50">
             <div className="text-8xl">
               <SidebarIcon />
