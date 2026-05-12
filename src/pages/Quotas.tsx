@@ -150,7 +150,6 @@ export default function ScribeQuotas() {
               <TableHead>{t("used_tokens")}</TableHead>
               <TableHead>{t("available_tokens")}</TableHead>
               <TableHead>{t("ocr_allowed")}</TableHead>
-              <TableHead>{t("live_transcription")}</TableHead>
               <TableHead>{t("created_at")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -176,9 +175,6 @@ export default function ScribeQuotas() {
                   {(quota.tokens - quota.used).toLocaleString()}
                 </TableCell>
                 <TableCell>{quota.allow_ocr ? t("yes") : t("no")}</TableCell>
-                <TableCell>
-                  {quota.enable_live_transcription ? t("yes") : t("no")}
-                </TableCell>
                 <TableCell>
                   {dayjs(quota.created_date).format("D MMMM YYYY")}
                 </TableCell>

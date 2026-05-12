@@ -4,7 +4,6 @@ import {
   CreateFileResponse,
   FacilityModel,
   FileUploadModel,
-  LiveTranscriptionSession,
   ScribeCreateRequest,
   ScribeFileModel,
   ScribeModel,
@@ -93,7 +92,7 @@ export const API = {
         patient?: string;
         facility?: string;
         benchmark?: boolean;
-        live?: boolean;
+        transcript_only?: boolean;
         offset?: number;
         limit?: number;
       } = {},
@@ -196,24 +195,5 @@ export const API = {
       request<void>(`/api/care_scribe/quota/accept-tnc/`, "POST", {
         facility_id: facilityId,
       }),
-  },
-  liveTranscription: {
-    getToken: (data: {
-      facility_id?: string;
-      encounter_id?: string;
-      language?: string;
-      model?: string;
-    }) =>
-      request<LiveTranscriptionSession>(
-        `/api/care_scribe/live-transcription/token/`,
-        "POST",
-        data,
-      ),
-    complete: (data: { session_id: string; transcript: string }) =>
-      request<{ detail: string }>(
-        `/api/care_scribe/live-transcription/complete/`,
-        "POST",
-        data,
-      ),
   },
 };

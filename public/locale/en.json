@@ -1,4 +1,5 @@
 {
+  "transcript_only": "Transcript Only",
   "voice_autofill": "Voice Autofill",
   "hearing": "We are hearing you...",
   "copilot_thinking": "Processing Scribe...",
@@ -132,5 +133,8 @@
   "started_using_since": "Started Using Since",
   "no_facility_found": "No facility found",
   "live_transcription": "Live Transcription",
-  "live": "Live"
+  "live": "Live",
+  "transcribe_model": "Transcribe Model",
+  "chat_provider": "Chat Provider",
+  "transcribe_provider": "Transcribe Provider"
 }

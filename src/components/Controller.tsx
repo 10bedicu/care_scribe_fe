@@ -50,9 +50,10 @@ function MetaInformation(props: { meta: ScribeModel["meta"] }) {
     props.meta.processings?.[props.meta.processings.length - 1];
 
   const info = {
-    "Audio Model": latestProcessing?.audio_model || "-",
+    "Transcribe Model": latestProcessing?.transcribe_model || "-",
     "Chat Model": latestProcessing?.chat_model,
-    Provider: latestProcessing?.provider,
+    "Chat Provider": latestProcessing?.chat_provider,
+    "Transcribe Provider": latestProcessing?.transcribe_provider,
     "Input Tokens": latestProcessing?.completion_input_tokens || 0,
     "Cached Tokens": latestProcessing?.completion_cached_tokens || 0,
     "Output Tokens": latestProcessing?.completion_output_tokens || 0,

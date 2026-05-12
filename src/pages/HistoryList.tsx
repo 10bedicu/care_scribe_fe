@@ -215,12 +215,12 @@ export default function HistoryListPage() {
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <StatusBadge status={scribe.status} />
-                    {scribe.live && (
+                    {scribe.transcript_only && (
                       <Badge
                         variant="outline"
                         className="border-blue-300 bg-blue-50 text-blue-600"
                       >
-                        {t("live")}
+                        {t("transcript_only")}
                       </Badge>
                     )}
                   </div>
@@ -236,10 +236,12 @@ export default function HistoryListPage() {
                 {statsEnabled && (
                   <>
                     <TableCell>
-                      {latestMeta(scribe)?.provider || "N/A"}
+                      {(scribe.transcript_only
+                        ? latestMeta(scribe)?.transcribe_provider
+                        : latestMeta(scribe)?.chat_provider) || "N/A"}
                     </TableCell>
                     <TableCell>
-                      {scribe.live ? (
+                      {scribe.transcript_only ? (
                         latestMeta(scribe)?.completion_output_tokens || "-"
                       ) : (
                         <>

@@ -62,7 +62,6 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
       quota: {
         tokens?: number;
         allow_ocr?: boolean;
-        enable_live_transcription?: boolean;
         tokens_per_user?: number;
       };
     }) =>
@@ -162,15 +161,6 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
         : "",
     },
     {
-      icon: <CameraIcon />,
-      label: t("live_transcription"),
-      value: facilityQuota
-        ? facilityQuota.enable_live_transcription
-          ? t("yes")
-          : t("no")
-        : "",
-    },
-    {
       icon: <CalendarIcon />,
       label: t("created_at"),
       value: facilityQuota
@@ -191,7 +181,6 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
               quota: {
                 tokens: quota.tokens,
                 allow_ocr: quota.allow_ocr,
-                enable_live_transcription: quota.enable_live_transcription,
                 tokens_per_user: quota.tokens_per_user,
               },
             });

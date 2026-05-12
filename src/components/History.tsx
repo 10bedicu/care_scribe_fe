@@ -35,7 +35,6 @@ export default function HistorySheet(props: {
         offset: pageParam,
         benchmark: false,
         limit: 10,
-        live: false,
         ordering: "-modified_date",
       }),
     getNextPageParam: (lastPage, _, lastPageParam) => {

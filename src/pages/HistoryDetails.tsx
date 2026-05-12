@@ -71,12 +71,12 @@ export default function HistoryDetailsPage(props: {
       value: !!scribe && (
         <div className="flex items-center gap-1">
           <StatusBadge status={scribe?.status} />
-          {scribe.live && (
+          {scribe.transcript_only && (
             <Badge
               variant="outline"
               className="border-blue-300 bg-blue-50 text-blue-600"
             >
-              {t("live")}
+              {t("transcript_only")}
             </Badge>
           )}
           {scribe.status === "FAILED" && (
@@ -171,7 +171,7 @@ export default function HistoryDetailsPage(props: {
         </span>
       ),
       value: <span className="text-xs opacity-60">{assumedAudioTokens}</span>,
-      hide: !scribe?.audio.length || meta?.provider !== "google",
+      hide: !scribe?.audio.length || meta?.transcribe_provider !== "google",
     },
     {
       label: "→ " + t("image"),
@@ -268,17 +268,22 @@ export default function HistoryDetailsPage(props: {
       ),
     },
     {
-      label: t("audio_model"),
-      value: meta?.audio_model,
-      hide: !meta?.audio_model,
+      label: t("transcribe_model"),
+      value: meta?.transcribe_model,
+      hide: !meta?.transcribe_model,
     },
     {
       label: t("chat_model"),
       value: meta?.chat_model,
     },
     {
-      label: t("provider"),
-      value: meta?.provider,
+      label: t("chat_provider"),
+      value: meta?.chat_provider,
+    },
+    {
+      label: t("transcribe_provider"),
+      value: meta?.transcribe_provider,
+      hide: !meta?.transcribe_provider,
     },
     {
       label: t("start_time"),
@@ -310,7 +315,7 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_output_tokens || 0,
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
-          `${meta?.provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+          `${meta?.chat_provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
         ).toFixed(6) + "$",
     },
     {
@@ -324,7 +329,7 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_output_tokens || 0,
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
-          `${meta?.provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+          `${meta?.chat_provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
         ).toFixed(6) + "$",
     },
   ];
@@ -387,13 +392,13 @@ export default function HistoryDetailsPage(props: {
             )}
           </div>
           <Tabs
-            defaultValue={scribe?.live ? "transcript" : "summary"}
+            defaultValue={scribe?.transcript_only ? "transcript" : "summary"}
             className="mt-6 w-full"
           >
             <TabsList
               className={cn(
                 "w-full md:grid",
-                scribe?.live
+                scribe?.transcript_only
                   ? statsEnabled
                     ? "md:grid-cols-2"
                     : "md:grid-cols-1"
@@ -402,7 +407,7 @@ export default function HistoryDetailsPage(props: {
                     : "md:grid-cols-2",
               )}
             >
-              {!scribe?.live && (
+              {!scribe?.transcript_only && (
                 <TabsTrigger value="summary">{t("ai_summary")}</TabsTrigger>
               )}
               <TabsTrigger value="transcript">{t("transcript")}</TabsTrigger>

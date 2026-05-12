@@ -3,31 +3,6 @@ import STRUCTURES, { arbitraryStructures } from "./utils/structures";
 import { JsonSchema7AnyType } from "zod-to-json-schema";
 import { cleanAIResponse } from "./utils/response-utils";
 
-export type OpenAILiveTranscriptionSession = {
-  session_id: string;
-  id: string;
-  model: string;
-  client_secret: {
-    value: string;
-    expires_at: number;
-  };
-};
-
-export type GoogleLiveTranscriptionSession = {
-  provider: "google";
-  session_id: string;
-  url: string;
-  token: string;
-  config: {
-    language?: string;
-    model?: string;
-  };
-};
-
-export type LiveTranscriptionSession =
-  | OpenAILiveTranscriptionSession
-  | GoogleLiveTranscriptionSession;
-
 export type UserBareMinimum = {
   id: number;
   username: string;
@@ -117,8 +92,7 @@ export type ScribeModel = {
       })
     | null;
   status: (typeof SCRIBE_STATUS)[number];
-  live: boolean;
-  realtime_token: string | null;
+  transcript_only: boolean;
   prompt?: string;
   meta: {
     processings?: ScribeProcessing[];
@@ -133,7 +107,12 @@ export type ScribeModel = {
 
 export type ScribeProcessing = {
   created_date?: string;
-  provider?: string;
+  // Provider info — split into chat vs transcribe (may differ)
+  chat_provider?: "openai" | "azure" | "google";
+  transcribe_provider?: "openai" | "azure" | "google";
+  // Model names (bare model, no "provider/" prefix in meta)
+  chat_model?: string;
+  transcribe_model?: string;
   thinking?: string;
   transcription_time?: number;
   completion_output_tokens?: number;
@@ -154,9 +133,9 @@ export type ScribeProcessing = {
   processed_ai_response?: Awaited<ReturnType<typeof cleanAIResponse>>["meta"];
   ai_response?: ScribeModel["ai_response"];
   form_data?: ScribeModel["form_data"];
-  chat_model?: string;
-  audio_model?: string;
-  transcription_model?: string;
+  transcript_only?: boolean;
+  retries?: number;
+  cache_name?: string;
   error?: string;
 };
 
@@ -166,6 +145,7 @@ export type ScribeCreateRequest = {
   requested_in_facility_id?: string;
   requested_in_encounter_id?: string;
   transcript?: ScribeModel["transcript"];
+  transcript_only?: boolean;
   processed_ai_response?: ScribeProcessing["processed_ai_response"];
   benchmark?: boolean;
   chat_model?: string;
@@ -364,7 +344,6 @@ export type ScribeQuota = {
   tokens_per_user: number;
   used: number;
   allow_ocr: boolean;
-  enable_live_transcription: boolean;
   tnc_hash: string | null;
   tnc_accepted_date: string | null;
 };
@@ -373,7 +352,6 @@ export type ScribeQuotaCreateRequest = {
   facility_external_id?: string;
   tokens: number;
   allow_ocr: boolean;
-  enable_live_transcription: boolean;
   tokens_per_user: number;
 };
 
