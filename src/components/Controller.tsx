@@ -33,17 +33,9 @@ import { twMerge } from "tailwind-merge";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useQuota } from "@/hooks/useQuota";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import TncDialog from "./TncDialog";
 import ControllerDropDownMenu from "./ControllerDropDownMenu";
 import { useStorage } from "@/hooks/useStorage";
-import { useContainerRef } from "@/hooks/useContainerRef";
 import { cleanAIResponse, poller } from "@/utils/response-utils";
 import {
   getFieldsToReview,
@@ -52,6 +44,10 @@ import {
 } from "@/utils/field-utils";
 import { uploadScribeFile } from "@/utils/upload-utils";
 import useAuthUser from "@/hooks/useAuthUser";
+import {
+  useLiveTranscription,
+  type RecordingResult,
+} from "@/hooks/useLiveTranscription";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const latestProcessing =
@@ -101,7 +97,6 @@ export function Controller(props: {
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const path = usePath();
-  const containerRef = useContainerRef();
   const isAbortedRef = useRef(false);
   const [formStateSnapshot, setFormStateSnapshot] =
     useState<typeof props.formState>(null);
@@ -122,12 +117,26 @@ export function Controller(props: {
   const quota = useQuota(facilityId);
 
   const {
-    startRecording: startSegmentedRecording,
     stopRecording: stopSegmentedRecording,
     resetRecording,
     audioBlobs,
     setAudioBlobs,
   } = useSegmentedRecording();
+
+  const {
+    isRecording: isLiveRecording,
+    transcript: liveTranscript,
+    error: liveError,
+    startRecording: startLiveTranscription,
+    stopRecording: stopLiveTranscription,
+    prefetchToken: prefetchLiveToken,
+  } = useLiveTranscription({ facilityId, encounterId });
+
+  // Prefetch the ephemeral token on mount so start-recording is snappy.
+  useEffect(() => {
+    if (!quota.tncAccepted) return;
+    prefetchLiveToken();
+  }, [quota.tncAccepted, prefetchLiveToken]);
 
   const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 
@@ -311,51 +320,151 @@ export function Controller(props: {
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
+  // Process a transcribed text chunk: create a scribe instance with current
+  // form state, get AI response, and apply suggestions directly to the form
+  // (no review step).
+  // Surface live transcription errors
+  useEffect(() => {
+    if (liveError) {
+      toast.error(liveError);
+    }
+  }, [liveError]);
+
+  // Mirror live transcript into local transcript display state
+  useEffect(() => {
+    if (status === "RECORDING") {
+      setTranscript(liveTranscript);
+    }
+  }, [liveTranscript, status]);
+
+  const uploadAndCompleteLiveSession = async (result: RecordingResult) => {
+    const { sessionId, audioBlob, audioDuration, mimeType } = result;
+    const baseMimeType = mimeType.split(";")[0];
+    const extension = baseMimeType.split("/")[1] || "webm";
+
+    try {
+      const fileData = await API.scribe.createFileUpload({
+        file_type: ScribeFileType.AUDIO,
+        file_category: "AUDIO",
+        name: `live_recording_${Date.now()}.${extension}`,
+        original_name: `live_recording.${extension}`,
+        associating_id: sessionId,
+        mime_type: baseMimeType,
+        length: audioDuration,
+      });
+
+      const file = new File([audioBlob], fileData.internal_name, {
+        type: baseMimeType,
+      });
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", fileData.signed_url);
+        xhr.setRequestHeader("Content-Type", baseMimeType);
+        xhr.setRequestHeader("Content-Disposition", "inline");
+        xhr.onload = () =>
+          xhr.status === 200
+            ? resolve()
+            : reject(new Error(`Upload failed: ${xhr.status}`));
+        xhr.onerror = () => reject(new Error("Upload network error"));
+        xhr.send(file);
+      });
+
+      await API.scribe.editFileUpload(fileData.id, "SCRIBE_AUDIO", sessionId, {
+        upload_completed: true,
+      });
+    } catch (err) {
+      console.error("Failed to upload live recording", err);
+    }
+
+    try {
+      await API.liveTranscription.complete({
+        session_id: sessionId,
+        transcript: result.transcript,
+      });
+    } catch (err) {
+      console.error("Failed to complete live transcription session", err);
+    }
+  };
+
   const handleStartRecording = async () => {
     if (!quota.tncAccepted) {
       setShowTnc(true);
       return;
     }
     handleCancel();
-    isAbortedRef.current = true;
+    isAbortedRef.current = false;
+    setTranscript("");
+    setLastTranscript(undefined);
 
     try {
-      await startSegmentedRecording();
+      // Snapshot the form state so cancel/review can restore it.
+      setFormStateSnapshot(props.formState);
+      await startLiveTranscription();
       timer.start();
       setStatus("RECORDING");
     } catch {
       toast.error(t("audio__permission_message"));
       setStatus("IDLE");
+      setFormStateSnapshot(null);
     }
   };
 
   const handleStopRecording = async () => {
     setError(null);
-    isAbortedRef.current = false;
     setToReview(undefined);
     timer.stop();
     timer.reset();
-    setStatus("UPLOADING");
-    stopSegmentedRecording();
+
+    let result: RecordingResult | null = null;
+    try {
+      result = await stopLiveTranscription();
+    } catch (e) {
+      console.error(e);
+    }
+
+    const finalTranscript = (result?.transcript ?? liveTranscript ?? "").trim();
+    setLastTranscript(finalTranscript);
+    setTranscript(finalTranscript);
+
+    if (result) {
+      // Fire-and-forget: upload audio + close live session.
+      uploadAndCompleteLiveSession(result).catch(console.error);
+    }
+
+    if (!finalTranscript) {
+      setStatus("IDLE");
+      setFormStateSnapshot(null);
+      return;
+    }
 
     const fields = getQuestionInputs(props.formState);
-    const instanceId = scribe
-      ? scribe.external_id
-      : await createScribeInstance(fields);
-    if (isAbortedRef.current) return;
-    setInstanceId(instanceId);
-
-    setStatus("TRANSCRIBING");
-    const transcript = await getTranscript(
-      instanceId,
-      scribe ? fields : undefined,
-    );
-    if (isAbortedRef.current) return;
-    setLastTranscript(transcript);
-    setTranscript(transcript);
+    if (!fields.length) {
+      setStatus("IDLE");
+      setFormStateSnapshot(null);
+      return;
+    }
 
     setStatus("THINKING");
-    const aiResponse = await getAIResponse(instanceId, fields);
+    let createdId: string;
+    try {
+      const hfields = getHydratedFields(fields, true);
+      const created = await API.scribe.create({
+        status: "READY",
+        form_data: hfields,
+        transcript: finalTranscript,
+        requested_in_facility_id: facilityId || "",
+        requested_in_encounter_id: encounterId || "",
+      });
+      createdId = created.external_id;
+    } catch (e) {
+      console.error(e);
+      setStatus("FAILED");
+      return;
+    }
+    if (isAbortedRef.current) return;
+    setInstanceId(createdId);
+
+    const aiResponse = await getAIResponse(createdId, fields);
     if (isAbortedRef.current) return;
 
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
@@ -375,6 +484,9 @@ export function Controller(props: {
       props.setFormState(formStateSnapshot);
     }
     stopSegmentedRecording();
+    if (isLiveRecording) {
+      stopLiveTranscription().catch(console.error);
+    }
     setError(null);
     setFormStateSnapshot(null);
     timer.reset();
@@ -434,10 +546,27 @@ export function Controller(props: {
             <FileUpload files={files} setFiles={setFiles} error={null} />
           )}
           {status === "RECORDING" && (
-            <div className="flex items-center justify-center p-4 py-10">
-              <div className="text-center">
-                <div className="text-xl font-black">{timer.time}</div>
-                <p>{t("hearing")}</p>
+            <div className="flex w-full flex-col items-stretch gap-2 p-4 md:w-[300px]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  <span className="text-sm font-semibold text-neutral-800">
+                    {t("hearing")}
+                  </span>
+                </div>
+                <div className="font-mono text-sm text-neutral-700">
+                  {timer.time}
+                </div>
+              </div>
+              <div className="max-h-40 min-h-[3rem] overflow-auto rounded-md border border-neutral-200 bg-neutral-50 p-2 text-xs text-neutral-800">
+                {liveTranscript || (
+                  <span className="text-neutral-400">
+                    {t("copilot_thinking")}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -666,37 +795,12 @@ export function Controller(props: {
         />
       )}
 
-      <Dialog open={showTnc} onOpenChange={setShowTnc}>
-        <DialogContent
-          portalProps={{ container: containerRef?.current }}
-          className="break-normal"
-        >
-          <DialogHeader>
-            <DialogTitle>{t("terms_and_conditions")}</DialogTitle>
-            <DialogDescription>
-              {t("terms_and_conditions_description")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-auto rounded-md bg-neutral-50 p-2 text-sm">
-            <div
-              className="reset-tw"
-              dangerouslySetInnerHTML={{
-                __html: quota.tnc || "LOADING...",
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={async () => {
-                quota.acceptTnc();
-                setShowTnc(false);
-              }}
-            >
-              {t("accept")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TncDialog
+        open={showTnc}
+        onOpenChange={setShowTnc}
+        tnc={quota.tnc}
+        onAccept={quota.acceptTnc}
+      />
     </>
   );
 }

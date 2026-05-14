@@ -130,5 +130,7 @@
   "least_tokens_used": "Least Tokens Used",
   "no_quotas_found": "No Quotas found",
   "started_using_since": "Started Using Since",
-  "no_facility_found": "No facility found"
+  "no_facility_found": "No facility found",
+  "live_transcription": "Live Transcription",
+  "live": "Live"
 }

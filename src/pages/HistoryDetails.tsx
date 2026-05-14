@@ -5,6 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -68,8 +69,16 @@ export default function HistoryDetailsPage(props: {
       icon: <CheckboxIcon />,
       label: t("status"),
       value: !!scribe && (
-        <div>
+        <div className="flex items-center gap-1">
           <StatusBadge status={scribe?.status} />
+          {scribe.live && (
+            <Badge
+              variant="outline"
+              className="border-blue-300 bg-blue-50 text-blue-600"
+            >
+              {t("live")}
+            </Badge>
+          )}
           {scribe.status === "FAILED" && (
             <div className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-500">
               {meta?.error || t("unknown_error")}
@@ -377,14 +386,25 @@ export default function HistoryDetailsPage(props: {
               </Button>
             )}
           </div>
-          <Tabs defaultValue="summary" className="mt-6 w-full">
+          <Tabs
+            defaultValue={scribe?.live ? "transcript" : "summary"}
+            className="mt-6 w-full"
+          >
             <TabsList
               className={cn(
-                "w-full md:grid md:grid-cols-2",
-                statsEnabled && "md:grid-cols-3",
+                "w-full md:grid",
+                scribe?.live
+                  ? statsEnabled
+                    ? "md:grid-cols-2"
+                    : "md:grid-cols-1"
+                  : statsEnabled
+                    ? "md:grid-cols-3"
+                    : "md:grid-cols-2",
               )}
             >
-              <TabsTrigger value="summary">{t("ai_summary")}</TabsTrigger>
+              {!scribe?.live && (
+                <TabsTrigger value="summary">{t("ai_summary")}</TabsTrigger>
+              )}
               <TabsTrigger value="transcript">{t("transcript")}</TabsTrigger>
               {statsEnabled && (
                 <TabsTrigger value="metadata">{t("metadata")}</TabsTrigger>
