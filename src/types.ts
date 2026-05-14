@@ -238,6 +238,8 @@ export interface ScribeFileModel {
   name: string;
   upload_completed: boolean;
   read_signed_url: string;
+  mime_type: string;
+  internal_name: string;
   length: number;
 }
 

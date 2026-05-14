@@ -1,28 +1,26 @@
 import { ScribeFileType } from "@/types";
-import { Dispatch, SetStateAction } from "react";
 import { API } from "./api";
 
-export function handleUploadPercentage(
-  event: ProgressEvent,
-  setUploadPercent: Dispatch<SetStateAction<number>>,
-) {
-  if (event.lengthComputable) {
-    const percentComplete = Math.round((event.loaded / event.total) * 100);
-    setUploadPercent(percentComplete);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const safeParseJson = (value: string): unknown => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
   }
-}
+};
 
 const uploadFile = (
   url: string,
   file: File | FormData,
-  reqMethod: string,
-  headers: object,
+  headers: Record<string, string>,
   onLoad: (xhr: XMLHttpRequest) => void,
-  setUploadPercent: Dispatch<SetStateAction<number>> | null,
-  onError: () => void,
+  onError: (error?: string) => void,
 ) => {
   const xhr = new XMLHttpRequest();
-  xhr.open(reqMethod, url);
+  xhr.open("PUT", url);
 
   Object.entries(headers).forEach(([key, value]) => {
     xhr.setRequestHeader(key, value);
@@ -31,22 +29,16 @@ const uploadFile = (
   xhr.onload = () => {
     onLoad(xhr);
     if (400 <= xhr.status && xhr.status <= 499) {
-      const error = JSON.parse(xhr.responseText);
-      if (typeof error === "object" && !Array.isArray(error)) {
+      const error = safeParseJson(xhr.responseText ?? "");
+      if (isRecord(error)) {
         Object.values(error).forEach((msg) => {
-          window.alert(msg || "Something went wrong!");
+          onError(typeof msg === "string" ? msg : "An error occurred.");
         });
-      } else {
-        window.alert(error || "Something went wrong!");
+        return;
       }
+      onError(typeof error === "string" ? error : "An error occurred");
     }
   };
-
-  if (setUploadPercent != null) {
-    xhr.upload.onprogress = (event: ProgressEvent) => {
-      handleUploadPercentage(event, setUploadPercent);
-    };
-  }
 
   xhr.onerror = () => {
     window.alert("Network Failure. Please check your internet connectivity.");
@@ -64,16 +56,27 @@ export const uploadScribeFile = async (
   type: ScribeFileType,
 ) => {
   const category = type === ScribeFileType.AUDIO ? "AUDIO" : "UNSPECIFIED";
-  const extension = blob?.type?.split("/")?.[1].split(";")?.[0];
-  const name = "file" + (extension ? `.${extension}` : "");
+  const extension = blob.type.split("/")[1]?.split(";")?.[0];
+
+  if (!extension) {
+    throw new Error(
+      "Could not determine file extension. Got mime type: " + blob.type,
+    );
+  }
+
+  const name = `file.${extension}`;
   const filename = Date.now().toString();
 
-  let length = undefined;
+  let length: number | undefined;
   if (type === ScribeFileType.AUDIO) {
     const arrayBuffer = await blob.arrayBuffer();
     const audioContext = new AudioContext();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    length = Number(audioBuffer.duration.toFixed(2));
+    try {
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      length = Number(audioBuffer.duration.toFixed(2));
+    } finally {
+      await audioContext.close();
+    }
   }
 
   const data = await API.scribe.createFileUpload({
@@ -82,32 +85,30 @@ export const uploadScribeFile = async (
     name: filename,
     associating_id: scribeInstanceId,
     file_category: category,
-    mime_type: blob?.type?.split(";")?.[0],
+    mime_type: blob.type?.split(";")?.[0],
     length,
   });
 
   await new Promise<void>((resolve, reject) => {
-    const url = data?.signed_url;
-    const internal_name = data?.internal_name;
-    const f = blob;
-    if (f === undefined) {
-      reject(Error("No file to upload"));
+    const url = data.signed_url;
+    const internalName = data.internal_name;
+    if (!url || !internalName) {
+      reject(Error("Missing upload metadata"));
       return;
     }
-    const newFile = new File([f], `${internal_name}`, { type: f.type });
+    const newFile = new File([blob], internalName, { type: blob.type });
+
     const headers = {
-      "Content-type": newFile?.type?.split(";")?.[0],
+      "Content-type": newFile.type.split(";")[0],
       "Content-disposition": "inline",
     };
 
     uploadFile(
-      url || "",
+      url,
       newFile,
-      "PUT",
       headers,
       (xhr: XMLHttpRequest) => (xhr.status === 200 ? resolve() : reject()),
-      null,
-      reject,
+      (e) => reject(Error(e)),
     );
   });
 
