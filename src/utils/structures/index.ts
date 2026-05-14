@@ -6,6 +6,7 @@ import { medicationStatementStructure } from "./medicationStatement.tsx";
 import { diagnosisStructure } from "./diagnosis";
 import { allergyIntoleranceStructure } from "./allergyIntolerance";
 import { timeOfDeathStructure } from "./timeOfDeath";
+import { serviceRequestStructure } from "./serviceRequest";
 import { ReactNode } from "react";
 import { ScribeMeta } from "@/types.ts";
 
@@ -75,6 +76,7 @@ const STRUCTURES = {
   diagnosis: diagnosisStructure,
   allergy_intolerance: allergyIntoleranceStructure,
   time_of_death: timeOfDeathStructure,
+  service_request: serviceRequestStructure,
 };
 
 export function enumDescription<T extends readonly string[]>(enu: T) {
