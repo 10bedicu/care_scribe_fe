@@ -348,7 +348,7 @@ export default function BenchmarkPage() {
     audio_model?: string,
     chat_model_temperature?: number,
   ) => {
-    const hfields = getHydratedFields(questionnaires, true);
+    const hfields = getHydratedFields(questionnaires, [], true);
     const cdata = await API.scribe.create({
       status: "CREATED",
       form_data: hfields,

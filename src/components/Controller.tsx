@@ -30,7 +30,7 @@ import { useTimer } from "@/hooks/useTimer";
 import { useTranslation } from "react-i18next";
 import { Link, usePath } from "raviger";
 import { twMerge } from "tailwind-merge";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useQuota } from "@/hooks/useQuota";
 import {
@@ -121,6 +121,22 @@ export function Controller(props: {
     : undefined;
   const quota = useQuota(facilityId);
 
+  const questionnaireSlugs = (props.formState as any).map(
+    (q: any) => q.questionnaire.slug,
+  ) as string[];
+
+  const questionnaireInstructionsQuery = useQuery({
+    queryKey: ["questionnaire-instructions", questionnaireSlugs],
+    queryFn: () =>
+      API.questionnaireInstructions.list({
+        questionnaire_slugs: questionnaireSlugs.join(","),
+      }),
+    enabled: !!questionnaireSlugs.length,
+  });
+
+  const questionnaireInstructions =
+    questionnaireInstructionsQuery.data?.results;
+
   const {
     startRecording: startSegmentedRecording,
     stopRecording: stopSegmentedRecording,
@@ -164,7 +180,11 @@ export function Controller(props: {
     sendProcessed: boolean = true,
   ) => {
     try {
-      const hfields = getHydratedFields(questionnaire, false);
+      const hfields = getHydratedFields(
+        questionnaire,
+        questionnaireInstructions || [],
+        false,
+      );
       if (!hfields || !hfields.length) {
         return;
       }
@@ -228,7 +248,11 @@ export function Controller(props: {
       | ScribeHydratedQuestionnaire<ScribeHydratedField>[]
       | undefined = undefined;
     if (fields) {
-      hfields = getHydratedFields(fields, true);
+      hfields = getHydratedFields(
+        fields,
+        questionnaireInstructions || [],
+        true,
+      );
     }
     try {
       await API.scribe.update(scribeInstanceId, {
@@ -255,7 +279,11 @@ export function Controller(props: {
   const createScribeInstance = async (
     questionnaires: ScribeQuestionnaire[],
   ) => {
-    const hfields = getHydratedFields(questionnaires, true);
+    const hfields = getHydratedFields(
+      questionnaires,
+      questionnaireInstructions || [],
+      true,
+    );
     const data = await API.scribe.create({
       status: "CREATED",
       form_data: hfields,

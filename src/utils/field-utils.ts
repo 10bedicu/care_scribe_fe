@@ -6,6 +6,7 @@ import {
   ScribeHydratedField,
   ScribeHydratedQuestionnaire,
   ScribeQuestionnaire,
+  ScribeQuestionnaireInstruction,
 } from "@/types";
 import STRUCTURES, {
   arbitraryStructure,
@@ -21,6 +22,7 @@ export const getQuestionInputs: (
   return formState
     .map((qn: any) => ({
       title: qn.questionnaire.title,
+      id: qn.questionnaire.id,
       description: qn.questionnaire.description,
       questions: getQuestions(qn.questionnaire.questions, formState, headless),
     }))
@@ -36,6 +38,7 @@ const getQuestions = (
     .map((question: any) => {
       if (question.type === "group") {
         return {
+          id: question.id,
           title: question.text,
           description: question.description,
           questions: question.questions
@@ -70,14 +73,17 @@ const getQuestions = (
 };
 export function getHydratedFields(
   questionnaires: ScribeQuestionnaire[],
+  instructions: ScribeQuestionnaireInstruction[],
   stripRawData?: true,
 ): ScribeHydratedQuestionnaire<ScribeHydratedField>[];
 export function getHydratedFields(
   questionnaires: ScribeQuestionnaire[],
+  instructions: ScribeQuestionnaireInstruction[],
   stripRawData?: false,
 ): ScribeHydratedQuestionnaire<ScribeHydratedAndRawField>[];
 export function getHydratedFields(
   questionnaires: ScribeQuestionnaire[],
+  instructions: ScribeQuestionnaireInstruction[],
   stripRawData?: boolean,
 ):
   | ScribeHydratedQuestionnaire<ScribeHydratedField>[]
@@ -91,6 +97,10 @@ export function getHydratedFields(
         ? ScribeHydratedField
         : ScribeHydratedAndRawField;
 
+      const extraInstructions = instructions.find(
+        (i) => i.questionnaire_id === questionnaire.id,
+      );
+
       const constructHydratedField = (
         field: ScribeField | ScribeQuestionnaire,
         parentIds: string[] = [],
@@ -98,9 +108,17 @@ export function getHydratedFields(
         if ("questions" in field) {
           // If the field is a questionnaire, recursively construct its fields
           const newParentIds = [...parentIds, field.title || "Untitled Group"];
+          const fieldInstructions =
+            extraInstructions?.instructions.questions.find(
+              (q) => q.id === field.id,
+            )?.instructions;
           return {
             title: field.title || "Untitled Group",
-            description: field.description || "",
+            description:
+              (field.description || "") +
+              (fieldInstructions
+                ? `-- Instructions: ${fieldInstructions}`
+                : ""),
             fields: field.questions
               .map((q) => constructHydratedField(q, newParentIds))
               .filter((f) => f !== null),
@@ -109,6 +127,11 @@ export function getHydratedFields(
         // If the field is a regular field, construct it normally
 
         const structuredType = field.question.structured_type;
+
+        const fieldInstructions =
+          extraInstructions?.instructions.questions.find(
+            (q) => q.id === field.question.id,
+          )?.instructions;
 
         if (
           structuredType &&
@@ -147,7 +170,7 @@ export function getHydratedFields(
           }
         }
 
-        const description = `${field.question.text}${field.question.unit ? ` (in ${field.question.unit.code} | ${field.question.unit.display})` : ""}${nonQsParents.length ? ` (${nonQsParents.join(" -> ")})` : ""}${field.question.description ? `: ${field.question.description}` : ""}`;
+        const description = `${field.question.text}${field.question.unit ? ` (in ${field.question.unit.code} | ${field.question.unit.display})` : ""}${nonQsParents.length ? ` (${nonQsParents.join(" -> ")})` : ""}${field.question.description ? `: ${field.question.description} ` : ""} ${fieldInstructions ? ` -- Instructions: ${fieldInstructions}` : ""}`;
 
         if (!structuredType) {
           structure = z
@@ -178,9 +201,17 @@ export function getHydratedFields(
         } as ReturnField;
       };
 
+      const questionnaireInstructions = instructions.filter(
+        (i) => i.questionnaire_id === questionnaire.id,
+      );
+
       const toReturn = {
         title: questionnaire.title || "Untitled Questionnaire",
-        description: questionnaire.description || "",
+        description:
+          (questionnaire.description || "") +
+          (questionnaireInstructions[0]?.instructions?.instructions
+            ? ` -- Instructions: ${questionnaireInstructions.map((i) => i.instructions.instructions).join(" ")}`
+            : ""),
         fields: fields
           .map((field) =>
             constructHydratedField(field, [
@@ -256,7 +287,7 @@ export const getFieldsToReview = (
   >,
   scrapedFields: ScribeQuestionnaire[],
 ): ScribeFieldSuggestion[] => {
-  const hydratedFields = getHydratedFields(scrapedFields, false);
+  const hydratedFields = getHydratedFields(scrapedFields, [], false);
 
   const flattenFields = (
     fields: (

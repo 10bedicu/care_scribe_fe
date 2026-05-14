@@ -173,6 +173,7 @@ export type ScribeMeta = {
 
 export type ScribeQuestionnaire = {
   title: string;
+  id: string;
   description: string;
   questions: (ScribeField | ScribeQuestionnaire)[];
 };
@@ -358,3 +359,50 @@ export type ScribeQuotaFilter = {
   offset?: number;
   limit?: number;
 };
+
+export type ScribeQuestionnaireInstructionsFilter = {
+  questionnaire_slugs?: string;
+  questionnaire_title?: string;
+  ordering?: string;
+  offset?: number;
+  limit?: number;
+};
+
+export type ScribeQuestionnaireQuestionInstruction = {
+  instructions: string;
+  id: string;
+};
+
+export type ScribeQuestionnaireInstruction = {
+  external_id: string;
+  questionnaire_id: string;
+  questionnaire_title: string;
+  questionnaire_slug: string;
+  instructions: {
+    instructions: string;
+    questions: ScribeQuestionnaireQuestionInstruction[];
+  };
+  created_date: string;
+  modified_date: string;
+};
+
+export type ScribeQuestionnaireInstructionsCreateRequest = {
+  add_questionnaire_id: string;
+  instructions: {
+    instructions: string;
+    questions: ScribeQuestionnaireQuestionInstruction[];
+  };
+};
+
+export interface Question {
+  id: string;
+  text: string;
+  description?: string;
+  questions?: Question[];
+}
+
+export interface Questionnaire {
+  id: string;
+  title: string;
+  questions: Question[];
+}

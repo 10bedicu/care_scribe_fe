@@ -26,7 +26,7 @@ export const cleanAIResponse = async (
     >,
     failed: {} as Record<string, string[]>,
   };
-  const hfields = getHydratedFields(questionnaire, false);
+  const hfields = getHydratedFields(questionnaire, [], false);
   // run type validations
   const changedData = (
     await Promise.all(

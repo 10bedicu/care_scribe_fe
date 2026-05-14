@@ -11,6 +11,10 @@ import {
   ScribeQuotaCreateRequest,
   ScribeQuotaFilter,
   UserBareMinimum,
+  ScribeQuestionnaireInstruction,
+  ScribeQuestionnaireInstructionsCreateRequest,
+  ScribeQuestionnaireInstructionsFilter,
+  Questionnaire,
 } from "../types";
 
 type methods = "POST" | "GET" | "PATCH" | "DELETE" | "PUT";
@@ -194,5 +198,50 @@ export const API = {
       request<void>(`/api/care_scribe/quota/accept-tnc/`, "POST", {
         facility_id: facilityId,
       }),
+  },
+  questionnaireInstructions: {
+    list: (filters: ScribeQuestionnaireInstructionsFilter) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: ScribeQuestionnaireInstruction[];
+        count: number;
+      }>(`/api/care_scribe/questionnaire-instructions/`, "GET", filters),
+    create: (data: ScribeQuestionnaireInstructionsCreateRequest) =>
+      request<ScribeQuestionnaireInstruction>(
+        `/api/care_scribe/questionnaire-instructions/`,
+        "POST",
+        data,
+      ),
+    update: (
+      id: string,
+      data: Partial<ScribeQuestionnaireInstructionsCreateRequest>,
+    ) =>
+      request<ScribeQuestionnaireInstruction>(
+        `/api/care_scribe/questionnaire-instructions/${id}/`,
+        "PATCH",
+        data,
+      ),
+    delete: (id: string) =>
+      request<void>(
+        `/api/care_scribe/questionnaire-instructions/${id}/`,
+        "DELETE",
+      ),
+    get: (id: string) =>
+      request<ScribeQuestionnaireInstruction>(
+        `/api/care_scribe/questionnaire-instructions/${id}/`,
+        "GET",
+      ),
+  },
+  questionnaire: {
+    list: () =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: Questionnaire[];
+        count: number;
+      }>(`/api/v1/questionnaire/`, "GET"),
+    get: (id: string) =>
+      request<Questionnaire>(`/api/v1/questionnaire/${id}/`, "GET"),
   },
 };
