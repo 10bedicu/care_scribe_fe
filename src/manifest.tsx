@@ -13,15 +13,7 @@ interface Manifest {
   plugin: string;
   routes: Record<string, (...args: any) => React.ReactNode>;
   extends: string[];
-  components: Record<
-    string,
-    React.LazyExoticComponent<
-      React.FC<{
-        formState: unknown;
-        setFormState: (formState: unknown) => void;
-      }>
-    >
-  >;
+  components: Record<string, React.LazyExoticComponent<React.FC<any>>>;
   navItems?: NavigationLink[];
   userNavItems?: NavigationLink[];
   adminNavItems?: NavigationLink[];
@@ -64,6 +56,7 @@ const manifest: Manifest = {
   extends: [],
   components: {
     Scribe: lazy(() => import("./providers")),
+    NoteMessageInput: lazy(() => import("./components/NotesScribe")),
   },
   userNavItems: [
     {
