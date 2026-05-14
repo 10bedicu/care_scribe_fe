@@ -328,7 +328,16 @@ export default function HistoryDetailsPage(props: {
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
           {t("scribe_details")}
         </h1>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-4 text-sm">
+          {statsEnabled && !!scribe?.requested_in_questionnaires?.length && (
+            <Button asChild>
+              <Link
+                href={`/facility/${scribe?.requested_in_facility?.id}/patient/${scribe?.requested_in_encounter?.patient.external_id}/encounter/${scribe?.requested_in_encounter?.external_id}/questionnaire/${scribe.requested_in_questionnaires[0].slug}?from_scribe=${scribe.external_id}`}
+              >
+                {t("create_benchmark")}
+              </Link>
+            </Button>
+          )}
           {user?.is_superuser && (
             <>
               <Switch

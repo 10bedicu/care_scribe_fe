@@ -31,7 +31,8 @@ import { navigate, useQueryParams } from "raviger";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export default function HistoryListPage() {
+export default function HistoryListPage(props: { admin?: boolean }) {
+  const { admin = false } = props;
   const { t } = useTranslation(I18NNAMESPACE);
   const [statsEnabled, setStatsEnabled] = useStorage("scribe-enable-dev-mode");
   const [{ page: initPage }, setQueryParams] = useQueryParams();
@@ -60,19 +61,23 @@ export default function HistoryListPage() {
 
   const historyQuery = useQuery({
     queryKey: ["scribe-history", page, search, filters],
-    queryFn: async () =>
-      API.scribe.list({
+    queryFn: async () => {
+      const listEndpoint = admin ? API.scribe.all : API.scribe.list;
+
+      return listEndpoint({
         ordering: filters.ordering === "all" ? undefined : filters.ordering,
         status: filters.status === "all" ? undefined : filters.status,
         // start_date: filters.date_range.start,
         // end_date: filters.date_range.end,
         facility: search.type === "facility" ? search.value : undefined,
+        username: search.type === "username" ? search.value : undefined,
         encounter_id: search.type === "encounter" ? search.value : undefined,
         patient: search.type === "patient" ? search.value : undefined,
         benchmark: filters.benchmark,
         offset: (Number(page) - 1) * 10,
         limit: 10,
-      }),
+      });
+    },
   });
 
   const handleSearch = debounce((value: string) => {
@@ -86,6 +91,7 @@ export default function HistoryListPage() {
     { value: "facility", label: t("facility_name") },
     { value: "encounter", label: t("encounter_id") },
     { value: "patient", label: t("patient_name") },
+    ...(admin ? [{ value: "username", label: t("username") }] : []),
   ];
 
   const latestMeta = (scribe: ScribeModel) => {
@@ -179,6 +185,7 @@ export default function HistoryListPage() {
         <Table className="overflow-hidden rounded-lg border bg-white shadow-sm">
           <TableHeader>
             <TableRow>
+              {admin && <TableHead>{t("user")}</TableHead>}
               <TableHead>{t("date_and_time")}</TableHead>
               <TableHead>{t("status")}</TableHead>
               <TableHead>{t("patient_name")}</TableHead>
@@ -200,10 +207,13 @@ export default function HistoryListPage() {
                 className="cursor-pointer"
                 onClick={() =>
                   navigate(
-                    `/facility/${scribe.requested_in_facility?.id}/users/${scribe.requested_by.username}/scribe-history/${scribe.external_id}`,
+                    admin
+                      ? `/admin/scribe/history/${scribe.external_id}`
+                      : `/facility/${scribe.requested_in_facility?.id}/users/${scribe.requested_by.username}/scribe-history/${scribe.external_id}`,
                   )
                 }
               >
+                {admin && <TableCell>{scribe.requested_by.username}</TableCell>}
                 <TableCell>
                   {dayjs(scribe.created_date).format("D MMMM YYYY")}
                   <div className="flex items-center gap-1 text-xs opacity-80">

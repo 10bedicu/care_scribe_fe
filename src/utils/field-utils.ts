@@ -14,15 +14,14 @@ import STRUCTURES, {
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
-export const getQuestionInputs: (
+export const getQuestionInputs: (formState: any) => ScribeQuestionnaire[] = (
   formState: any,
-  headless?: boolean,
-) => ScribeQuestionnaire[] = (formState: any, headless?: boolean) => {
+) => {
   return formState
     .map((qn: any) => ({
       title: qn.questionnaire.title,
       description: qn.questionnaire.description,
-      questions: getQuestions(qn.questionnaire.questions, formState, headless),
+      questions: getQuestions(qn.questionnaire.questions, formState),
     }))
     .filter((qn: ScribeQuestionnaire) => qn.questions.length > 0);
 };
@@ -30,7 +29,6 @@ export const getQuestionInputs: (
 const getQuestions = (
   questions: any[],
   formState: any,
-  headless?: boolean,
 ): (ScribeField | ScribeQuestionnaire)[] => {
   return questions
     .map((question: any) => {
@@ -39,7 +37,7 @@ const getQuestions = (
           title: question.text,
           description: question.description,
           questions: question.questions
-            ? getQuestions(question.questions, formState, headless)
+            ? getQuestions(question.questions, formState)
             : [],
         };
       }

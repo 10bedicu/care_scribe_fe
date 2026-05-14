@@ -1,4 +1,4 @@
-import { Benchmark } from "@/pages/Benchmark";
+import { Benchmark, CreatedBenchmark } from "@/pages/Benchmark";
 import { ScribeControllerPosition } from "@/types";
 import { useCallback, useEffect, useState } from "react";
 
@@ -7,6 +7,7 @@ export const storageDefaults = {
   "scribe-controller-position": "bottom-right" as ScribeControllerPosition,
   "scribe-enable-dev-mode": false as boolean,
   "scribe-benchmarks": [] as Benchmark[],
+  "scribe-created-benchmarks": [] as CreatedBenchmark[],
 } as const;
 
 export type StorageKeys = keyof typeof storageDefaults;
@@ -46,13 +47,6 @@ export function useStorage<K extends StorageKeys>(
             : newValueOrUpdater;
 
         localStorage.setItem(key, JSON.stringify(newValue));
-        // trigger same-tab listeners manually
-        window.dispatchEvent(
-          new StorageEvent("storage", {
-            key,
-            newValue: JSON.stringify(newValue),
-          }),
-        );
 
         return newValue;
       });

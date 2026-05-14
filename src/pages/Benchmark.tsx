@@ -34,19 +34,23 @@ import {
 import {
   ScribeAIResponse,
   ScribeDeseriliazedValue,
+  ScribeField,
   ScribeFileType,
   ScribeModel,
   ScribeQuestionnaire,
 } from "@/types";
 import { API } from "@/utils/api";
-import { BENCHMARK_AUDIOS } from "@/utils/benchmark-constants";
 import { calculateSimilarityScore } from "@/utils/benchmark-utils";
 import { AI_MODELS, I18NNAMESPACE } from "@/utils/constants";
 import { Label } from "@radix-ui/react-dropdown-menu";
 import {
   ArrowRightIcon,
   DotsVerticalIcon,
+  DownloadIcon,
+  Pencil1Icon,
   RocketIcon,
+  TrashIcon,
+  UploadIcon,
 } from "@radix-ui/react-icons";
 import dayjs from "dayjs";
 import isEqual from "lodash.isequal";
@@ -61,6 +65,8 @@ import { cleanAIResponse, poller } from "@/utils/response-utils";
 import { getHydratedFields, getQuestionInputs } from "@/utils/field-utils";
 import { uploadScribeFile } from "@/utils/upload-utils";
 import useAuthUser from "@/hooks/useAuthUser";
+import { Card, CardTitle } from "@/components/ui/card";
+import { getAudioByIdentifier, openDB, putAudio } from "@/utils/idb";
 
 export interface BenchmarkIteration {
   id: string;
@@ -75,17 +81,32 @@ export interface BenchmarkIteration {
 
 export interface Benchmark {
   id: string;
-  benchmark: keyof typeof BENCHMARK_AUDIOS;
+  benchmarkId: string;
   startTime: Date;
   tries: number;
   models: (keyof typeof AI_MODELS)[];
   iterations: BenchmarkIteration[];
 }
 
+export interface CreatedBenchmark {
+  id: string;
+  name: string;
+  createdAt: Date;
+  files: {
+    type: "audio" | "document";
+    identifier: string;
+    mimeType: string;
+  }[];
+  formState: any;
+}
+
 export default function BenchmarkPage() {
   const { t } = useTranslation(I18NNAMESPACE);
   const containerRef = useContainerRef();
   const [benchmarks, setBenchmarks] = useStorage("scribe-benchmarks");
+  const [userBenchmarks, setUserBenchmarks] = useStorage(
+    "scribe-created-benchmarks",
+  );
   const [startup, setStartup] = useState(true);
   const [selectedIteration, setSelectedIteration] =
     useState<BenchmarkIteration | null>(null);
@@ -95,13 +116,16 @@ export default function BenchmarkPage() {
 
   const [newBenchmarkForm, setNewBenchmarkForm] = useState<{
     models: (keyof typeof AI_MODELS)[];
-    benchmark: keyof typeof BENCHMARK_AUDIOS | null;
+    benchmarkId: string | null;
     tries: number;
   }>({
     models: [],
-    benchmark: null,
+    benchmarkId: null,
     tries: 3,
   });
+  const [loadedAudios, setLoadedAudios] = useState<{ [key: string]: string }>(
+    {},
+  );
 
   const isISODateString = (value: unknown) =>
     typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value);
@@ -132,13 +156,46 @@ export default function BenchmarkPage() {
   const hasOwn = (obj: unknown, prop: PropertyKey): prop is keyof typeof obj =>
     Object.prototype.hasOwnProperty.call(obj, prop);
 
+  const getExpectedResultFromFormState = (formState: ScribeQuestionnaire[]) => {
+    const qn = getQuestionInputs(formState);
+
+    function flattenQuestionnaire(
+      questionnaire: ScribeQuestionnaire,
+    ): ScribeField[] {
+      const fields: ScribeField[] = [];
+
+      for (const item of questionnaire.questions) {
+        // Check if item is a ScribeField (has 'question' and 'value' properties)
+        if ("question" in item && "value" in item) {
+          fields.push(item as ScribeField);
+        }
+        // Otherwise it's a nested ScribeQuestionnaire
+        else if ("questions" in item) {
+          fields.push(...flattenQuestionnaire(item as ScribeQuestionnaire));
+        }
+      }
+
+      return fields;
+    }
+
+    const flattenedFields = qn.flatMap((questionnaire) =>
+      flattenQuestionnaire(questionnaire),
+    );
+
+    return flattenedFields;
+  };
+
   const calculateIterationScore = (
-    benchmark: keyof typeof BENCHMARK_AUDIOS,
+    benchmarkId: string,
     result: BenchmarkIteration["result"],
   ) => {
-    const expectedResult = BENCHMARK_AUDIOS[benchmark].formFill;
+    const benchmark = availableBenchmarks.find((b) => b.id === benchmarkId);
+    if (!benchmark) return { score: 0, percentage: 0 };
+    const formState = benchmark.formState;
 
-    if (!result || !expectedResult) return { score: 0, percentage: 0 };
+    const expectedFields = getExpectedResultFromFormState(formState);
+
+    if (!result || !expectedFields) return { score: 0, percentage: 0 };
 
     // for each field in the expected result, check if
     // - the exact value matches - 3 points
@@ -146,60 +203,113 @@ export default function BenchmarkPage() {
     // - the key exists in the result - 1 point
     // - the key does not exist in the result - 0 points
 
-    const totalFields = Object.keys(expectedResult).length;
-
     const perField: {
       [key: string]: {
+        name: string;
         expected: ScribeDeseriliazedValue;
         received: ScribeDeseriliazedValue | null;
         score: number;
       };
     } = {};
-    const maxScore = totalFields * 3; // max score if all fields match exactly
-    Object.entries(expectedResult).forEach(([key, expectedValue]) => {
+
+    expectedFields.forEach((field) => {
+      const fieldId = field.question.id;
+
+      // skip if expected is null or undefined
+      if (
+        field.value === null ||
+        field.value === undefined ||
+        (Array.isArray(field.value) && field.value.length === 0)
+      ) {
+        return;
+      }
+
+      // if the field is not present in the result, we assume it was not answered
+      if (!result[fieldId]) {
+        perField[fieldId] = {
+          name: field.question.text,
+          expected: field.value,
+          received: null,
+          score: -1,
+        };
+
+        return;
+      }
+
+      const resultValue = result[fieldId].value;
+
       try {
-        perField[key] = {
-          expected: expectedValue.value,
-          received: result[key]?.value ?? null,
+        perField[fieldId] = {
+          name: field.question.text,
+          expected: field.value,
+          received: resultValue ?? null,
           score: 0,
         };
-        if (!hasOwn(result, key)) {
-          if (expectedValue.value === null) {
-            perField[key].score = 3; // key does not exist and expected value is null
+
+        // Check if the key exists in the result
+        if (!hasOwn(result, fieldId)) {
+          if (field.value === null) {
+            perField[fieldId].score = 3; // key does not exist and expected value is null
           } else {
             // key does not exist
-            perField[key].score = -1; // no match
+            perField[fieldId].score = -1; // no match
           }
-        } else if (Array.isArray(result[key].value)) {
-          perField[key].score = calculateSimilarityScore(
-            normalizeDates(expectedValue.value || []) as any,
-            normalizeDates(result[key].value) as any,
+        }
+
+        // If the value is an array, check if any of the values match
+        else if (Array.isArray(resultValue)) {
+          // if both expected and received are empty arrays or null, consider it a full match
+          if (
+            Array.isArray(field.value) &&
+            field.value.length === 0 &&
+            (resultValue.length === 0 || resultValue === null)
+          ) {
+            perField[fieldId].score = 3; // exact match
+            return;
+          }
+
+          perField[fieldId].score = calculateSimilarityScore(
+            normalizeDates(field.value || []) as any,
+            normalizeDates(resultValue) as any,
           );
-        } else if (
-          typeof result[key].value !== "string" &&
+        }
+
+        // If the value is not an array, and not a string, check for exact match
+        else if (
+          typeof resultValue !== "string" &&
           isEqual(
-            normalizeDates(result[key].value),
-            normalizeDates(expectedValue.value) as any,
+            normalizeDates(resultValue),
+            normalizeDates(field.value) as any,
           )
         ) {
-          perField[key].score = 3; // exact match
-        } else if (typeof result[key].value === "string") {
+          perField[fieldId].score = 3; // exact match
+        }
+
+        // If the value is a string, use Levenshtein distance to calculate similarity
+        else if (typeof resultValue === "string") {
           const distance =
             1 -
-            lev(result[key].value, (expectedValue.value as string) || "") /
+            lev(resultValue as string, (field.value as string) || "") /
               Math.max(
-                result[key].value.length,
-                expectedValue.value?.length || 0,
+                (resultValue as string)?.length,
+                (field.value as string)?.length || 0,
               );
-          perField[key].score = distance * 3;
-        } else {
-          perField[key].score = 0; // key exists
+          perField[fieldId].score = distance * 3;
+        }
+
+        // If the value is none of the above, it means no match
+        else {
+          perField[fieldId].score = 0; // key exists
         }
       } catch (error) {
-        console.error(`Error calculating score for field ${key}:`, error);
-        perField[key] = {
-          expected: expectedValue.value,
-          received: result[key]?.value ?? null,
+        console.error(
+          `Error calculating score for field ${field.question.id}:`,
+          error,
+        );
+        perField[fieldId] = {
+          name: field.question.text,
+          expected: field.value,
+          received: resultValue ?? null,
           score: -5, // error in calculation
         };
       }
@@ -208,10 +318,11 @@ export default function BenchmarkPage() {
     // check for keys that were not expected
     Object.keys(result).forEach((key) => {
       if (
-        !hasOwn(expectedResult, key) &&
+        !expectedFields.find((field) => field.question.id === key) &&
         !(Array.isArray(result[key].value) && result[key].value.length === 0)
       ) {
         perField[key] = {
+          name: key,
           expected: null,
           received: result[key].value,
           score: -1,
@@ -223,6 +334,8 @@ export default function BenchmarkPage() {
       (acc, curr) => acc + curr.score,
       0,
     );
+
+    const maxScore = Object.keys(perField).length * 3; // max score if all fields match exactly
 
     const outcome = {
       score,
@@ -261,6 +374,28 @@ export default function BenchmarkPage() {
     });
   }, [queuedIteration, benchmarks]);
 
+  useEffect(() => {
+    // reload audios for user benchmarks
+    userBenchmarks.forEach(async (benchmark) => {
+      if (loadedAudios[benchmark.id]) return;
+      const db = await openDB();
+      const storedAudio = await getAudioByIdentifier(
+        db,
+        benchmark.files[0].identifier,
+      );
+      db.close();
+      if (!storedAudio) {
+        return;
+      }
+      const blob = new Blob([storedAudio.data], { type: storedAudio.mimeType });
+      const blobUrl = URL.createObjectURL(blob);
+      setLoadedAudios((prev) => ({
+        ...prev,
+        [benchmark.id]: blobUrl,
+      }));
+    });
+  }, [userBenchmarks]);
+
   const updateIteration = (
     id: string,
     updates: Partial<BenchmarkIteration>,
@@ -285,19 +420,52 @@ export default function BenchmarkPage() {
       const benchmark = benchmarks.find((b) =>
         b.iterations.some((it) => it.id === iteration.id),
       );
+      const benchmarkData = availableBenchmarks.find(
+        (b) => b.id === benchmark?.benchmarkId,
+      );
+
+      if (!benchmarkData) {
+        console.error(`Benchmark data not found for iteration ${iteration.id}`);
+        setQueuedIteration(null);
+        return;
+      }
+
       if (!benchmark) {
         console.error(`Benchmark not found for iteration ${iteration.id}`);
         setQueuedIteration(null);
         return;
       }
 
-      const fields = getQuestionInputs(
-        BENCHMARK_AUDIOS[benchmark.benchmark].form,
-        true,
-      );
+      const fields = getQuestionInputs(benchmarkData.formState);
+
+      let blobUrl = loadedAudios[benchmarkData.id];
+
+      if (!blobUrl) {
+        const db = await openDB();
+        const storedAudio = await getAudioByIdentifier(
+          db,
+          benchmarkData.files[0].identifier,
+        );
+        db.close();
+
+        if (!storedAudio) {
+          throw new Error("Audio not found");
+        }
+
+        const blob = new Blob([storedAudio.data], {
+          type: storedAudio.mimeType,
+        });
+        blobUrl = URL.createObjectURL(blob);
+
+        setLoadedAudios((prev) => ({
+          ...prev,
+          [benchmarkData.id]: blobUrl,
+        }));
+      }
+
       scribeInstance = await createScribeInstance(
         fields,
-        BENCHMARK_AUDIOS[benchmark.benchmark].path,
+        blobUrl,
         iteration.model,
       );
 
@@ -316,9 +484,10 @@ export default function BenchmarkPage() {
           currentTime: new Date().toISOString(),
         },
       );
+
       updateIteration(iteration.id, {
         status: "completed",
-        result: cleaned.cleaned,
+        result: cleaned.meta.successful,
         scribeInstance,
         endTime: new Date(),
       });
@@ -372,137 +541,371 @@ export default function BenchmarkPage() {
     return data;
   };
 
+  const availableBenchmarks = userBenchmarks;
+
+  const exportBenchmark = async (benchmark: CreatedBenchmark) => {
+    // convert audio files to base64 strings
+
+    const convertAudioFilesToBase64 = async (benchmark: CreatedBenchmark) => {
+      const db = await openDB();
+
+      const filesWithBase64 = await Promise.all(
+        benchmark.files.map(async (file) => {
+          const storedAudio = await getAudioByIdentifier(db, file.identifier);
+          if (!storedAudio) {
+            throw new Error("Audio not found");
+          }
+          const blob = new Blob([storedAudio.data], {
+            type: storedAudio.mimeType,
+          });
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              resolve(reader.result as string);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          return {
+            ...file,
+            base64,
+          };
+        }),
+      );
+      db.close();
+      return {
+        ...benchmark,
+        files: filesWithBase64,
+      };
+    };
+
+    benchmark = await convertAudioFilesToBase64(benchmark);
+
+    // create a json file and download
+
+    const dataStr = JSON.stringify(benchmark, null, 2);
+
+    const blob = new Blob([dataStr], { type: "application/json" });
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+
+    a.download = `${benchmark.name || "benchmark"}.json`;
+
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importBenchmark = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      try {
+        let importedBenchmark = JSON.parse(e.target?.result as string);
+
+        // check if the benchmark already exists
+        if (userBenchmarks.find((b) => b.id === importedBenchmark.id)) {
+          alert("Benchmark with the same ID already exists");
+          return;
+        }
+
+        // convert base64 audio files to indexeddb entries
+        const convertBase64ToIndexedDB = async (
+          benchmark: CreatedBenchmark,
+        ) => {
+          const db = await openDB();
+
+          const filesWithIdentifiers = await Promise.all(
+            benchmark.files.map(async (file: any) => {
+              // file has base64 property
+              if (file.base64) {
+                const res = await fetch(file.base64);
+                const arrayBuffer = await res.arrayBuffer();
+
+                const newIdentifier = crypto.randomUUID();
+
+                await putAudio(db, newIdentifier, {
+                  identifier: newIdentifier,
+                  mimeType: file.mimeType,
+                  data: arrayBuffer,
+                });
+
+                return {
+                  type: file.type,
+                  identifier: newIdentifier,
+                  mimeType: file.mimeType,
+                };
+              } else {
+                return file;
+              }
+            }),
+          );
+
+          db.close();
+
+          return {
+            ...benchmark,
+            files: filesWithIdentifiers,
+          };
+        };
+
+        importedBenchmark = await convertBase64ToIndexedDB(importedBenchmark);
+        setUserBenchmarks((prev) => [...prev, importedBenchmark]);
+      } catch (error) {
+        console.error("Error importing benchmark:", error);
+      }
+    };
+
+    reader.readAsText(file);
+
+    event.target.value = "";
+  };
+
   return (
     <div className="px-4 md:px-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
           {t("benchmark")}
         </h1>
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant={"default"}>New Benchmark</Button>
-          </SheetTrigger>
-          <SheetContent
-            portalProps={{ container: containerRef?.current }}
-            className=""
-          >
-            <SheetHeader>
-              <SheetTitle>New Benchmark</SheetTitle>
-            </SheetHeader>
-            <div className="p-4">
-              <div className="">
-                <Label>Models</Label>
-                <div>
-                  {(Object.keys(AI_MODELS) as (keyof typeof AI_MODELS)[]).map(
-                    (model) => (
-                      <label key={model} className="flex items-center gap-2">
-                        <Checkbox
-                          checked={newBenchmarkForm.models.includes(model)}
-                          onCheckedChange={(checked) => {
-                            setNewBenchmarkForm((prev) => {
-                              const models = checked
-                                ? [...prev.models, model]
-                                : prev.models.filter((m) => m !== model);
-                              return { ...prev, models };
-                            });
-                          }}
-                        />
-                        {model}
-                      </label>
-                    ),
-                  )}
-                </div>
-              </div>
-              <div className="mt-4">
-                <Label>Benchmark</Label>
-                <Select
-                  value={newBenchmarkForm.benchmark ?? ""}
-                  onValueChange={(value) => {
-                    setNewBenchmarkForm((prev) => ({
-                      ...prev,
-                      benchmark: value as keyof typeof BENCHMARK_AUDIOS,
-                    }));
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant={"outline"}>Manage Benchmarks</Button>
+            </SheetTrigger>
+            <SheetContent
+              portalProps={{ container: containerRef?.current }}
+              className=""
+            >
+              <SheetHeader>
+                <SheetTitle>Manage Benchmarks</SheetTitle>
+                <Button
+                  variant={"secondary"}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "application/json";
+                    input.onchange = importBenchmark as any;
+                    input.click();
                   }}
                 >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Benchmark Audio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(BENCHMARK_AUDIOS).map(([key]) => (
-                      <SelectItem key={key} value={key}>
-                        {key}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <UploadIcon />
+                  Import
+                </Button>
+              </SheetHeader>
+              <div className="flex flex-col gap-4 px-4">
+                {userBenchmarks.length === 0 && (
+                  <div>You have not created any benchmarks yet.</div>
+                )}
+                {userBenchmarks.map((benchmark) => (
+                  <Card key={benchmark.id} className="p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <CardTitle>{benchmark.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        {[
+                          {
+                            name: "Edit",
+                            icon: <Pencil1Icon />,
+                            onClick: () => {},
+                          },
+                          {
+                            name: "Export",
+                            icon: <DownloadIcon />,
+                            onClick: () => {
+                              exportBenchmark(benchmark);
+                            },
+                          },
+                          {
+                            name: "Delete",
+                            icon: <TrashIcon />,
+                            onClick: () => {
+                              setUserBenchmarks((prev) =>
+                                prev.filter((b) => b.id !== benchmark.id),
+                              );
+                            },
+                          },
+                        ].map((action) => (
+                          <Button
+                            variant={"secondary"}
+                            key={action.name}
+                            title={action.name}
+                            onClick={action.onClick}
+                          >
+                            {action.icon}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      {loadedAudios[benchmark.id] && (
+                        <audio
+                          controls
+                          src={loadedAudios[benchmark.id]}
+                          className="w-full"
+                        />
+                      )}
+                    </div>
+                  </Card>
+                ))}
               </div>
-              <div className="mt-4">
-                <Label>Tries</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={newBenchmarkForm.tries}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value, 10);
-                    if (!isNaN(value) && value > 0) {
-                      setNewBenchmarkForm((prev) => ({
-                        ...prev,
-                        tries: value,
-                      }));
-                    }
-                  }}
-                />
-              </div>
-              <SheetFooter className="p-0">
-                <SheetClose>
-                  <Button
-                    disabled={
-                      newBenchmarkForm.models.length === 0 ||
-                      !newBenchmarkForm.benchmark ||
-                      newBenchmarkForm.tries < 1
-                    }
-                    onClick={() => {
-                      setBenchmarks((prev) => [
-                        ...(prev || []),
-                        {
-                          id: crypto.randomUUID(),
-                          benchmark:
-                            newBenchmarkForm.benchmark as keyof typeof BENCHMARK_AUDIOS,
-                          startTime: new Date(),
-                          endTime: null,
-                          tries: newBenchmarkForm.tries,
-                          models: newBenchmarkForm.models,
-                          iterations: newBenchmarkForm.models.flatMap((model) =>
-                            Array.from(
-                              { length: newBenchmarkForm.tries },
-                              () => ({
-                                id: crypto.randomUUID(),
-                                model,
-                                status: "pending",
-                                errors: [],
-                                result: null,
-                                startTime: new Date(),
-                                endTime: null,
-                                scribeInstance: null,
-                              }),
-                            ),
-                          ),
-                        },
-                      ]);
-                    }}
-                    className="mt-4 w-full"
-                  >
-                    <RocketIcon />
-                    Benchmark
-                  </Button>
+              <SheetFooter className="">
+                <SheetClose asChild>
+                  <Button>Close</Button>
                 </SheetClose>
               </SheetFooter>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant={"default"}>
+                <RocketIcon />
+                Run Benchmark
+              </Button>
+            </SheetTrigger>
+
+            <SheetContent
+              portalProps={{ container: containerRef?.current }}
+              className=""
+            >
+              <SheetHeader>
+                <SheetTitle>Run Benchmark</SheetTitle>
+              </SheetHeader>
+              <div className="p-4">
+                <div className="">
+                  <Label>Models</Label>
+                  <div>
+                    {(Object.keys(AI_MODELS) as (keyof typeof AI_MODELS)[]).map(
+                      (model) => (
+                        <label key={model} className="flex items-center gap-2">
+                          <Checkbox
+                            checked={newBenchmarkForm.models.includes(model)}
+                            onCheckedChange={(checked) => {
+                              setNewBenchmarkForm((prev) => {
+                                const models = checked
+                                  ? [...prev.models, model]
+                                  : prev.models.filter((m) => m !== model);
+                                return { ...prev, models };
+                              });
+                            }}
+                          />
+                          {model}
+                        </label>
+                      ),
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Label>Benchmark</Label>
+                  <Select
+                    value={newBenchmarkForm.benchmarkId ?? ""}
+                    onValueChange={(value) => {
+                      setNewBenchmarkForm((prev) => ({
+                        ...prev,
+                        benchmarkId: value,
+                      }));
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Benchmark Audio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableBenchmarks.map((benchmark) => (
+                        <SelectItem key={benchmark.id} value={benchmark.id}>
+                          {benchmark.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="mt-4">
+                  <Label>Tries</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newBenchmarkForm.tries}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value, 10);
+                      if (!isNaN(value) && value > 0) {
+                        setNewBenchmarkForm((prev) => ({
+                          ...prev,
+                          tries: value,
+                        }));
+                      }
+                    }}
+                  />
+                </div>
+                <SheetFooter className="p-0">
+                  <SheetClose asChild>
+                    <Button
+                      disabled={
+                        newBenchmarkForm.models.length === 0 ||
+                        !newBenchmarkForm.benchmarkId ||
+                        newBenchmarkForm.tries < 1
+                      }
+                      onClick={() => {
+                        if (!newBenchmarkForm.benchmarkId) return;
+                        if (
+                          !availableBenchmarks.find(
+                            (b) => b.id === newBenchmarkForm.benchmarkId,
+                          )
+                        )
+                          return;
+
+                        setBenchmarks((prev) => [
+                          ...(prev || []),
+                          {
+                            id: crypto.randomUUID(),
+                            benchmarkId: newBenchmarkForm.benchmarkId || "",
+                            startTime: new Date(),
+                            endTime: null,
+                            tries: newBenchmarkForm.tries,
+                            models: newBenchmarkForm.models,
+                            iterations: newBenchmarkForm.models.flatMap(
+                              (model) =>
+                                Array.from(
+                                  { length: newBenchmarkForm.tries },
+                                  () => ({
+                                    id: crypto.randomUUID(),
+                                    model,
+                                    status: "pending",
+                                    errors: [],
+                                    result: null,
+                                    startTime: new Date(),
+                                    endTime: null,
+                                    scribeInstance: null,
+                                  }),
+                                ),
+                            ),
+                          },
+                        ]);
+                      }}
+                      className="mt-4 w-full"
+                    >
+                      <RocketIcon />
+                      Benchmark
+                    </Button>
+                  </SheetClose>
+                </SheetFooter>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
       <div className="mt-8 flex flex-col gap-4">
         {orderedBenchmarks.map((benchmark, index) => {
+          const benchmarkInfo = availableBenchmarks.find(
+            (b) => b.id === benchmark.benchmarkId,
+          );
+
+          if (!benchmarkInfo) return null;
+
           const benchMarkStatus = benchmark.iterations.some(
             (iteration) => iteration.status === "pending",
           )
@@ -538,7 +941,7 @@ export default function BenchmarkPage() {
             (acc, iteration) => {
               if (iteration.status === "completed") {
                 const score = calculateIterationScore(
-                  benchmark.benchmark,
+                  benchmark.benchmarkId,
                   iteration.result,
                 ).percentage;
                 if (!acc[iteration.model]) {
@@ -570,7 +973,6 @@ export default function BenchmarkPage() {
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button className="absolute top-4 right-4 z-10 flex aspect-square w-6 items-center justify-center rounded-lg text-sm transition-all hover:bg-black/10">
-                    {/* Ellipsis Icon*/}
                     <DotsVerticalIcon className="text-xl" />
                   </button>
                 </DropdownMenuTrigger>
@@ -616,7 +1018,7 @@ export default function BenchmarkPage() {
               </DropdownMenu>
               <div className="flex flex-col items-center justify-between gap-2 md:flex-row">
                 <div>
-                  <h2 className="text-lg font-bold">{benchmark.benchmark}</h2>
+                  <h2 className="text-lg font-bold">{benchmarkInfo?.name}</h2>
                   {benchMarkStatus === "completed" && (
                     <div>
                       Overall Avg Score :{" "}
@@ -625,7 +1027,7 @@ export default function BenchmarkPage() {
                           .map(
                             (iteration) =>
                               calculateIterationScore(
-                                benchmark.benchmark,
+                                benchmark.benchmarkId,
                                 iteration.result,
                               ).percentage,
                           )
@@ -647,12 +1049,14 @@ export default function BenchmarkPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <audio controls className="plain-audio">
-                      <source
-                        src={BENCHMARK_AUDIOS[benchmark.benchmark].path}
-                        type={`audio/${BENCHMARK_AUDIOS[benchmark.benchmark].type}`}
-                      />
-                    </audio>
+                    {loadedAudios[benchmarkInfo.id] && (
+                      <audio controls className="plain-audio">
+                        <source
+                          src={loadedAudios[benchmarkInfo.id]}
+                          type={benchmarkInfo?.files[0].mimeType}
+                        />
+                      </audio>
+                    )}
                   </div>
                   <div className="">
                     {benchmark.models.map((model) => (
@@ -699,7 +1103,7 @@ export default function BenchmarkPage() {
                           const score =
                             iteration.status === "completed"
                               ? calculateIterationScore(
-                                  benchmark.benchmark,
+                                  benchmark.benchmarkId,
                                   iteration.result,
                                 ).percentage
                               : null;
@@ -757,7 +1161,7 @@ export default function BenchmarkPage() {
                     </Link>
                     {(() => {
                       const score = calculateIterationScore(
-                        benchmark.benchmark,
+                        benchmark.benchmarkId,
                         selectedIteration.result,
                       );
 
@@ -788,12 +1192,7 @@ export default function BenchmarkPage() {
                                       value.score === -1 && "bg-red-800/20",
                                     )}
                                   >
-                                    <TableCell>
-                                      {key
-                                        .split("__")
-                                        .pop()
-                                        ?.replace(/_/g, " ")}
-                                    </TableCell>
+                                    <TableCell>{value.name}</TableCell>
                                     <TableCell className="">
                                       <div className="max-h-[100px] max-w-[250px] overflow-auto whitespace-pre-wrap">
                                         {typeof value.expected === "object"

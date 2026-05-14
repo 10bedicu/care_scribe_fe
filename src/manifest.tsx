@@ -45,6 +45,11 @@ const manifest: Manifest = {
         <HistoryDetailsLazy scribeId={id} />
       </Page>
     ),
+    "/admin/scribe/history/:id": ({ id }) => (
+      <Page>
+        <HistoryDetailsLazy scribeId={id} />
+      </Page>
+    ),
     "/admin/scribe/benchmark": () => (
       <Page>
         <BenchmarkPage />
@@ -58,6 +63,11 @@ const manifest: Manifest = {
     "/admin/scribe/quotas/:quotaId": ({ quotaId }) => (
       <Page>
         <ScribeQuotaUsageLazy quotaId={quotaId} />
+      </Page>
+    ),
+    "/admin/scribe/history": () => (
+      <Page>
+        <HistoryListLazy admin={true} />
       </Page>
     ),
   },
@@ -86,6 +96,11 @@ const manifest: Manifest = {
         {
           url: `/admin/scribe/benchmark`,
           name: "Benchmark",
+          icon: <SidebarIcon />,
+        },
+        {
+          url: `/admin/scribe/history`,
+          name: "History",
           icon: <SidebarIcon />,
         },
       ],

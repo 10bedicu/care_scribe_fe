@@ -83,6 +83,11 @@ export type ScribeModel = {
       name: string;
     };
   } | null;
+  requested_in_questionnaires: {
+    external_id: string;
+    title: string;
+    slug: string;
+  }[];
   transcript: string | null;
   ai_response:
     | ({
@@ -138,6 +143,7 @@ export type ScribeCreateRequest = {
   form_data?: ScribeModel["form_data"];
   requested_in_facility_id?: string;
   requested_in_encounter_id?: string;
+  requested_in_questionnaire_ids?: string[];
   transcript?: ScribeModel["transcript"];
   processed_ai_response?: ScribeProcessing["processed_ai_response"];
   benchmark?: boolean;
@@ -239,6 +245,7 @@ export interface ScribeFileModel {
   upload_completed: boolean;
   read_signed_url: string;
   length: number;
+  mime_type: string;
 }
 
 export interface FacilityModel {
@@ -357,4 +364,19 @@ export type ScribeQuotaFilter = {
   ordering?: string;
   offset?: number;
   limit?: number;
+};
+
+export type ScribeListFilter = {
+  ordering?: string;
+  status?: string;
+  encounter_id?: string;
+  patient?: string;
+  facility?: string;
+  benchmark?: boolean;
+  offset?: number;
+  limit?: number;
+};
+
+export type ScribeAdminListFilter = ScribeListFilter & {
+  username?: string;
 };
