@@ -1,4 +1,5 @@
 {
+  "transcript_only": "Transcript Only",
   "voice_autofill": "Voice Autofill",
   "hearing": "We are hearing you...",
   "copilot_thinking": "Processing Scribe...",
@@ -130,5 +131,8 @@
   "least_tokens_used": "Least Tokens Used",
   "no_quotas_found": "No Quotas found",
   "started_using_since": "Started Using Since",
-  "no_facility_found": "No facility found"
+  "no_facility_found": "No facility found",
+  "transcribe_model": "Transcribe Model",
+  "chat_provider": "Chat Provider",
+  "transcribe_provider": "Transcribe Provider"
 }

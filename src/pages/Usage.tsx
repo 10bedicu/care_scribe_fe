@@ -59,7 +59,11 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
       quota,
     }: {
       quotaId: string;
-      quota: { tokens?: number; allow_ocr?: boolean; tokens_per_user?: number };
+      quota: {
+        tokens?: number;
+        allow_ocr?: boolean;
+        tokens_per_user?: number;
+      };
     }) =>
       API.quotas.update(quotaId, {
         ...quota,

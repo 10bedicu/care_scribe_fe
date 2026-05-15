@@ -92,6 +92,7 @@ export const API = {
         patient?: string;
         facility?: string;
         benchmark?: boolean;
+        transcript_only?: boolean;
         offset?: number;
         limit?: number;
       } = {},

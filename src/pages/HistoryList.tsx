@@ -1,6 +1,7 @@
 import SidebarIcon from "@/components/Icon";
 import { PaginationControls } from "@/components/Pagination";
 import { getStatusConfig, StatusBadge } from "@/components/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -212,7 +213,17 @@ export default function HistoryListPage() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={scribe.status} />
+                  <div className="flex items-center gap-1">
+                    <StatusBadge status={scribe.status} />
+                    {scribe.transcript_only && (
+                      <Badge
+                        variant="outline"
+                        className="border-blue-300 bg-blue-50 text-blue-600"
+                      >
+                        {t("transcript_only")}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="">
                   {scribe.requested_in_encounter?.patient.name}
@@ -225,11 +236,19 @@ export default function HistoryListPage() {
                 {statsEnabled && (
                   <>
                     <TableCell>
-                      {latestMeta(scribe)?.provider || "N/A"}
+                      {(scribe.transcript_only
+                        ? latestMeta(scribe)?.transcribe_provider
+                        : latestMeta(scribe)?.chat_provider) || "N/A"}
                     </TableCell>
                     <TableCell>
-                      {latestMeta(scribe)?.completion_input_tokens || "-"}+{" "}
-                      {latestMeta(scribe)?.completion_output_tokens || "-"}
+                      {scribe.transcript_only ? (
+                        latestMeta(scribe)?.completion_output_tokens || "-"
+                      ) : (
+                        <>
+                          {latestMeta(scribe)?.completion_input_tokens || "-"}+{" "}
+                          {latestMeta(scribe)?.completion_output_tokens || "-"}
+                        </>
+                      )}
                     </TableCell>
                     <TableCell>
                       {(
