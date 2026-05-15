@@ -132,8 +132,6 @@
   "no_quotas_found": "No Quotas found",
   "started_using_since": "Started Using Since",
   "no_facility_found": "No facility found",
-  "live_transcription": "Live Transcription",
-  "live": "Live",
   "transcribe_model": "Transcribe Model",
   "chat_provider": "Chat Provider",
   "transcribe_provider": "Transcribe Provider"
