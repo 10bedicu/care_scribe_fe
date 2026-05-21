@@ -69,15 +69,45 @@ export default function ScribeReview(props: {
       inline: "center",
     });
 
-    setTimeout(() => {
-      const rect = fieldElement?.getBoundingClientRect();
-      setReviewingFieldRect(rect);
+    let resizeObserver: ResizeObserver | undefined;
+    let settleTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const initialTimeout = setTimeout(() => {
+      // Expand any Radix Collapsible triggers inside the field so that all inferred data is visible to thwe reviewer.
+      fieldElement
+        ?.querySelectorAll<HTMLElement>(
+          'button[data-state="closed"][aria-expanded="false"]:not([aria-haspopup])',
+        )
+        .forEach((el) => el.click());
+
+      const updateRect = () => {
+        setReviewingFieldRect(fieldElement?.getBoundingClientRect());
+      };
+      updateRect();
+
+      if (fieldElement && typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver(() => {
+          updateRect();
+          if (settleTimeout) clearTimeout(settleTimeout);
+          settleTimeout = setTimeout(() => {
+            resizeObserver?.disconnect();
+          }, 200);
+        });
+        resizeObserver.observe(fieldElement);
+        // Safety net: disconnect after 2s regardless.
+        settleTimeout = setTimeout(() => {
+          resizeObserver?.disconnect();
+        }, 2000);
+      }
       // Add delay so DOM settles
     }, 100);
 
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";
+      clearTimeout(initialTimeout);
+      if (settleTimeout) clearTimeout(settleTimeout);
+      resizeObserver?.disconnect();
     };
   }, [reviewingField]);
 
