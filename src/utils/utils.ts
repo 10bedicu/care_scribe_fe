@@ -41,7 +41,9 @@ export const renderFieldValue = (
   } else if (isCodeLike(val)) {
     humanValue = renderCode(val);
   } else if (Array.isArray(val) && val.length && val.every(isCodeLike)) {
-    humanValue = val.map(renderCode).join(", ");
+    humanValue = (val as unknown as Array<{ code: string; display?: string }>)
+      .map(renderCode)
+      .join(", ");
   } else {
     // convert from snake case to human readable text
     humanValue =
