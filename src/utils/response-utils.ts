@@ -1,11 +1,11 @@
 import {
+  Code,
   ScribeAIResponse,
   ScribeDeseriliazedValue,
   ScribeHydratedAndRawField,
   ScribeMeta,
   ScribeModel,
   ScribeQuestionnaire,
-  VALUESET_SYSTEM_NAMES,
 } from "@/types";
 import { getHydratedFields } from "./field-utils";
 import STRUCTURES from "./structures";
@@ -13,6 +13,7 @@ import isEqual from "lodash.isequal";
 import { API } from "./api";
 import Fuse from "fuse.js";
 import dayjs from "dayjs";
+import { resolveValueSetResponse } from "./valueset-cache";
 
 export const cleanAIResponse = async (
   aiResponse: ScribeAIResponse,
@@ -74,6 +75,65 @@ export const cleanAIResponse = async (
             note: null,
           };
           processAiResponse.failed[k] = deserialized.errors || [];
+        }
+
+        // Value-set choice fields: resolve the model output (which may be
+        // a display string for Tier 1, `{code,display_names}` for Tier 2,
+        // or `{display_names}` for Tier 3) into a canonical Code via the
+        // value-set expansion endpoint. See `valueset-cache.ts`.
+        if (
+          field.question.type === "choice" &&
+          field.question.answer_value_set &&
+          !field.question.structured_type &&
+          deserializedValue !== null &&
+          deserializedValue !== undefined
+        ) {
+          const resolved = await resolveValueSetResponse(
+            field.question.answer_value_set,
+            deserializedValue,
+            !!field.question.repeats,
+            searchByDisplay,
+          );
+          if (
+            resolved === null ||
+            (Array.isArray(resolved) && resolved.length === 0)
+          ) {
+            // Surface what the model actually searched for so the
+            // clinician sees a useful "<term> not found under <Field>"
+            // message instead of a raw value-set slug.
+            const searchedTerms = (() => {
+              const collect = (item: unknown): string[] => {
+                if (typeof item === "string") return [item];
+                if (item && typeof item === "object") {
+                  const dn = (item as { display_names?: unknown })
+                    .display_names;
+                  if (Array.isArray(dn)) {
+                    return dn.filter((d): d is string => typeof d === "string");
+                  }
+                }
+                return [];
+              };
+              const items = Array.isArray(deserializedValue)
+                ? deserializedValue
+                : [deserializedValue];
+              return Array.from(new Set(items.flatMap(collect))).filter(
+                Boolean,
+              );
+            })();
+            const searchedDisplay = searchedTerms.length
+              ? `"${searchedTerms.join('", "')}"`
+              : "Value";
+            processAiResponse.failed[k] = [
+              ...(processAiResponse.failed[k] || []),
+              `${searchedDisplay} not found under ${field.friendlyName}`,
+            ];
+            return null;
+          }
+          deserializedValue = resolved as unknown as ScribeDeseriliazedValue;
+          processAiResponse.successful[k] = {
+            value: deserializedValue,
+            note,
+          };
         }
 
         if (field.question.answer_option?.length) {
@@ -247,12 +307,11 @@ export async function poller(
 export async function lookupCode(
   code: string,
   display: string[],
-  type: keyof typeof VALUESET_SYSTEM_NAMES,
+  type: string,
 ) {
   try {
-    // verify that the code is a valid SNOMED code. i.e. it is a nummber
-    if (!/^\d+$/.test(code)) {
-      throw Error(`Invalid SNOMED code: ${code}`);
+    if (!code) {
+      throw Error(`Empty code passed to lookupCode for ${type}`);
     }
 
     const results = (await API.valuesets.expand(type, code)).results;
@@ -307,29 +366,47 @@ export async function lookupCode(
     );
   } catch (error) {
     console.warn(error);
-    for (const d of display) {
-      const fallbackQuery = (await API.valuesets.expand(type, d)).results;
-      if (
-        fallbackQuery &&
-        fallbackQuery.length &&
-        fallbackQuery[0].display?.toLowerCase() === d.toLowerCase()
-      ) {
-        console.log(
-          "Using fallback query for code lookup: ",
-          d,
-          "of type: ",
-          type,
-          "with code: ",
-          fallbackQuery[0].code,
-        );
+    return searchByDisplay(type, display);
+  }
+}
+
+/**
+ * Resolve a value-set entry purely from its candidate display strings by
+ * searching the value-set expansion endpoint and fuzzy-matching the top
+ * results. Used as the primary path for Tier 3 (unknown system) value
+ * sets and as a fallback for Tier 2 when the model-provided code can't
+ * be verified.
+ */
+export async function searchByDisplay(
+  slug: string,
+  displays: string[],
+): Promise<Code | null> {
+  for (const d of displays) {
+    if (!d) continue;
+    try {
+      const { results } = await API.valuesets.expand(slug, d);
+      if (!results || !results.length) continue;
+      const fuse = new Fuse(results, {
+        keys: ["display"],
+        ignoreLocation: true,
+        includeScore: true,
+        threshold: 0.4,
+      });
+      const hits = fuse.search(d);
+      const best = hits[0]?.item ?? results[0];
+      if (best) {
         return {
-          system: fallbackQuery[0].system,
-          code: fallbackQuery[0].code,
-          display: fallbackQuery[0].display,
+          system: best.system,
+          code: best.code,
+          display: best.display,
         };
       }
+    } catch (err) {
+      console.warn(
+        `searchByDisplay failed for slug "${slug}" / display "${d}"`,
+        err,
+      );
     }
-
-    return null;
   }
+  return null;
 }

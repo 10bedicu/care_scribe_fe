@@ -11,6 +11,7 @@ import {
   ScribeQuotaCreateRequest,
   ScribeQuotaFilter,
   UserBareMinimum,
+  ValueSetDefinition,
 } from "../types";
 
 type methods = "POST" | "GET" | "PATCH" | "DELETE" | "PUT";
@@ -141,7 +142,9 @@ export const API = {
     current: () => request<UserBareMinimum>(`/api/v1/users/getcurrentuser/`),
   },
   valuesets: {
-    expand: (system: string, query: string) =>
+    get: (slug: string) =>
+      request<ValueSetDefinition>(`/api/v1/valueset/${slug}/`),
+    expand: (system: string, query: string, count: number = 10) =>
       request<{
         results: (Code & {
           designation: {
@@ -152,7 +155,7 @@ export const API = {
         })[];
       }>(`/api/v1/valueset/${system}/expand/`, "POST", {
         search: query,
-        count: 10,
+        count,
       }),
   },
   files: {

@@ -52,6 +52,7 @@ import {
 } from "@/utils/field-utils";
 import { uploadScribeFile } from "@/utils/upload-utils";
 import useAuthUser from "@/hooks/useAuthUser";
+import { prefetchValueSets } from "@/utils/valueset-cache";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const latestProcessing =
@@ -164,6 +165,7 @@ export function Controller(props: {
     sendProcessed: boolean = true,
   ) => {
     try {
+      await prefetchValueSets(questionnaire);
       const hfields = getHydratedFields(questionnaire, false);
       if (!hfields || !hfields.length) {
         return;
@@ -228,6 +230,7 @@ export function Controller(props: {
       | ScribeHydratedQuestionnaire<ScribeHydratedField>[]
       | undefined = undefined;
     if (fields) {
+      await prefetchValueSets(fields);
       hfields = getHydratedFields(fields, true);
     }
     try {
@@ -255,6 +258,7 @@ export function Controller(props: {
   const createScribeInstance = async (
     questionnaires: ScribeQuestionnaire[],
   ) => {
+    await prefetchValueSets(questionnaires);
     const hfields = getHydratedFields(questionnaires, true);
     const data = await API.scribe.create({
       status: "CREATED",

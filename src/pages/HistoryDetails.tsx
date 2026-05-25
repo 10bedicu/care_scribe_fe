@@ -631,18 +631,20 @@ export function RenderAutofill(props: {
                       </div>
                     </div>
                   )}
-                  {!!processedField?.value && (
-                    <div>
-                      {renderFieldValue({
-                        value: processedField.value,
-                        structure: field?.structuredType
-                          ? STRUCTURES[
-                              field.structuredType as keyof typeof STRUCTURES
-                            ]
-                          : undefined,
-                      })}
-                    </div>
-                  )}
+                  {processedField?.value !== undefined &&
+                    processedField?.value !== null &&
+                    processedField?.value !== "" && (
+                      <div>
+                        {renderFieldValue({
+                          value: processedField.value,
+                          structure: field?.structuredType
+                            ? STRUCTURES[
+                                field.structuredType as keyof typeof STRUCTURES
+                              ]
+                            : undefined,
+                        })}
+                      </div>
+                    )}
                   {failures &&
                     failures.length > 0 &&
                     failures.map((failure, fIndex) => (
@@ -655,7 +657,9 @@ export function RenderAutofill(props: {
                       {processedField.note}
                     </div>
                   )}
-                  {!processedField?.value && (
+                  {(processedField?.value === undefined ||
+                    processedField?.value === null ||
+                    processedField?.value === "") && (
                     <div className="mt-1 text-xs text-red-500">
                       {t("no_autofill")}
                     </div>

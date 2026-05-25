@@ -13,6 +13,7 @@ import STRUCTURES, {
 } from "./structures";
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
+import { buildValueSetSchema } from "./valueset-cache";
 
 export const getQuestionInputs: (
   formState: any,
@@ -45,8 +46,8 @@ const getQuestions = (
       }
       return {
         question,
-        value:
-          formState
+        value: (() => {
+          const responseValues = formState
             .find((qn: any) =>
               qn.responses.some(
                 (response: any) => response.question_id === question.id,
@@ -54,7 +55,23 @@ const getQuestions = (
             )
             ?.responses.find(
               (response: any) => response.question_id === question.id,
-            )?.values?.[0]?.value || null,
+            )?.values;
+          if (!responseValues?.length) return null;
+          // Value-set choice fields store the current value under `coding`.
+          const isValueSetChoice =
+            question.type === "choice" &&
+            !!question.answer_value_set &&
+            !question.structured_type;
+          if (isValueSetChoice) {
+            if (question.repeats) {
+              return responseValues
+                .map((v: any) => v.coding)
+                .filter((c: any) => c);
+            }
+            return responseValues[0]?.coding ?? null;
+          }
+          return responseValues[0]?.value ?? null;
+        })(),
         note: formState
           .find((qn: any) =>
             qn.responses.some(
@@ -131,8 +148,20 @@ export function getHydratedFields(
             field.question.answer_option.map((opt) => opt.value).join(" | ");
         }
 
-        let structure =
-          structuredType && Object.keys(STRUCTURES).includes(structuredType)
+        // Choice questions backed by a value set get a tiered schema
+        // (inline enum / code+display_names / display_names) determined
+        // by the cached value-set metadata. See `valueset-cache.ts`.
+        const useValueSet =
+          field.question.type === "choice" &&
+          !!field.question.answer_value_set &&
+          !structuredType;
+
+        let structure = useValueSet
+          ? buildValueSetSchema(
+              field.question.answer_value_set!,
+              !!field.question.repeats,
+            )
+          : structuredType && Object.keys(STRUCTURES).includes(structuredType)
             ? STRUCTURES[structuredType as keyof typeof STRUCTURES]
                 .toolStructure
             : arbitraryStructure(
@@ -140,7 +169,7 @@ export function getHydratedFields(
                 !field.question.repeats ? enumDescription : undefined,
               );
 
-        if (field.question.repeats) {
+        if (!useValueSet && field.question.repeats) {
           structure = z.array(structure) as z.ZodArray<any>;
           if (enumDescription) {
             structure = structure.describe(enumDescription) as z.ZodArray<any>;
@@ -212,6 +241,14 @@ export const updateFieldValue = (
 
   const qId = field.question.id;
 
+  // Value-set choice fields hold their value in `coding` (per care_fe's
+  // ChoiceQuestion), not `value`. `val` for these is a `Code` (or
+  // `Code[]` for repeats), already canonicalised by cleanAIResponse.
+  const isValueSetChoice =
+    field.question.type === "choice" &&
+    !!field.question.answer_value_set &&
+    !field.question.structured_type;
+
   setFormState((formState: any) =>
     formState.map((qn: any) => ({
       ...qn,
@@ -219,28 +256,36 @@ export const updateFieldValue = (
         response.question_id === qId
           ? {
               ...response,
-              values: !field.question.repeats
-                ? response.values.length
-                  ? response.values.map((v: any, i: number) =>
-                      i === 0
-                        ? {
-                            ...v,
-                            value: val,
-                          }
-                        : v,
-                    )
-                  : [
-                      {
-                        type: field.question.structured_type || typeof val,
-                        value: val,
-                      },
-                    ]
-                : val && Array.isArray(val)
-                  ? val.map((v) => ({
-                      type: field.question.structured_type || typeof v,
-                      value: v,
-                    }))
-                  : [],
+              values: isValueSetChoice
+                ? !field.question.repeats
+                  ? val
+                    ? [{ type: "quantity", coding: val }]
+                    : []
+                  : val && Array.isArray(val)
+                    ? val.map((coding) => ({ type: "quantity", coding }))
+                    : []
+                : !field.question.repeats
+                  ? response.values.length
+                    ? response.values.map((v: any, i: number) =>
+                        i === 0
+                          ? {
+                              ...v,
+                              value: val,
+                            }
+                          : v,
+                      )
+                    : [
+                        {
+                          type: field.question.structured_type || typeof val,
+                          value: val,
+                        },
+                      ]
+                  : val && Array.isArray(val)
+                    ? val.map((v) => ({
+                        type: field.question.structured_type || typeof v,
+                        value: v,
+                      }))
+                    : [],
               note,
             }
           : response,

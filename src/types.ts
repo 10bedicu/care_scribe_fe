@@ -288,6 +288,7 @@ export interface FormQuestion {
   id: string;
   structured_type?: keyof typeof STRUCTURES;
   answer_option?: { value: string }[];
+  answer_value_set?: string;
   description?: string;
   text: string;
   required?: boolean;
@@ -298,6 +299,56 @@ export interface FormQuestion {
     system: string;
     display: string;
   };
+}
+
+// Subset of the care_fe ValueSet shape we rely on
+export interface ValueSetFilter {
+  op: string;
+  value: string;
+  property: string;
+}
+
+export interface ValueSetIncludeRule {
+  system: string;
+  filter?: ValueSetFilter[];
+  concept?: { code: string; display: string }[];
+}
+
+export interface ValueSetDefinition {
+  slug: string;
+  name?: string;
+  description?: string;
+  compose: {
+    include: ValueSetIncludeRule[];
+    exclude: ValueSetIncludeRule[];
+  };
+}
+
+export type KnownTerminology = "SNOMED" | "LOINC" | "UCUM";
+
+export const TERMINOLOGY_URI_TO_KNOWN: Record<string, KnownTerminology> = {
+  "http://snomed.info/sct": "SNOMED",
+  "http://loinc.org": "LOINC",
+  "http://unitsofmeasure.org": "UCUM",
+};
+
+/**
+ * Resolved metadata for a value-set slug, used to drive scribe prompt
+ * generation and post-processing of model responses.
+ *
+ * - `inlineConcepts`: full enumeration when the value set is small enough
+ *   to feed the model as a hard enum (Tier 1).
+ * - `knownSystem` + `filters`: present for Tier 2 prompts when all
+ *   include rules agree on a coding system we have prompt guidance for.
+ * - Falls through to Tier 3 (display-only fuzzy search) otherwise.
+ */
+export interface EnrichedValueSet {
+  slug: string;
+  definition: ValueSetDefinition | null;
+  inlineConcepts: Code[] | null;
+  knownSystem: KnownTerminology | null;
+  systemUri: string | null;
+  filters: ValueSetFilter[];
 }
 
 export const VALUESET_SYSTEM_NAMES = {
