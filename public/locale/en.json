@@ -134,5 +134,11 @@
   "no_facility_found": "No facility found",
   "transcribe_model": "Transcribe Model",
   "chat_provider": "Chat Provider",
-  "transcribe_provider": "Transcribe Provider"
+  "transcribe_provider": "Transcribe Provider",
+  "review_transcript": "Review transcript",
+  "existing_note": "Existing note",
+  "uploading": "Uploading…",
+  "transcribing": "Transcribing…",
+  "failed_to_transcribe_recording": "Failed to transcribe recording.",
+  "microphone_access_denied": "Microphone access denied."
 }
