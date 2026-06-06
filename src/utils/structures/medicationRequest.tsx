@@ -148,6 +148,7 @@ interface MedicationRequest {
   priority?: (typeof PRIORITY)[number];
   do_not_perform: boolean;
   medication?: Code;
+  dirty: boolean;
   authored_on: string;
   dosage_instruction: [
     {
@@ -268,6 +269,7 @@ export const medicationRequestStructure: Structure<
         priority: validateEnumDescription(medicationRequest.priority, PRIORITY),
         do_not_perform: false,
         authored_on: authoredOn,
+        dirty: true,
         dosage_instruction: [
           {
             additional_instruction: additionalInstructions
