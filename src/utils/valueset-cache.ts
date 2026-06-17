@@ -1,6 +1,7 @@
 import {
   Code,
   EnrichedValueSet,
+  FormQuestion,
   KnownTerminology,
   ScribeField,
   ScribeQuestionnaire,
@@ -31,7 +32,10 @@ function collectValueSetSlugs(
         continue;
       }
       const vs = item.question.answer_value_set;
-      if (vs && item.question.type === "choice") {
+      if (
+        vs &&
+        (item.question.type === "choice" || item.question.type === "quantity")
+      ) {
         slugs.add(vs);
       }
     }
@@ -275,4 +279,52 @@ export async function resolveValueSetResponse(
     return resolved.filter((c): c is Code => c !== null);
   }
   return resolved[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Schema building for `quantity` questions.
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the Zod schema asked of the AI for a `quantity` question. The
+ * shape mirrors care_fe's `ResponseValue` for type "quantity":
+ *   `{ value: number, unit: { code, display }, coding?: Code-ish }`
+ *
+ * `unit.system` is omitted from the schema and stamped post-AI in
+ * cleanAIResponse, since care_fe wires every quantity question's unit
+ * picker to the UCUM ValueSet.
+ *
+ * When the question has an `answer_value_set` (the "Type" picker in the
+ * UI — e.g. the medication for a strength field), `coding` is embedded
+ * using the same tiered value-set schema as choice questions and
+ * resolved to a canonical `Code` post-AI.
+ */
+export function buildQuantitySchema(
+  question: FormQuestion,
+  repeats: boolean,
+): z.ZodTypeAny {
+  const baseShape: Record<string, z.ZodTypeAny> = {
+    value: z.number().describe("The numeric value."),
+    unit: z
+      .object({
+        code: z
+          .string()
+          .describe('UCUM code (e.g. "mg", "%", "mm[Hg]", "L/min").'),
+        display: z
+          .string()
+          .describe('Human-readable unit name (e.g. "milligram", "percent").'),
+      })
+      .describe(
+        "Unit of measurement using UCUM. Use canonical UCUM codes; match the unit indicated on the question label when one is given.",
+      ),
+  };
+
+  if (question.answer_value_set) {
+    // Reuse the tiered value-set pipeline (inline enum / display_names);
+    // resolved to a canonical `Code` post-AI in cleanAIResponse.
+    baseShape.coding = buildValueSetSchema(question.answer_value_set, false);
+  }
+
+  const one = z.object(baseShape);
+  return repeats ? z.array(one) : one;
 }

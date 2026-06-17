@@ -25,6 +25,22 @@ const isCodeLike = (
 const renderCode = (v: { code: string; display?: string }) =>
   v.display ?? v.code;
 
+// Detects the quantity shape produced for quantity fields:
+// `{ value: number, unit?: { code, display? }, coding?: ... }`.
+type QuantityLike = {
+  value: number;
+  unit?: { code: string; display?: string };
+};
+const isQuantityLike = (v: unknown): v is QuantityLike =>
+  !!v &&
+  typeof v === "object" &&
+  typeof (v as { value?: unknown }).value === "number";
+
+const renderQuantity = (v: QuantityLike) => {
+  const unit = v.unit?.display ?? v.unit?.code ?? "";
+  return unit ? `${v.value} ${unit}` : `${v.value}`;
+};
+
 export const renderFieldValue = (
   values: {
     value: ScribeDeseriliazedValue;
@@ -44,6 +60,10 @@ export const renderFieldValue = (
     humanValue = (val as unknown as Array<{ code: string; display?: string }>)
       .map(renderCode)
       .join(", ");
+  } else if (isQuantityLike(val)) {
+    humanValue = renderQuantity(val);
+  } else if (Array.isArray(val) && val.length && val.every(isQuantityLike)) {
+    humanValue = (val as QuantityLike[]).map(renderQuantity).join(", ");
   } else {
     // convert from snake case to human readable text
     humanValue =

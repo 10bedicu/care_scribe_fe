@@ -15,6 +15,12 @@ import Fuse from "fuse.js";
 import dayjs from "dayjs";
 import { resolveValueSetResponse } from "./valueset-cache";
 
+// care_fe wires every quantity question's unit picker to the
+// `system-ucum-units` ValueSet (QuantityQuestion.tsx), so the unit
+// system URI is always UCUM. We stamp it here instead of asking the AI
+// for it.
+const UCUM_SYSTEM_URI = "http://unitsofmeasure.org";
+
 export const cleanAIResponse = async (
   aiResponse: ScribeAIResponse,
   questionnaire: ScribeQuestionnaire[],
@@ -77,6 +83,66 @@ export const cleanAIResponse = async (
           processAiResponse.failed[k] = deserialized.errors || [];
         }
 
+        // Quantity fields: care_fe wires the unit picker to the UCUM
+        // value set so we hardcode `unit.system` post-AI rather than
+        // round-tripping it through the model. When the question is
+        // bound to an `answer_value_set` (the "Type" picker in the UI),
+        // the AI's `coding` (a display string or `{display_names}`) is
+        // resolved to a canonical `Code` via the same pipeline as
+        // value-set choice fields. Done before the `isEqual` check
+        // below so an unchanged AI suggestion isn't flagged as new.
+        if (
+          field.question.type === "quantity" &&
+          deserializedValue !== null &&
+          deserializedValue !== undefined
+        ) {
+          if (field.question.answer_value_set) {
+            const slug = field.question.answer_value_set;
+            const resolveCoding = async (q: any) => {
+              if (!q || typeof q !== "object" || q.coding == null) return q;
+              const resolved = await resolveValueSetResponse(
+                slug,
+                q.coding,
+                false,
+                searchByDisplay,
+              );
+              if (
+                !resolved ||
+                (Array.isArray(resolved) && resolved.length === 0)
+              ) {
+                // Drop the unresolvable coding silently — value+unit
+                // are still useful and the user can re-pick the type.
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { coding: _c, ...rest } = q;
+                return rest;
+              }
+              return { ...q, coding: resolved };
+            };
+            deserializedValue = (
+              Array.isArray(deserializedValue)
+                ? await Promise.all(deserializedValue.map(resolveCoding))
+                : await resolveCoding(deserializedValue)
+            ) as ScribeDeseriliazedValue;
+          }
+
+          const stampUcum = (q: any) =>
+            q && typeof q === "object" && q.unit && typeof q.unit === "object"
+              ? {
+                  ...q,
+                  unit: { ...q.unit, system: UCUM_SYSTEM_URI },
+                }
+              : q;
+          deserializedValue = (
+            Array.isArray(deserializedValue)
+              ? deserializedValue.map(stampUcum)
+              : stampUcum(deserializedValue)
+          ) as ScribeDeseriliazedValue;
+          processAiResponse.successful[k] = {
+            value: deserializedValue,
+            note,
+          };
+        }
+
         // Value-set choice fields: resolve the model output (which may be
         // a display string for Tier 1, `{code,display_names}` for Tier 2,
         // or `{display_names}` for Tier 3) into a canonical Code via the
@@ -136,7 +202,13 @@ export const cleanAIResponse = async (
           };
         }
 
-        if (field.question.answer_option?.length) {
+        // `answer_option` enum validation only applies to string-ish
+        // fields. Quantity values are numbers with a unit/coding and
+        // would never match a string option, so skip the check entirely.
+        if (
+          field.question.type !== "quantity" &&
+          field.question.answer_option?.length
+        ) {
           // If the field has answer options, check if the deserialized value is in the options
           const arrdeserializedValue = !Array.isArray(deserializedValue)
             ? [deserializedValue]
