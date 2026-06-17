@@ -15,6 +15,29 @@ import Fuse from "fuse.js";
 import dayjs from "dayjs";
 import { resolveValueSetResponse, UCUM_VALUESET_SLUG } from "./valueset-cache";
 
+// Recovers the display strings the model actually searched for from a
+// value-set tool response (Tier 1 raw display string or Tier 2/3
+// `{display_names: string[]}`). Used to surface useful
+// `"<term>" not found under <Field>` messages in the Review modal
+// instead of a raw value-set slug.
+const collectSearchedTerms = (raw: unknown): string[] => {
+  const collect = (item: unknown): string[] => {
+    if (typeof item === "string") return [item];
+    if (item && typeof item === "object") {
+      const dn = (item as { display_names?: unknown }).display_names;
+      if (Array.isArray(dn)) {
+        return dn.filter((d): d is string => typeof d === "string");
+      }
+    }
+    return [];
+  };
+  const items = Array.isArray(raw) ? raw : [raw];
+  return Array.from(new Set(items.flatMap(collect))).filter(Boolean);
+};
+
+const formatSearchedDisplay = (terms: string[]) =>
+  terms.length ? `"${terms.join('", "')}"` : "Value";
+
 export const cleanAIResponse = async (
   aiResponse: ScribeAIResponse,
   questionnaire: ScribeQuestionnaire[],
@@ -92,15 +115,20 @@ export const cleanAIResponse = async (
           deserializedValue !== null &&
           deserializedValue !== undefined
         ) {
+          const SLOT_LABEL: Record<"unit" | "coding", string> = {
+            unit: "unit",
+            coding: "type",
+          };
           const resolveSlot = async (
             q: any,
             key: "unit" | "coding",
             slug: string,
           ) => {
             if (!q || typeof q !== "object" || q[key] == null) return q;
+            const raw = q[key];
             const resolved = await resolveValueSetResponse(
               slug,
-              q[key],
+              raw,
               false,
               searchByDisplay,
             );
@@ -108,6 +136,11 @@ export const cleanAIResponse = async (
               !resolved ||
               (Array.isArray(resolved) && resolved.length === 0)
             ) {
+              const searched = formatSearchedDisplay(collectSearchedTerms(raw));
+              processAiResponse.failed[k] = [
+                ...(processAiResponse.failed[k] || []),
+                `${searched} not found under ${field.friendlyName} (${SLOT_LABEL[key]})`,
+              ];
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { [key]: _dropped, ...rest } = q;
               return rest;
@@ -160,28 +193,9 @@ export const cleanAIResponse = async (
             // Surface what the model actually searched for so the
             // clinician sees a useful "<term> not found under <Field>"
             // message instead of a raw value-set slug.
-            const searchedTerms = (() => {
-              const collect = (item: unknown): string[] => {
-                if (typeof item === "string") return [item];
-                if (item && typeof item === "object") {
-                  const dn = (item as { display_names?: unknown })
-                    .display_names;
-                  if (Array.isArray(dn)) {
-                    return dn.filter((d): d is string => typeof d === "string");
-                  }
-                }
-                return [];
-              };
-              const items = Array.isArray(deserializedValue)
-                ? deserializedValue
-                : [deserializedValue];
-              return Array.from(new Set(items.flatMap(collect))).filter(
-                Boolean,
-              );
-            })();
-            const searchedDisplay = searchedTerms.length
-              ? `"${searchedTerms.join('", "')}"`
-              : "Value";
+            const searchedDisplay = formatSearchedDisplay(
+              collectSearchedTerms(deserializedValue),
+            );
             processAiResponse.failed[k] = [
               ...(processAiResponse.failed[k] || []),
               `${searchedDisplay} not found under ${field.friendlyName}`,

@@ -183,7 +183,7 @@ const KNOWN_SYSTEM_SUPPORTING_INFO: Record<
   LOINC: () =>
     `Backed by LOINC — favour the canonical LOINC long common name phrasing.`,
   UCUM: () =>
-    `Backed by UCUM — favour canonical UCUM unit phrasing (e.g. "mg", "mm[Hg]", "L/min").`,
+    `Backed by UCUM — favour canonical UCUM unit phrasing (e.g. "mg", "mm[Hg]", "L/min"). When the clinician uses an abbreviation, include BOTH the abbreviation AND the spelled-out form as paraphrases — e.g. "IU" → ["IU", "International Unit"]`,
 };
 
 function describeFilters(filters: ValueSetFilter[]): string {
