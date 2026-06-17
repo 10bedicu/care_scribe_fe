@@ -21,10 +21,16 @@ export const VALUESET_INLINE_THRESHOLD = 50;
 const cache = new Map<string, EnrichedValueSet>();
 const inflight = new Map<string, Promise<EnrichedValueSet>>();
 
+// The UCUM units value set slug. care_fe wires every quantity
+// question's unit picker to this set, so we always validate the AI's
+// unit against it via the same tiered pipeline used for coding.
+export const UCUM_VALUESET_SLUG = "system-ucum-units";
+
 function collectValueSetSlugs(
   questionnaires: ScribeQuestionnaire[],
 ): Set<string> {
   const slugs = new Set<string>();
+  let hasQuantity = false;
   const walk = (items: (ScribeField | ScribeQuestionnaire)[]) => {
     for (const item of items) {
       if ("questions" in item) {
@@ -38,9 +44,13 @@ function collectValueSetSlugs(
       ) {
         slugs.add(vs);
       }
+      if (item.question.type === "quantity") {
+        hasQuantity = true;
+      }
     }
   };
   for (const qn of questionnaires) walk(qn.questions);
+  if (hasQuantity) slugs.add(UCUM_VALUESET_SLUG);
   return slugs;
 }
 
@@ -288,16 +298,15 @@ export async function resolveValueSetResponse(
 /**
  * Build the Zod schema asked of the AI for a `quantity` question. The
  * shape mirrors care_fe's `ResponseValue` for type "quantity":
- *   `{ value: number, unit: { code, display }, coding?: Code-ish }`
+ *   `{ value: number, unit: Code-ish, coding?: Code-ish }`
  *
- * `unit.system` is omitted from the schema and stamped post-AI in
- * cleanAIResponse, since care_fe wires every quantity question's unit
- * picker to the UCUM ValueSet.
- *
- * When the question has an `answer_value_set` (the "Type" picker in the
- * UI — e.g. the medication for a strength field), `coding` is embedded
- * using the same tiered value-set schema as choice questions and
- * resolved to a canonical `Code` post-AI.
+ * Both `unit` (hardcoded to the UCUM value set) and `coding` (when the
+ * question has `answer_value_set`) go through the same tiered
+ * value-set schema used for choice questions; they're resolved to
+ * canonical `Code` objects in cleanAIResponse. The model never invents
+ * codes — it returns either a display string (Tier 1, when the value
+ * set is small enough to inline) or `{display_names: string[]}` (Tier
+ * 2/3) that we fuzzy-match against the value-set expansion endpoint.
  */
 export function buildQuantitySchema(
   question: FormQuestion,
@@ -305,23 +314,10 @@ export function buildQuantitySchema(
 ): z.ZodTypeAny {
   const baseShape: Record<string, z.ZodTypeAny> = {
     value: z.number().describe("The numeric value."),
-    unit: z
-      .object({
-        code: z
-          .string()
-          .describe('UCUM code (e.g. "mg", "%", "mm[Hg]", "L/min").'),
-        display: z
-          .string()
-          .describe('Human-readable unit name (e.g. "milligram", "percent").'),
-      })
-      .describe(
-        "Unit of measurement using UCUM. Use canonical UCUM codes; match the unit indicated on the question label when one is given.",
-      ),
+    unit: buildValueSetSchema(UCUM_VALUESET_SLUG, false),
   };
 
   if (question.answer_value_set) {
-    // Reuse the tiered value-set pipeline (inline enum / display_names);
-    // resolved to a canonical `Code` post-AI in cleanAIResponse.
     baseShape.coding = buildValueSetSchema(question.answer_value_set, false);
   }
 
