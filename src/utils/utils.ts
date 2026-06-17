@@ -63,7 +63,9 @@ export const renderFieldValue = (
   } else if (isQuantityLike(val)) {
     humanValue = renderQuantity(val);
   } else if (Array.isArray(val) && val.length && val.every(isQuantityLike)) {
-    humanValue = (val as QuantityLike[]).map(renderQuantity).join(", ");
+    humanValue = (val as unknown as QuantityLike[])
+      .map(renderQuantity)
+      .join(", ");
   } else {
     // convert from snake case to human readable text
     humanValue =
