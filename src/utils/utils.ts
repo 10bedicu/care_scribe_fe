@@ -26,10 +26,11 @@ const renderCode = (v: { code: string; display?: string }) =>
   v.display ?? v.code;
 
 // Detects the quantity shape produced for quantity fields:
-// `{ value: number, unit?: { code, display? }, coding?: ... }`.
+// `{ value: number, unit?: { code, display? }, coding?: { code, display? } }`.
 type QuantityLike = {
   value: number;
   unit?: { code: string; display?: string };
+  coding?: { code: string; display?: string };
 };
 const isQuantityLike = (v: unknown): v is QuantityLike =>
   !!v &&
@@ -38,7 +39,9 @@ const isQuantityLike = (v: unknown): v is QuantityLike =>
 
 const renderQuantity = (v: QuantityLike) => {
   const unit = v.unit?.display ?? v.unit?.code ?? "";
-  return unit ? `${v.value} ${unit}` : `${v.value}`;
+  const amount = unit ? `${v.value} ${unit}` : `${v.value}`;
+  const type = v.coding?.display ?? v.coding?.code;
+  return type ? `${type}: ${amount}` : amount;
 };
 
 export const renderFieldValue = (
