@@ -159,6 +159,37 @@ export const API = {
         count,
       }),
   },
+  activityDefinitions: {
+    list: (
+      facilityId: string,
+      filters: { title?: string; limit?: number } = {},
+    ) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: {
+          id: string;
+          slug: string;
+          title: string;
+          classification: string;
+          code: Code;
+          body_site: Code | null;
+        }[];
+        count: number;
+      }>(`/api/v1/facility/${facilityId}/activity_definition/`, "GET", filters),
+  },
+  facilityUsers: {
+    list: (
+      facilityId: string,
+      filters: { search_text?: string; limit?: number } = {},
+    ) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: UserBareMinimum[];
+        count: number;
+      }>(`/api/v1/facility/${facilityId}/users/`, "GET", filters),
+  },
   files: {
     get: (fileId: string, fileType: string, associatingId: string) =>
       request<ScribeFileModel>(

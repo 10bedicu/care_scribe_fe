@@ -1,6 +1,7 @@
 import {
   Code,
   EnrichedValueSet,
+  FormQuestion,
   KnownTerminology,
   ScribeField,
   ScribeQuestionnaire,
@@ -20,10 +21,16 @@ export const VALUESET_INLINE_THRESHOLD = 50;
 const cache = new Map<string, EnrichedValueSet>();
 const inflight = new Map<string, Promise<EnrichedValueSet>>();
 
+// The UCUM units value set slug. care_fe wires every quantity
+// question's unit picker to this set, so we always validate the AI's
+// unit against it via the same tiered pipeline used for coding.
+export const UCUM_VALUESET_SLUG = "system-ucum-units";
+
 function collectValueSetSlugs(
   questionnaires: ScribeQuestionnaire[],
 ): Set<string> {
   const slugs = new Set<string>();
+  let hasQuantity = false;
   const walk = (items: (ScribeField | ScribeQuestionnaire)[]) => {
     for (const item of items) {
       if ("questions" in item) {
@@ -31,12 +38,19 @@ function collectValueSetSlugs(
         continue;
       }
       const vs = item.question.answer_value_set;
-      if (vs && item.question.type === "choice") {
+      if (
+        vs &&
+        (item.question.type === "choice" || item.question.type === "quantity")
+      ) {
         slugs.add(vs);
+      }
+      if (item.question.type === "quantity") {
+        hasQuantity = true;
       }
     }
   };
   for (const qn of questionnaires) walk(qn.questions);
+  if (hasQuantity) slugs.add(UCUM_VALUESET_SLUG);
   return slugs;
 }
 
@@ -169,7 +183,7 @@ const KNOWN_SYSTEM_SUPPORTING_INFO: Record<
   LOINC: () =>
     `Backed by LOINC — favour the canonical LOINC long common name phrasing.`,
   UCUM: () =>
-    `Backed by UCUM — favour canonical UCUM unit phrasing (e.g. "mg", "mm[Hg]", "L/min").`,
+    `Backed by UCUM — favour canonical UCUM unit phrasing (e.g. "mg", "mm[Hg]", "L/min"). When the clinician uses an abbreviation, include BOTH the abbreviation AND the spelled-out form as paraphrases — e.g. "IU" → ["IU", "International Unit"]`,
 };
 
 function describeFilters(filters: ValueSetFilter[]): string {
@@ -275,4 +289,38 @@ export async function resolveValueSetResponse(
     return resolved.filter((c): c is Code => c !== null);
   }
   return resolved[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Schema building for `quantity` questions.
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the Zod schema asked of the AI for a `quantity` question. The
+ * shape mirrors care_fe's `ResponseValue` for type "quantity":
+ *   `{ value: number, unit: Code-ish, coding?: Code-ish }`
+ *
+ * Both `unit` (hardcoded to the UCUM value set) and `coding` (when the
+ * question has `answer_value_set`) go through the same tiered
+ * value-set schema used for choice questions; they're resolved to
+ * canonical `Code` objects in cleanAIResponse. The model never invents
+ * codes — it returns either a display string (Tier 1, when the value
+ * set is small enough to inline) or `{display_names: string[]}` (Tier
+ * 2/3) that we fuzzy-match against the value-set expansion endpoint.
+ */
+export function buildQuantitySchema(
+  question: FormQuestion,
+  repeats: boolean,
+): z.ZodTypeAny {
+  const baseShape: Record<string, z.ZodTypeAny> = {
+    value: z.number().describe("The numeric value."),
+    unit: buildValueSetSchema(UCUM_VALUESET_SLUG, false),
+  };
+
+  if (question.answer_value_set) {
+    baseShape.coding = buildValueSetSchema(question.answer_value_set, false);
+  }
+
+  const one = z.object(baseShape);
+  return repeats ? z.array(one) : one;
 }

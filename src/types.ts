@@ -174,6 +174,7 @@ export enum ScribeFileType {
 
 export type ScribeMeta = {
   encounterId: string;
+  facilityId?: string;
   currentUser: UserBareMinimum;
   currentTime: string;
 };
