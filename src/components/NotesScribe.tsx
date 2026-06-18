@@ -2,7 +2,11 @@ import { cn } from "@/utils/utils";
 import { Button } from "./ui/button";
 import { MicrophoneIcon } from "@/utils/icons";
 import { ReloadIcon } from "@radix-ui/react-icons";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import "../style/index.css";
 import { ContainerRefProvider, useContainerRef } from "@/hooks/useContainerRef";
 import { useEffect, useRef, useState } from "react";
@@ -24,6 +28,7 @@ import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 import useKeyboardShortcut from "@/hooks/useKeyboardShortcut";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/utils/constants";
+import ControllerDropDownMenu from "./ControllerDropDownMenu";
 
 export type NotesScribeProps = {
   className?: string;
@@ -40,6 +45,7 @@ export function NotesScribe(props: NotesScribeProps) {
   const { className } = props;
   const { t } = useTranslation(I18NNAMESPACE);
   const [message, setMessage] = useControlState("noteMessage", "");
+  const queryClient = useQueryClient();
 
   const container = useRef<HTMLDivElement>(null);
   const containerRef = useContainerRef();
@@ -51,6 +57,9 @@ export function NotesScribe(props: NotesScribeProps) {
   const [error, setError] = useState<string | null>(null);
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [proposedTranscript, setProposedTranscript] = useState<string | null>(
+    null,
+  );
+  const [reviewModalEl, setReviewModalEl] = useState<HTMLDivElement | null>(
     null,
   );
   const isAbortedRef = useRef(false);
@@ -170,6 +179,62 @@ export function NotesScribe(props: NotesScribeProps) {
     setStatus("IDLE");
   };
 
+  const handleUseHistoryScribe = (historyScribe: ScribeModel) => {
+    // Abort any in-progress recording or processing before switching to review.
+    isAbortedRef.current = true;
+    if (isRecording) {
+      timer.stop();
+      timer.reset();
+      stopSegmentedRecording();
+    }
+    resetRecording();
+
+    messageBeforeRecording.current = message;
+    setError(null);
+    setScribe(historyScribe);
+    setProposedTranscript(historyScribe.transcript || "");
+    setStatus("REVIEWING");
+  };
+
+  const handleProcessAgain = async () => {
+    if (!scribe) return;
+    isAbortedRef.current = false;
+    setError(null);
+    setProposedTranscript(null);
+
+    try {
+      await API.scribe.update(scribe.external_id, {
+        status: "READY",
+        transcript_only: true,
+        requested_in_facility_id: facilityId || "",
+        requested_in_encounter_id: encounterId || "",
+        transcript: null,
+      });
+
+      setStatus("TRANSCRIBING");
+      const transcript = await poller(
+        scribe.external_id,
+        "transcript",
+        isAbortedRef,
+        setScribe,
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+
+      if (isAbortedRef.current || !transcript) return;
+
+      setProposedTranscript(transcript);
+      setStatus("REVIEWING");
+    } catch (err) {
+      console.error("Failed to re-process transcription", err);
+      if (!isAbortedRef.current) {
+        setError(t("failed_to_transcribe_recording"));
+        toast.error(t("failed_to_transcribe_recording"));
+      }
+      setStatus("IDLE");
+    }
+  };
+
   // Blur any focused input when entering review so global shortcuts can fire.
   useEffect(() => {
     if (status !== "REVIEWING") return;
@@ -182,6 +247,9 @@ export function NotesScribe(props: NotesScribeProps) {
   });
   useKeyboardShortcut(["R"], () => {
     if (isReviewing) handleRejectReview();
+  });
+  useKeyboardShortcut(["P"], () => {
+    if (isReviewing) handleProcessAgain();
   });
 
   const handleToggleRecording = async () => {
@@ -245,24 +313,37 @@ export function NotesScribe(props: NotesScribeProps) {
           {error}
         </div>
       )}
-      <Button
-        className={cn(
-          className,
-          "size-10 shrink-0",
-          isRecording
-            ? "animate-pulse bg-red-500 text-white hover:bg-red-500"
-            : "text-white",
-        )}
-        onClick={handleToggleRecording}
-        disabled={isBusy || isReviewing}
-        type="button"
-      >
-        {isBusy ? (
-          <ReloadIcon className="size-5 animate-spin text-white" />
-        ) : (
-          <MicrophoneIcon className="size-8 fill-current text-white" />
-        )}
-      </Button>
+      <div className="flex shrink-0 items-stretch">
+        <Button
+          className={cn(
+            className,
+            "size-10 shrink-0 rounded-r-none",
+            isRecording
+              ? "animate-pulse bg-red-500 text-white hover:bg-red-500"
+              : "text-white",
+          )}
+          onClick={handleToggleRecording}
+          disabled={isBusy || isReviewing}
+          type="button"
+        >
+          {isBusy ? (
+            <ReloadIcon className="size-5 animate-spin text-white" />
+          ) : (
+            <MicrophoneIcon className="size-8 fill-current text-white" />
+          )}
+        </Button>
+        <ControllerDropDownMenu
+          onUseScribe={handleUseHistoryScribe}
+          triggerClassName={cn(
+            className,
+            "h-10 w-4 aspect-auto rounded-l-none border-l border-white/25 text-white",
+            isRecording &&
+              "animate-pulse bg-red-500 hover:bg-red-500 border-white/30",
+          )}
+          triggerIconClassName="size-3"
+          transcriptOnly
+        />
+      </div>
       <TncDialog
         open={showTnc}
         onOpenChange={setShowTnc}
@@ -273,7 +354,10 @@ export function NotesScribe(props: NotesScribeProps) {
         proposedTranscript !== null &&
         createPortal(
           <div className="scribe-container">
-            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 p-6 text-white backdrop-blur-sm md:p-20">
+            <div
+              ref={setReviewModalEl}
+              className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50 p-6 text-white backdrop-blur-sm md:p-20"
+            >
               <h2 className="text-center text-xl font-black md:text-3xl">
                 {t("review_transcript")}
               </h2>
@@ -307,6 +391,13 @@ export function NotesScribe(props: NotesScribeProps) {
                     {t("reject")}
                   </button>
                   <button
+                    onClick={handleProcessAgain}
+                    className="flex cursor-pointer items-center gap-2 rounded-full bg-white px-4 py-2 text-lg font-semibold text-black transition-all hover:bg-neutral-100"
+                  >
+                    <KeyboardShortcutKey shortcut={["P"]} />
+                    {t("process_transcript")}
+                  </button>
+                  <button
                     onClick={handleAcceptReview}
                     className="bg-primary-500 hover:bg-primary-600 flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-lg font-semibold transition-all"
                   >
@@ -314,7 +405,9 @@ export function NotesScribe(props: NotesScribeProps) {
                     {t("accept")}
                   </button>
                 </div>
-                {scribe && <Feedback scribe={scribe} />}
+                {scribe && (
+                  <Feedback scribe={scribe} portalContainer={reviewModalEl} />
+                )}
               </div>
             </div>
           </div>,

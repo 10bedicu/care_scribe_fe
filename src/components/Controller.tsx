@@ -611,6 +611,7 @@ export function Controller(props: {
               setTranscript(scribe.transcript || "");
               setInstanceId(scribe.external_id);
             }}
+            transcriptOnly={false}
           />
 
           {[
