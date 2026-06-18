@@ -189,7 +189,12 @@ export function Controller(props: {
       const cleaned = await cleanAIResponse(
         aiResponse as ScribeAIResponse,
         questionnaire,
-        { encounterId: encounterId!, currentUser: user!, currentTime },
+        {
+          encounterId: encounterId!,
+          facilityId,
+          currentUser: user!,
+          currentTime,
+        },
       );
 
       Object.values(cleaned.meta.failed).forEach((errors) => {

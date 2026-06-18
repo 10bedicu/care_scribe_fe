@@ -13,7 +13,7 @@ import STRUCTURES, {
 } from "./structures";
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
-import { buildValueSetSchema } from "./valueset-cache";
+import { buildQuantitySchema, buildValueSetSchema } from "./valueset-cache";
 
 export const getQuestionInputs: (
   formState: any,
@@ -69,6 +69,25 @@ const getQuestions = (
                 .filter((c: any) => c);
             }
             return responseValues[0]?.coding ?? null;
+          }
+          // Quantity fields hold a `{ value, unit, coding? }` shape per
+          // care_fe's ResponseValue. Strip the discriminator (and drop
+          // `coding` only when the question isn't bound to a value set,
+          // since the AI extracts coding too in that case).
+          if (question.type === "quantity") {
+            const keepCoding = !!question.answer_value_set;
+            const stripQuantity = (v: any) => {
+              if (!v) return null;
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { type: _t, coding, ...rest } = v;
+              return keepCoding && coding ? { ...rest, coding } : rest;
+            };
+            if (question.repeats) {
+              return responseValues
+                .map(stripQuantity)
+                .filter((v: any) => v !== null && v !== undefined);
+            }
+            return stripQuantity(responseValues[0]);
           }
           return responseValues[0]?.value ?? null;
         })(),
@@ -141,11 +160,17 @@ export function getHydratedFields(
           : "string";
 
         const nonQsParents = parentIds.slice(1, parentIds.length);
+        // `answer_option` is only meaningful for string-ish enum fields;
+        // for `quantity` the value is numeric with a unit/coding, so an
+        // enum constraint would be nonsense.
+        const useAnswerOptions =
+          field.question.type !== "quantity" &&
+          !!field.question.answer_option?.length;
         let enumDescription = undefined;
-        if (field.question.answer_option?.length) {
+        if (useAnswerOptions) {
           enumDescription =
             "ENUM TYPE -- ONLY CHOOSE FROM: " +
-            field.question.answer_option.map((opt) => opt.value).join(" | ");
+            field.question.answer_option!.map((opt) => opt.value).join(" | ");
         }
 
         // Choice questions backed by a value set get a tiered schema
@@ -156,20 +181,28 @@ export function getHydratedFields(
           !!field.question.answer_value_set &&
           !structuredType;
 
+        // Quantity questions get a `{ value, unit, coding? }` schema
+        // (see `buildQuantitySchema`); when bound to a value set, the
+        // `coding` (UI "Type" picker) is resolved post-AI.
+        const isQuantity =
+          field.question.type === "quantity" && !structuredType;
+
         let structure = useValueSet
           ? buildValueSetSchema(
               field.question.answer_value_set!,
               !!field.question.repeats,
             )
-          : structuredType && Object.keys(STRUCTURES).includes(structuredType)
-            ? STRUCTURES[structuredType as keyof typeof STRUCTURES]
-                .toolStructure
-            : arbitraryStructure(
-                fieldType as keyof typeof arbitraryStructures,
-                !field.question.repeats ? enumDescription : undefined,
-              );
+          : isQuantity
+            ? buildQuantitySchema(field.question, !!field.question.repeats)
+            : structuredType && Object.keys(STRUCTURES).includes(structuredType)
+              ? STRUCTURES[structuredType as keyof typeof STRUCTURES]
+                  .toolStructure
+              : arbitraryStructure(
+                  fieldType as keyof typeof arbitraryStructures,
+                  !field.question.repeats ? enumDescription : undefined,
+                );
 
-        if (!useValueSet && field.question.repeats) {
+        if (!useValueSet && !isQuantity && field.question.repeats) {
           structure = z.array(structure) as z.ZodArray<any>;
           if (enumDescription) {
             structure = structure.describe(enumDescription) as z.ZodArray<any>;
@@ -249,6 +282,17 @@ export const updateFieldValue = (
     !!field.question.answer_value_set &&
     !field.question.structured_type;
 
+  // Quantity questions: care_fe's ResponseValue is
+  // `{ type: "quantity", value: number, unit?: Code, coding?: Code }`.
+  // The AI fills `{ value, unit }`; spread it into a quantity-typed
+  // entry while preserving any pre-selected `coding` from the UI.
+  const isQuantity = field.question.type === "quantity";
+  const wrapQuantity = (existing: any, src: any) => ({
+    ...(existing && typeof existing === "object" ? existing : {}),
+    ...(src && typeof src === "object" ? src : {}),
+    type: "quantity" as const,
+  });
+
   setFormState((formState: any) =>
     formState.map((qn: any) => ({
       ...qn,
@@ -264,28 +308,36 @@ export const updateFieldValue = (
                   : val && Array.isArray(val)
                     ? val.map((coding) => ({ type: "quantity", coding }))
                     : []
-                : !field.question.repeats
-                  ? response.values.length
-                    ? response.values.map((v: any, i: number) =>
-                        i === 0
-                          ? {
-                              ...v,
-                              value: val,
-                            }
-                          : v,
-                      )
-                    : [
-                        {
-                          type: field.question.structured_type || typeof val,
-                          value: val,
-                        },
-                      ]
-                  : val && Array.isArray(val)
-                    ? val.map((v) => ({
-                        type: field.question.structured_type || typeof v,
-                        value: v,
-                      }))
-                    : [],
+                : isQuantity
+                  ? !field.question.repeats
+                    ? val && typeof val === "object"
+                      ? [wrapQuantity(response.values[0], val)]
+                      : []
+                    : Array.isArray(val)
+                      ? val.map((v, i) => wrapQuantity(response.values[i], v))
+                      : []
+                  : !field.question.repeats
+                    ? response.values.length
+                      ? response.values.map((v: any, i: number) =>
+                          i === 0
+                            ? {
+                                ...v,
+                                value: val,
+                              }
+                            : v,
+                        )
+                      : [
+                          {
+                            type: field.question.structured_type || typeof val,
+                            value: val,
+                          },
+                        ]
+                    : val && Array.isArray(val)
+                      ? val.map((v) => ({
+                          type: field.question.structured_type || typeof v,
+                          value: v,
+                        }))
+                      : [],
               note,
             }
           : response,
