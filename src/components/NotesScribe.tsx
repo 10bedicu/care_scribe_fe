@@ -45,14 +45,30 @@ type NotesScribeStatus =
 export function NotesScribe(props: NotesScribeProps) {
   const { className } = props;
   const { t } = useTranslation(I18NNAMESPACE);
-  const [message, setMessage] = useControlState("noteMessage", "");
+  const path = usePath();
+
+  const facilityId = path?.includes("/facility/")
+    ? path.split("/facility/")[1].split("/")[0]
+    : undefined;
+
+  const encounterId = path?.includes("/encounter/")
+    ? path.split("/encounter/")[1].split("/")[0]
+    : undefined;
+
+  const patientId = path?.includes("/patient/")
+    ? path.split("/patient/")[1].split("/")[0]
+    : undefined;
+
+  const [message, setMessage] = useControlState(
+    `noteMessage-${encounterId ?? patientId}`,
+    "",
+  );
   const queryClient = useQueryClient();
 
   const container = useRef<HTMLDivElement>(null);
   const containerRef = useContainerRef();
   const timer = useTimer();
   const messageBeforeRecording = useRef("");
-  const path = usePath();
   const [showTnc, setShowTnc] = useState(false);
   const [status, setStatus] = useState<NotesScribeStatus>("IDLE");
   const [error, setError] = useState<string | null>(null);
@@ -65,14 +81,6 @@ export function NotesScribe(props: NotesScribeProps) {
     null,
   );
   const isAbortedRef = useRef(false);
-
-  const facilityId = path?.includes("/facility/")
-    ? path.split("/facility/")[1].split("/")[0]
-    : undefined;
-
-  const encounterId = path?.includes("/encounter/")
-    ? path.split("/encounter/")[1].split("/")[0]
-    : undefined;
 
   const quota = useQuota(facilityId);
   const SCRIBE_ENABLED = !!quota.quotas?.length;

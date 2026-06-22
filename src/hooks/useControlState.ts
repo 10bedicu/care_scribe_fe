@@ -14,7 +14,7 @@ type StoreRegistry = Map<string, ControlStore>;
 
 declare global {
   interface Window {
-    __CARE_CONTROL_STORES__: StoreRegistry;
+    __CARE_CONTROL_STORES__?: StoreRegistry;
   }
 }
 
@@ -68,7 +68,9 @@ export function useControlState<T>(
           : action;
       if (!Object.is(nextValue, store.value)) {
         store.value = nextValue;
-        store.listeners.forEach((l) => l());
+        // Snapshot to avoid mutation-during-iteration if a listener
+        // synchronously (un)mounts another consumer of the same key.
+        Array.from(store.listeners).forEach((l) => l());
       }
     },
     [store],
