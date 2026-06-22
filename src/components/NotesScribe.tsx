@@ -30,7 +30,6 @@ import { I18NNAMESPACE } from "@/utils/constants";
 import ControllerDropDownMenu from "./ControllerDropDownMenu";
 
 export type NotesScribeProps = {
-  className?: string;
   message: string;
   setMessage: React.Dispatch<React.SetStateAction<string>>;
 };
@@ -44,7 +43,6 @@ type NotesScribeStatus =
   | "FAILED";
 
 export function NotesScribe(props: NotesScribeProps) {
-  const { className } = props;
   const { t } = useTranslation(I18NNAMESPACE);
   const path = usePath();
 
@@ -395,7 +393,6 @@ export function NotesScribe(props: NotesScribeProps) {
       <div className="flex shrink-0 items-stretch">
         <Button
           className={cn(
-            className,
             "size-10 shrink-0 rounded-r-none",
             isRecording
               ? "animate-pulse bg-red-500 text-white hover:bg-red-500"
@@ -414,10 +411,10 @@ export function NotesScribe(props: NotesScribeProps) {
         <ControllerDropDownMenu
           onUseScribe={handleUseHistoryScribe}
           triggerClassName={cn(
-            className,
-            "h-10 w-4 aspect-auto rounded-l-none border-l border-white/25 text-white",
-            isRecording &&
-              "animate-pulse bg-red-500 hover:bg-red-500 border-white/30",
+            "h-10 w-4 aspect-auto rounded-l-none border-l border-white/25 text-white shadow-sm",
+            isRecording
+              ? "animate-pulse bg-red-500 hover:bg-red-500 border-white/30"
+              : "bg-primary-700 hover:bg-primary-700/90",
           )}
           triggerIconClassName="size-3"
           transcriptOnly
