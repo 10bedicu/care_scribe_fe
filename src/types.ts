@@ -247,6 +247,7 @@ export interface ScribeFileModel {
   upload_completed: boolean;
   read_signed_url: string;
   length: number;
+  mime_type: string;
 }
 
 export interface FacilityModel {

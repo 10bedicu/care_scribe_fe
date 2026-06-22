@@ -478,16 +478,15 @@ export default function HistoryDetailsPage(props: {
                     <div className="mt-4 mb-2 font-semibold">{t("audio")}:</div>
                     <div className="flex flex-col gap-2">
                       {scribe.audio.map((audio) => (
-                        <audio key={audio.id} controls controlsList="">
+                        <audio
+                          key={audio.id}
+                          controls
+                          controlsList=""
+                          className="w-full"
+                        >
                           <source
                             src={audio.read_signed_url}
-                            type={
-                              "audio/" +
-                              audio.read_signed_url
-                                .split(".")
-                                .pop()
-                                ?.split("?")[0]
-                            }
+                            type={audio.mime_type}
                           />
                           Your browser does not support the audio element.
                         </audio>
@@ -521,13 +520,16 @@ export default function HistoryDetailsPage(props: {
                 <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
                   {meta?.prompt}
                 </pre>
-
-                <div className="mt-4 mb-2 font-semibold">
-                  {t("output_schema")}
-                </div>
-                <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {JSON.stringify(meta?.function, null, 2)}
-                </pre>
+                {!scribe?.transcript_only && (
+                  <>
+                    <div className="mt-4 mb-2 font-semibold">
+                      {t("output_schema")}
+                    </div>
+                    <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                      {JSON.stringify(meta?.function, null, 2)}
+                    </pre>
+                  </>
+                )}
                 {meta?.thinking && (
                   <>
                     <div className="mt-4 mb-2 font-semibold">
@@ -538,12 +540,16 @@ export default function HistoryDetailsPage(props: {
                     </pre>
                   </>
                 )}
-                <div className="mt-4 mb-2 font-semibold">
-                  {t("ai_response")}
-                </div>
-                <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {JSON.stringify(scribe?.ai_response, null, 2)}
-                </pre>
+                {!scribe?.transcript_only && (
+                  <>
+                    <div className="mt-4 mb-2 font-semibold">
+                      {t("ai_response")}
+                    </div>
+                    <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                      {JSON.stringify(scribe?.ai_response, null, 2)}
+                    </pre>
+                  </>
+                )}
                 <div
                   className={cn(
                     "mt-6 gap-4 md:columns-2",

@@ -39,7 +39,8 @@ type NotesScribeStatus =
   | "RECORDING"
   | "UPLOADING"
   | "TRANSCRIBING"
-  | "REVIEWING";
+  | "REVIEWING"
+  | "FAILED";
 
 export function NotesScribe(props: NotesScribeProps) {
   const { className } = props;
@@ -56,6 +57,7 @@ export function NotesScribe(props: NotesScribeProps) {
   const [status, setStatus] = useState<NotesScribeStatus>("IDLE");
   const [error, setError] = useState<string | null>(null);
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
+  const [uploadComplete, setUploadComplete] = useState(false);
   const [proposedTranscript, setProposedTranscript] = useState<string | null>(
     null,
   );
@@ -85,6 +87,7 @@ export function NotesScribe(props: NotesScribeProps) {
   const isRecording = status === "RECORDING";
   const isBusy = status === "UPLOADING" || status === "TRANSCRIBING";
   const isReviewing = status === "REVIEWING";
+  const isFailed = status === "FAILED";
 
   useEffect(() => {
     if (container.current) {
@@ -105,43 +108,73 @@ export function NotesScribe(props: NotesScribeProps) {
     }
     isAbortedRef.current = false;
     setError(null);
-    setScribe(null);
     setProposedTranscript(null);
+    setStatus("UPLOADING");
+
+    let scribeInstance = scribe;
+    let filesUploaded = uploadComplete;
 
     try {
-      const scribeInstance = await API.scribe.create({
-        status: "CREATED",
-        transcript_only: true,
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
-      });
+      if (!scribeInstance) {
+        scribeInstance = await API.scribe.create({
+          status: "CREATED",
+          transcript_only: true,
+          requested_in_facility_id: facilityId,
+          requested_in_encounter_id: encounterId,
+        });
+        setScribe(scribeInstance);
+      }
 
-      await Promise.all(
-        blobs.map((blob) =>
-          uploadScribeFile(
-            blob,
-            scribeInstance.external_id,
-            ScribeFileType.AUDIO,
+      if (!filesUploaded) {
+        await Promise.all(
+          blobs.map((blob) =>
+            uploadScribeFile(
+              blob,
+              scribeInstance!.external_id,
+              ScribeFileType.AUDIO,
+            ),
           ),
-        ),
-      );
+        );
 
-      if (isAbortedRef.current) return;
+        if (isAbortedRef.current) return;
 
-      await API.scribe.update(scribeInstance.external_id, {
-        status: "READY",
-        transcript_only: true,
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
-      });
+        await API.scribe.update(scribeInstance.external_id, {
+          status: "READY",
+          transcript_only: true,
+          requested_in_facility_id: facilityId,
+          requested_in_encounter_id: encounterId,
+        });
+        setUploadComplete(true);
+        filesUploaded = true;
+      } else {
+        await API.scribe.update(scribeInstance.external_id, {
+          status: "READY",
+          transcript_only: true,
+          requested_in_facility_id: facilityId,
+          requested_in_encounter_id: encounterId,
+          transcript: null,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to upload recording", err);
+      if (!isAbortedRef.current) {
+        setError(t("audio_upload_error"));
+        toast.error(t("audio_upload_error"));
+        setStatus("FAILED");
+      }
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+      return;
+    }
 
-      setStatus("TRANSCRIBING");
+    setStatus("TRANSCRIBING");
+    try {
       const transcript = await poller(
         scribeInstance.external_id,
         "transcript",
         isAbortedRef,
         setScribe,
       );
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
 
       if (isAbortedRef.current || !transcript) return;
 
@@ -152,10 +185,25 @@ export function NotesScribe(props: NotesScribeProps) {
       if (!isAbortedRef.current) {
         setError(t("failed_to_transcribe_recording"));
         toast.error(t("failed_to_transcribe_recording"));
+        setStatus("FAILED");
       }
-      resetRecording();
-      setStatus("IDLE");
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
     }
+  };
+
+  const handleRetry = () => {
+    if (!audioBlobs.length) return;
+    runTranscription(audioBlobs);
+  };
+
+  const handleDismissFailure = () => {
+    isAbortedRef.current = true;
+    setError(null);
+    setScribe(null);
+    setUploadComplete(false);
+    setProposedTranscript(null);
+    resetRecording();
+    setStatus("IDLE");
   };
 
   const handleAcceptReview = () => {
@@ -175,6 +223,7 @@ export function NotesScribe(props: NotesScribeProps) {
   const closeReview = () => {
     setProposedTranscript(null);
     setScribe(null);
+    setUploadComplete(false);
     resetRecording();
     setStatus("IDLE");
   };
@@ -188,6 +237,7 @@ export function NotesScribe(props: NotesScribeProps) {
       stopSegmentedRecording();
     }
     resetRecording();
+    setUploadComplete(false);
 
     messageBeforeRecording.current = message;
     setError(null);
@@ -206,8 +256,8 @@ export function NotesScribe(props: NotesScribeProps) {
       await API.scribe.update(scribe.external_id, {
         status: "READY",
         transcript_only: true,
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
+        requested_in_facility_id: facilityId,
+        requested_in_encounter_id: encounterId,
         transcript: null,
       });
 
@@ -231,6 +281,7 @@ export function NotesScribe(props: NotesScribeProps) {
         setError(t("failed_to_transcribe_recording"));
         toast.error(t("failed_to_transcribe_recording"));
       }
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
       setStatus("IDLE");
     }
   };
@@ -267,6 +318,7 @@ export function NotesScribe(props: NotesScribeProps) {
 
     if (isBusy) return;
     if (isReviewing) return;
+    if (isFailed) return;
 
     if (!quota.tncAccepted) {
       setShowTnc(true);
@@ -277,6 +329,8 @@ export function NotesScribe(props: NotesScribeProps) {
       setError(null);
       messageBeforeRecording.current = message;
       resetRecording();
+      setScribe(null);
+      setUploadComplete(false);
       await startSegmentedRecording();
       setStatus("RECORDING");
       timer.start();
@@ -308,9 +362,32 @@ export function NotesScribe(props: NotesScribeProps) {
           {busyLabel}
         </div>
       )}
-      {error && (
+      {error && !isFailed && (
         <div className="absolute -top-12 left-1/2 z-10 -translate-x-1/2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
           {error}
+        </div>
+      )}
+      {isFailed && (
+        <div className="absolute bottom-full left-1/2 z-10 mb-2 flex w-46 -translate-x-1/2 flex-col items-stretch gap-1.5 rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white shadow-sm">
+          <span className="text-center">
+            {error || t("failed_to_transcribe_recording")}
+          </span>
+          <div className="flex gap-1.5">
+            <button
+              onClick={handleRetry}
+              className="flex-1 cursor-pointer rounded bg-white px-2 py-1 text-[11px] font-semibold text-red-600 transition-colors hover:bg-neutral-100"
+              type="button"
+            >
+              {t("retry")}
+            </button>
+            <button
+              onClick={handleDismissFailure}
+              className="cursor-pointer rounded bg-white/20 px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-white/30"
+              type="button"
+            >
+              {t("cancel")}
+            </button>
+          </div>
         </div>
       )}
       <div className="flex shrink-0 items-stretch">
@@ -323,7 +400,7 @@ export function NotesScribe(props: NotesScribeProps) {
               : "text-white",
           )}
           onClick={handleToggleRecording}
-          disabled={isBusy || isReviewing}
+          disabled={isBusy || isReviewing || isFailed}
           type="button"
         >
           {isBusy ? (
