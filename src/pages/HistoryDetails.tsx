@@ -108,6 +108,7 @@ export default function HistoryDetailsPage(props: {
           {scribe?.requested_in_encounter?.patient.name}
         </Link>
       ),
+      hide: !scribe?.requested_in_encounter,
     },
     {
       icon: <ExternalLinkIcon />,
@@ -120,6 +121,7 @@ export default function HistoryDetailsPage(props: {
           {scribe?.requested_in_encounter?.external_id}
         </Link>
       ),
+      hide: !scribe?.requested_in_encounter,
     },
     {
       icon: <CalendarIcon />,
@@ -367,17 +369,19 @@ export default function HistoryDetailsPage(props: {
                 onUseScribe && "md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1",
               )}
             >
-              {overviewDetails.map((detail, index) => (
-                <div key={index} className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <div className="font-semibold text-slate-500">
-                      {detail.icon}
+              {overviewDetails
+                .filter((detail) => !detail.hide)
+                .map((detail, index) => (
+                  <div key={index} className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-slate-500">
+                        {detail.icon}
+                      </div>
+                      <div className="text-sm">{detail.label}</div>
                     </div>
-                    <div className="text-sm">{detail.label}</div>
+                    <div className="mt-1">{detail.value}</div>
                   </div>
-                  <div className="mt-1">{detail.value}</div>
-                </div>
-              ))}
+                ))}
             </div>
             {onUseScribe && (
               <Button
