@@ -22,7 +22,6 @@ import { poller } from "@/utils/response-utils";
 import TncDialog from "./TncDialog";
 import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
-import { useControlState } from "@/hooks/useControlState";
 import Feedback from "./Feedback";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
 import useKeyboardShortcut from "@/hooks/useKeyboardShortcut";
@@ -32,6 +31,8 @@ import ControllerDropDownMenu from "./ControllerDropDownMenu";
 
 export type NotesScribeProps = {
   className?: string;
+  message: string;
+  setMessage: React.Dispatch<React.SetStateAction<string>>;
 };
 
 type NotesScribeStatus =
@@ -55,14 +56,7 @@ export function NotesScribe(props: NotesScribeProps) {
     ? path.split("/encounter/")[1].split("/")[0]
     : undefined;
 
-  const patientId = path?.includes("/patient/")
-    ? path.split("/patient/")[1].split("/")[0]
-    : undefined;
-
-  const [message, setMessage] = useControlState(
-    `noteMessage-${encounterId ?? patientId}`,
-    "",
-  );
+  const { message, setMessage } = props;
   const queryClient = useQueryClient();
 
   const container = useRef<HTMLDivElement>(null);
