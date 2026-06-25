@@ -226,11 +226,11 @@ export default function HistoryListPage() {
                   </div>
                 </TableCell>
                 <TableCell className="">
-                  {scribe.requested_in_encounter?.patient.name}
+                  {scribe.requested_in_encounter?.patient.name || "--"}
                 </TableCell>
                 <TableCell>{scribe.requested_in_facility?.name}</TableCell>
                 <TableCell className="max-w-[100px] truncate">
-                  {scribe.requested_in_encounter?.external_id}
+                  {scribe.requested_in_encounter?.external_id || "--"}
                 </TableCell>
 
                 {statsEnabled && (
