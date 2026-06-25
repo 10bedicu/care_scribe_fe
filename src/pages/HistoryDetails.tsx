@@ -58,6 +58,9 @@ export default function HistoryDetailsPage(props: {
   const scribe = scribeQuery.data;
   const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 
+  const provider = meta?.chat_provider || meta?.transcribe_provider;
+  const model = meta?.chat_model || meta?.transcribe_model;
+
   const assumedAudioTokens =
     Math.ceil(
       (scribe?.audio.reduce((acc, curr) => acc + (curr.length || 0), 0) || 0) /
@@ -262,9 +265,25 @@ export default function HistoryDetailsPage(props: {
         ).toFixed(2) + " s",
     },
     {
-      label: t("completion_id"),
+      label: t("transcription_id"),
       value: (
-        <div className="inline-block w-20 overflow-hidden text-xs text-ellipsis">
+        <div
+          className="inline-block w-20 overflow-hidden text-xs text-ellipsis"
+          title={meta?.transcription_ids?.join(", ")}
+        >
+          {meta?.transcription_ids?.join(", ")}
+        </div>
+      ),
+      hide: !meta?.transcription_ids?.length,
+    },
+    {
+      label: t("completion_id"),
+      hide: !meta?.completion_id,
+      value: (
+        <div
+          className="inline-block w-20 overflow-hidden text-xs text-ellipsis"
+          title={meta?.completion_id}
+        >
           {meta?.completion_id}
         </div>
       ),
@@ -277,10 +296,12 @@ export default function HistoryDetailsPage(props: {
     {
       label: t("chat_model"),
       value: meta?.chat_model,
+      hide: !meta?.chat_model,
     },
     {
       label: t("chat_provider"),
       value: meta?.chat_provider,
+      hide: !meta?.chat_provider,
     },
     {
       label: t("transcribe_provider"),
@@ -291,7 +312,7 @@ export default function HistoryDetailsPage(props: {
       label: t("start_time"),
       value: (
         <div className="text-xs">
-          {dayjs(scribe?.created_date).format("d/M/YY hh:mm:ss a")}
+          {dayjs(scribe?.created_date).format("D/M/YY hh:mm:ss a")}
         </div>
       ),
     },
@@ -304,7 +325,7 @@ export default function HistoryDetailsPage(props: {
               (meta?.transcription_time || 0) + (meta?.completion_time || 0),
               "second",
             )
-            .format("d/M/YY hh:mm:ss a")}
+            .format("D/M/YY hh:mm:ss a")}
         </div>
       ),
     },
@@ -317,7 +338,7 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_output_tokens || 0,
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
-          `${meta?.chat_provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+          `${provider === "google" ? "google" : "openai"}/${model || ""}`,
         ).toFixed(6) + "$",
     },
     {
@@ -331,7 +352,7 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_output_tokens || 0,
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
-          `${meta?.chat_provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+          `${provider === "google" ? "google" : "openai"}/${model || ""}`,
         ).toFixed(6) + "$",
     },
   ];

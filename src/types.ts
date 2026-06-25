@@ -128,6 +128,7 @@ export type ScribeProcessing = {
   completion_total_tokens?: number;
   completion_time?: number;
   completion_id?: string;
+  transcription_ids?: string[];
   prompt?: string;
   function?: Record<string, unknown>;
   processed_ai_response?: Awaited<ReturnType<typeof cleanAIResponse>>["meta"];
