@@ -14,14 +14,14 @@ import { useContainerRef } from "@/hooks/useContainerRef";
 interface TncDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tnc?: string;
+  content?: string;
   onAccept: () => void;
 }
 
 export default function TncDialog({
   open,
   onOpenChange,
-  tnc,
+  content,
   onAccept,
 }: TncDialogProps) {
   const { t } = useTranslation(I18NNAMESPACE);
@@ -43,7 +43,7 @@ export default function TncDialog({
           <div
             className="reset-tw"
             dangerouslySetInnerHTML={{
-              __html: tnc || "LOADING...",
+              __html: content || "LOADING...",
             }}
           />
         </div>

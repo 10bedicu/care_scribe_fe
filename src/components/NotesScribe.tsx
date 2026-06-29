@@ -423,7 +423,7 @@ export function NotesScribe(props: NotesScribeProps) {
       <TncDialog
         open={showTnc}
         onOpenChange={setShowTnc}
-        tnc={quota.tnc}
+        content={quota.tnc}
         onAccept={quota.acceptTnc}
       />
       {isReviewing &&

@@ -417,6 +417,7 @@ export default function HistoryDetailsPage(props: {
             )}
           </div>
           <Tabs
+            key={scribe?.transcript_only ? "transcript-only" : "full"}
             defaultValue={scribe?.transcript_only ? "transcript" : "summary"}
             className="mt-6 w-full"
           >

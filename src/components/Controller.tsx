@@ -671,7 +671,7 @@ export function Controller(props: {
       <TncDialog
         open={showTnc}
         onOpenChange={setShowTnc}
-        tnc={quota.tnc}
+        content={quota.tnc}
         onAccept={quota.acceptTnc}
       />
     </>
