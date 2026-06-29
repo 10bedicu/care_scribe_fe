@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { KeyboardShortcutKey } from "./ui/keyboard-shortcut";
-import useKeyboardShortcut from "use-keyboard-shortcut";
+import useKeyboardShortcut from "@/hooks/useKeyboardShortcut";
 import { useTranslation } from "react-i18next";
 import STRUCTURES from "@/utils/structures";
 import Feedback from "./Feedback";

@@ -5,6 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -57,6 +58,9 @@ export default function HistoryDetailsPage(props: {
   const scribe = scribeQuery.data;
   const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 
+  const provider = meta?.chat_provider || meta?.transcribe_provider;
+  const model = meta?.chat_model || meta?.transcribe_model;
+
   const assumedAudioTokens =
     Math.ceil(
       (scribe?.audio.reduce((acc, curr) => acc + (curr.length || 0), 0) || 0) /
@@ -68,8 +72,16 @@ export default function HistoryDetailsPage(props: {
       icon: <CheckboxIcon />,
       label: t("status"),
       value: !!scribe && (
-        <div>
+        <div className="flex items-center gap-1">
           <StatusBadge status={scribe?.status} />
+          {scribe.transcript_only && (
+            <Badge
+              variant="outline"
+              className="border-blue-300 bg-blue-50 text-blue-600"
+            >
+              {t("transcript_only")}
+            </Badge>
+          )}
           {scribe.status === "FAILED" && (
             <div className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-500">
               {meta?.error || t("unknown_error")}
@@ -99,6 +111,7 @@ export default function HistoryDetailsPage(props: {
           {scribe?.requested_in_encounter?.patient.name}
         </Link>
       ),
+      hide: !scribe?.requested_in_encounter,
     },
     {
       icon: <ExternalLinkIcon />,
@@ -111,6 +124,7 @@ export default function HistoryDetailsPage(props: {
           {scribe?.requested_in_encounter?.external_id}
         </Link>
       ),
+      hide: !scribe?.requested_in_encounter,
     },
     {
       icon: <CalendarIcon />,
@@ -162,7 +176,7 @@ export default function HistoryDetailsPage(props: {
         </span>
       ),
       value: <span className="text-xs opacity-60">{assumedAudioTokens}</span>,
-      hide: !scribe?.audio.length || meta?.provider !== "google",
+      hide: !scribe?.audio.length || meta?.transcribe_provider !== "google",
     },
     {
       label: "→ " + t("image"),
@@ -251,31 +265,54 @@ export default function HistoryDetailsPage(props: {
         ).toFixed(2) + " s",
     },
     {
-      label: t("completion_id"),
+      label: t("transcription_id"),
       value: (
-        <div className="inline-block w-20 overflow-hidden text-xs text-ellipsis">
+        <div
+          className="inline-block w-20 overflow-hidden text-xs text-ellipsis"
+          title={meta?.transcription_ids?.join(", ")}
+        >
+          {meta?.transcription_ids?.join(", ")}
+        </div>
+      ),
+      hide: !meta?.transcription_ids?.length,
+    },
+    {
+      label: t("completion_id"),
+      hide: !meta?.completion_id,
+      value: (
+        <div
+          className="inline-block w-20 overflow-hidden text-xs text-ellipsis"
+          title={meta?.completion_id}
+        >
           {meta?.completion_id}
         </div>
       ),
     },
     {
-      label: t("audio_model"),
-      value: meta?.audio_model,
-      hide: !meta?.audio_model,
+      label: t("transcribe_model"),
+      value: meta?.transcribe_model,
+      hide: !meta?.transcribe_model,
     },
     {
       label: t("chat_model"),
       value: meta?.chat_model,
+      hide: !meta?.chat_model,
     },
     {
-      label: t("provider"),
-      value: meta?.provider,
+      label: t("chat_provider"),
+      value: meta?.chat_provider,
+      hide: !meta?.chat_provider,
+    },
+    {
+      label: t("transcribe_provider"),
+      value: meta?.transcribe_provider,
+      hide: !meta?.transcribe_provider,
     },
     {
       label: t("start_time"),
       value: (
         <div className="text-xs">
-          {dayjs(scribe?.created_date).format("d/M/YY hh:mm:ss a")}
+          {dayjs(scribe?.created_date).format("D/M/YY hh:mm:ss a")}
         </div>
       ),
     },
@@ -288,7 +325,7 @@ export default function HistoryDetailsPage(props: {
               (meta?.transcription_time || 0) + (meta?.completion_time || 0),
               "second",
             )
-            .format("d/M/YY hh:mm:ss a")}
+            .format("D/M/YY hh:mm:ss a")}
         </div>
       ),
     },
@@ -301,7 +338,7 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_output_tokens || 0,
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
-          `${meta?.provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+          `${provider === "google" ? "google" : "openai"}/${model || ""}`,
         ).toFixed(6) + "$",
     },
     {
@@ -315,7 +352,7 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_output_tokens || 0,
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
-          `${meta?.provider === "google" ? "google" : "openai"}/${meta?.chat_model || ""}`,
+          `${provider === "google" ? "google" : "openai"}/${model || ""}`,
         ).toFixed(6) + "$",
     },
   ];
@@ -353,17 +390,19 @@ export default function HistoryDetailsPage(props: {
                 onUseScribe && "md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1",
               )}
             >
-              {overviewDetails.map((detail, index) => (
-                <div key={index} className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <div className="font-semibold text-slate-500">
-                      {detail.icon}
+              {overviewDetails
+                .filter((detail) => !detail.hide)
+                .map((detail, index) => (
+                  <div key={index} className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-slate-500">
+                        {detail.icon}
+                      </div>
+                      <div className="text-sm">{detail.label}</div>
                     </div>
-                    <div className="text-sm">{detail.label}</div>
+                    <div className="mt-1">{detail.value}</div>
                   </div>
-                  <div className="mt-1">{detail.value}</div>
-                </div>
-              ))}
+                ))}
             </div>
             {onUseScribe && (
               <Button
@@ -377,14 +416,25 @@ export default function HistoryDetailsPage(props: {
               </Button>
             )}
           </div>
-          <Tabs defaultValue="summary" className="mt-6 w-full">
+          <Tabs
+            defaultValue={scribe?.transcript_only ? "transcript" : "summary"}
+            className="mt-6 w-full"
+          >
             <TabsList
               className={cn(
-                "w-full md:grid md:grid-cols-2",
-                statsEnabled && "md:grid-cols-3",
+                "w-full md:grid",
+                scribe?.transcript_only
+                  ? statsEnabled
+                    ? "md:grid-cols-2"
+                    : "md:grid-cols-1"
+                  : statsEnabled
+                    ? "md:grid-cols-3"
+                    : "md:grid-cols-2",
               )}
             >
-              <TabsTrigger value="summary">{t("ai_summary")}</TabsTrigger>
+              {!scribe?.transcript_only && (
+                <TabsTrigger value="summary">{t("ai_summary")}</TabsTrigger>
+              )}
               <TabsTrigger value="transcript">{t("transcript")}</TabsTrigger>
               {statsEnabled && (
                 <TabsTrigger value="metadata">{t("metadata")}</TabsTrigger>
@@ -453,16 +503,15 @@ export default function HistoryDetailsPage(props: {
                     <div className="mt-4 mb-2 font-semibold">{t("audio")}:</div>
                     <div className="flex flex-col gap-2">
                       {scribe.audio.map((audio) => (
-                        <audio key={audio.id} controls controlsList="">
+                        <audio
+                          key={audio.id}
+                          controls
+                          controlsList=""
+                          className="w-full"
+                        >
                           <source
                             src={audio.read_signed_url}
-                            type={
-                              "audio/" +
-                              audio.read_signed_url
-                                .split(".")
-                                .pop()
-                                ?.split("?")[0]
-                            }
+                            type={audio.mime_type}
                           />
                           Your browser does not support the audio element.
                         </audio>
@@ -496,13 +545,16 @@ export default function HistoryDetailsPage(props: {
                 <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
                   {meta?.prompt}
                 </pre>
-
-                <div className="mt-4 mb-2 font-semibold">
-                  {t("output_schema")}
-                </div>
-                <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {JSON.stringify(meta?.function, null, 2)}
-                </pre>
+                {!scribe?.transcript_only && (
+                  <>
+                    <div className="mt-4 mb-2 font-semibold">
+                      {t("output_schema")}
+                    </div>
+                    <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                      {JSON.stringify(meta?.function, null, 2)}
+                    </pre>
+                  </>
+                )}
                 {meta?.thinking && (
                   <>
                     <div className="mt-4 mb-2 font-semibold">
@@ -513,12 +565,16 @@ export default function HistoryDetailsPage(props: {
                     </pre>
                   </>
                 )}
-                <div className="mt-4 mb-2 font-semibold">
-                  {t("ai_response")}
-                </div>
-                <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                  {JSON.stringify(scribe?.ai_response, null, 2)}
-                </pre>
+                {!scribe?.transcript_only && (
+                  <>
+                    <div className="mt-4 mb-2 font-semibold">
+                      {t("ai_response")}
+                    </div>
+                    <pre className="mt-4 max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                      {JSON.stringify(scribe?.ai_response, null, 2)}
+                    </pre>
+                  </>
+                )}
                 <div
                   className={cn(
                     "mt-6 gap-4 md:columns-2",
