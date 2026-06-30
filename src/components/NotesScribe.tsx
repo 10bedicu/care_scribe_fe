@@ -176,7 +176,11 @@ export function NotesScribe(props: NotesScribeProps) {
       );
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
 
-      if (isAbortedRef.current || !transcript) return;
+      if (isAbortedRef.current) return;
+
+      if (!transcript?.trim()) {
+        toast.error(t("no_speech_detected"));
+      }
 
       setProposedTranscript(transcript);
       setStatus("REVIEWING");
@@ -271,7 +275,11 @@ export function NotesScribe(props: NotesScribeProps) {
 
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
 
-      if (isAbortedRef.current || !transcript) return;
+      if (isAbortedRef.current) return;
+
+      if (!transcript?.trim()) {
+        toast.error(t("no_speech_detected"));
+      }
 
       setProposedTranscript(transcript);
       setStatus("REVIEWING");
