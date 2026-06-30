@@ -232,9 +232,9 @@ export default function HistoryDetailsPage(props: {
       hide: !meta?.completion_cached_text_tokens,
     },
     {
-      label: t("alloted_output_tokens"),
-      value: meta?.transcription_alloted_output_tokens,
-      hide: !meta?.transcription_alloted_output_tokens,
+      label: t("allotted_output_tokens"),
+      value: meta?.transcription_allotted_output_tokens,
+      hide: !meta?.transcription_allotted_output_tokens,
     },
     {
       label: t("output_tokens"),

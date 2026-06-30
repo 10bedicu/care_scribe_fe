@@ -143,5 +143,5 @@
   "no_speech_detected": "No speech detected. Please try again.",
   "microphone_access_denied": "Microphone access denied.",
   "transcription_id": "Transcription ID",
-  "alloted_output_tokens": "Alloted output tokens"
+  "allotted_output_tokens": "Allotted output tokens"
 }
