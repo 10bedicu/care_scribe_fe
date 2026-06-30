@@ -140,6 +140,8 @@
   "uploading": "Uploading…",
   "transcribing": "Transcribing…",
   "failed_to_transcribe_recording": "Failed to transcribe recording.",
+  "no_speech_detected": "No speech detected. Please try again.",
   "microphone_access_denied": "Microphone access denied.",
-  "transcription_id": "Transcription ID"
+  "transcription_id": "Transcription ID",
+  "alloted_output_tokens": "Alloted output tokens"
 }
