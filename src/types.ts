@@ -130,6 +130,14 @@ export type ScribeProcessing = {
   completion_id?: string;
   transcription_ids?: string[];
   transcription_allotted_output_tokens?: number;
+  transcription_from_languages?: string[];
+  transcription_detected_languages?: string[];
+  transcription_billed_audio_seconds?: number;
+  transcription_stt_time?: number;
+  translation_target_language?: string;
+  translation_detected_source_languages?: string[];
+  translation_characters?: number;
+  translation_time?: number;
   prompt?: string;
   function?: Record<string, unknown>;
   processed_ai_response?: Awaited<ReturnType<typeof cleanAIResponse>>["meta"];
