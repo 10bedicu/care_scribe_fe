@@ -1,10 +1,7 @@
 import { ScribeDeseriliazedValue } from "../types";
 import clsx, { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import {
-  AI_MODELS,
-  GOOGLE_CLOUD_TRANSLATE_COST_PER_CHARACTER,
-} from "./constants";
+import { AI_MODELS } from "./constants";
 import STRUCTURES from "./structures";
 import { ReactNode } from "react";
 
@@ -122,24 +119,11 @@ export const calculateCost = (
   cachedTokens: number,
   audioCachedTokens: number,
   model: string,
-  billedAudioSeconds?: number,
-  translationCharacters?: number,
 ) => {
   const modelData = AI_MODELS[model as keyof typeof AI_MODELS];
   if (!modelData) {
     console.warn(`Model ${model} not found in AI_MODELS`);
     return 0;
-  }
-
-  // Google Cloud Translate is billed per character, on top of any model cost.
-  const translationCost =
-    (translationCharacters || 0) * GOOGLE_CLOUD_TRANSLATE_COST_PER_CHARACTER;
-
-  // Chirp family models are billed per second of audio instead of per token.
-  if ("audio_per_second" in modelData.cost) {
-    const audioCost =
-      (billedAudioSeconds || 0) * modelData.cost.audio_per_second;
-    return audioCost + translationCost;
   }
 
   const { input, output, cached } = modelData.cost;
@@ -163,12 +147,5 @@ export const calculateCost = (
   const audioInputCost = (audioInputTokens / 1000000) * audio_input;
   const audioCachedCost = (audioCachedTokens / 1000000) * audio_cached;
 
-  return (
-    inputCost +
-    outputCost +
-    cachedCost +
-    audioCachedCost +
-    audioInputCost +
-    translationCost
-  );
+  return inputCost + outputCost + cachedCost + audioCachedCost + audioInputCost;
 };

@@ -61,10 +61,6 @@ export default function HistoryDetailsPage(props: {
   const provider = meta?.chat_provider || meta?.transcribe_provider;
   const model = meta?.chat_model || meta?.transcribe_model;
 
-  const isChirpModel = !!meta?.transcribe_model
-    ?.toLowerCase()
-    .includes("chirp");
-
   const assumedAudioTokens =
     Math.ceil(
       (scribe?.audio.reduce((acc, curr) => acc + (curr.length || 0), 0) || 0) /
@@ -154,7 +150,6 @@ export default function HistoryDetailsPage(props: {
     {
       label: t("input_tokens"),
       value: meta?.completion_input_tokens,
-      hide: isChirpModel,
     },
     {
       label: "→ " + t("audio"),
@@ -163,7 +158,7 @@ export default function HistoryDetailsPage(props: {
           {meta?.completion_audio_input_tokens}
         </span>
       ),
-      hide: !meta?.completion_audio_input_tokens || isChirpModel,
+      hide: !meta?.completion_audio_input_tokens,
     },
     {
       label: (
@@ -181,10 +176,7 @@ export default function HistoryDetailsPage(props: {
         </span>
       ),
       value: <span className="text-xs opacity-60">{assumedAudioTokens}</span>,
-      hide:
-        !scribe?.audio.length ||
-        meta?.transcribe_provider !== "google" ||
-        isChirpModel,
+      hide: !scribe?.audio.length || meta?.transcribe_provider !== "google",
     },
     {
       label: "→ " + t("image"),
@@ -193,7 +185,7 @@ export default function HistoryDetailsPage(props: {
           {meta?.completion_image_input_tokens}
         </span>
       ),
-      hide: !meta?.completion_image_input_tokens || isChirpModel,
+      hide: !meta?.completion_image_input_tokens,
     },
     {
       label: "→ " + t("text"),
@@ -202,7 +194,7 @@ export default function HistoryDetailsPage(props: {
           {meta?.completion_text_input_tokens}
         </span>
       ),
-      hide: !meta?.completion_text_input_tokens || isChirpModel,
+      hide: !meta?.completion_text_input_tokens,
     },
     {
       label: "→ " + t("cached"),
@@ -211,7 +203,6 @@ export default function HistoryDetailsPage(props: {
           {meta?.completion_cached_tokens || 0}
         </span>
       ),
-      hide: isChirpModel,
     },
     {
       label: <span className="pl-2">→ {t("audio")}</span>,
@@ -220,7 +211,7 @@ export default function HistoryDetailsPage(props: {
           {meta?.completion_cached_audio_tokens}
         </span>
       ),
-      hide: !meta?.completion_cached_audio_tokens || isChirpModel,
+      hide: !meta?.completion_cached_audio_tokens,
     },
     {
       label: <span className="pl-2">→ {t("image")}</span>,
@@ -229,7 +220,7 @@ export default function HistoryDetailsPage(props: {
           {meta?.completion_cached_image_tokens}
         </span>
       ),
-      hide: !meta?.completion_cached_image_tokens || isChirpModel,
+      hide: !meta?.completion_cached_image_tokens,
     },
     {
       label: <span className="pl-2">→ {t("text")}</span>,
@@ -238,7 +229,7 @@ export default function HistoryDetailsPage(props: {
           {meta?.completion_cached_text_tokens}
         </span>
       ),
-      hide: !meta?.completion_cached_text_tokens || isChirpModel,
+      hide: !meta?.completion_cached_text_tokens,
     },
     {
       label: t("allotted_output_tokens"),
@@ -248,12 +239,10 @@ export default function HistoryDetailsPage(props: {
     {
       label: t("output_tokens"),
       value: meta?.completion_output_tokens || 0,
-      hide: isChirpModel,
     },
     {
       label: t("total_tokens"),
       value: meta?.completion_total_tokens,
-      hide: isChirpModel,
     },
     {
       label: t("audio_duration"),
@@ -267,46 +256,6 @@ export default function HistoryDetailsPage(props: {
       label: t("transcription_time"),
       value: meta?.transcription_time?.toFixed(2) + " s",
       hide: !meta?.transcription_time,
-    },
-    {
-      label: t("transcription_from_languages"),
-      value: meta?.transcription_from_languages?.join(", "),
-      hide: !meta?.transcription_from_languages?.length,
-    },
-    {
-      label: t("transcription_detected_languages"),
-      value: meta?.transcription_detected_languages?.join(", "),
-      hide: !meta?.transcription_detected_languages?.length,
-    },
-    {
-      label: t("transcription_billed_audio_seconds"),
-      value: `${meta?.transcription_billed_audio_seconds} s`,
-      hide: meta?.transcription_billed_audio_seconds == null,
-    },
-    {
-      label: t("transcription_stt_time"),
-      value: meta?.transcription_stt_time?.toFixed(2) + " s",
-      hide: meta?.transcription_stt_time == null,
-    },
-    {
-      label: t("translation_target_language"),
-      value: meta?.translation_target_language,
-      hide: !meta?.translation_target_language,
-    },
-    {
-      label: t("translation_detected_source_languages"),
-      value: meta?.translation_detected_source_languages?.join(", "),
-      hide: !meta?.translation_detected_source_languages?.length,
-    },
-    {
-      label: t("translation_characters"),
-      value: meta?.translation_characters,
-      hide: meta?.translation_characters == null,
-    },
-    {
-      label: t("translation_time"),
-      value: meta?.translation_time?.toFixed(2) + " s",
-      hide: meta?.translation_time == null,
     },
     {
       label: t("completion_time"),
@@ -395,8 +344,6 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
           `${provider === "google" ? "google" : "openai"}/${model || ""}`,
-          meta?.transcription_billed_audio_seconds || 0,
-          meta?.translation_characters || 0,
         ).toFixed(6) + "$",
     },
     {
@@ -411,10 +358,7 @@ export default function HistoryDetailsPage(props: {
           meta?.completion_cached_tokens || 0,
           meta?.completion_cached_audio_tokens || 0,
           `${provider === "google" ? "google" : "openai"}/${model || ""}`,
-          meta?.transcription_billed_audio_seconds || 0,
-          meta?.translation_characters || 0,
         ).toFixed(6) + "$",
-      hide: isChirpModel,
     },
   ];
 
@@ -601,15 +545,10 @@ export default function HistoryDetailsPage(props: {
               </TabsContent>
               <TabsContent value="metadata">
                 <h3 className="text-xl">{t("metadata")}</h3>
-
-                {!isChirpModel && (
-                  <>
-                    <div className="mt-4 mb-2 font-semibold">{t("prompt")}</div>
-                    <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
-                      {meta?.prompt}
-                    </pre>
-                  </>
-                )}
+                <div className="mt-4 mb-2 font-semibold">{t("prompt")}</div>
+                <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
+                  {meta?.prompt}
+                </pre>
                 {!scribe?.transcript_only && (
                   <>
                     <div className="mt-4 mb-2 font-semibold">

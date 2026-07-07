@@ -540,11 +540,4 @@ export const AI_MODELS = {
       audio_input: 2,
     },
   },
-  "google/chirp_3": {
-    cost: {
-      audio_per_second: 0.000267,
-    },
-  },
 } as const;
-
-export const GOOGLE_CLOUD_TRANSLATE_COST_PER_CHARACTER = 0.00002;
