@@ -75,7 +75,9 @@ export function NotesScribe(props: NotesScribeProps) {
   const isAbortedRef = useRef(false);
 
   const quota = useQuota(facilityId);
-  const SCRIBE_ENABLED = !!quota.quotas?.length;
+  const SCRIBE_ENABLED = !!quota.quotas?.some(
+    (q) => q.allow_notes_scribe && !q.user,
+  );
 
   const {
     startRecording: startSegmentedRecording,
@@ -176,7 +178,11 @@ export function NotesScribe(props: NotesScribeProps) {
       );
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
 
-      if (isAbortedRef.current || !transcript) return;
+      if (isAbortedRef.current) return;
+
+      if (!transcript?.trim()) {
+        toast.error(t("no_speech_detected"));
+      }
 
       setProposedTranscript(transcript);
       setStatus("REVIEWING");
@@ -271,7 +277,11 @@ export function NotesScribe(props: NotesScribeProps) {
 
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
 
-      if (isAbortedRef.current || !transcript) return;
+      if (isAbortedRef.current) return;
+
+      if (!transcript?.trim()) {
+        toast.error(t("no_speech_detected"));
+      }
 
       setProposedTranscript(transcript);
       setStatus("REVIEWING");
@@ -393,7 +403,7 @@ export function NotesScribe(props: NotesScribeProps) {
       <div className="flex shrink-0 items-stretch">
         <Button
           className={cn(
-            "size-10 shrink-0 rounded-r-none",
+            "relative size-10 shrink-0 rounded-r-none",
             isRecording
               ? "animate-pulse bg-red-500 text-white hover:bg-red-500"
               : "text-white",
@@ -402,6 +412,9 @@ export function NotesScribe(props: NotesScribeProps) {
           disabled={isBusy || isReviewing || isFailed}
           type="button"
         >
+          <div className="absolute top-0.5 right-0.5 text-[8px] font-semibold tracking-wide text-white uppercase">
+            Beta
+          </div>
           {isBusy ? (
             <ReloadIcon className="size-5 animate-spin text-white" />
           ) : (
