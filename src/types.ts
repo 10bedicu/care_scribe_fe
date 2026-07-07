@@ -407,6 +407,8 @@ export type ScribeQuota = {
   tokens_per_user: number;
   used: number;
   allow_ocr: boolean;
+  allow_scribe: boolean;
+  allow_notes_scribe: boolean;
   tnc_hash: string | null;
   tnc_accepted_date: string | null;
 };
@@ -415,6 +417,8 @@ export type ScribeQuotaCreateRequest = {
   facility_external_id?: string;
   tokens: number;
   allow_ocr: boolean;
+  allow_scribe: boolean;
+  allow_notes_scribe: boolean;
   tokens_per_user: number;
 };
 

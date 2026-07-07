@@ -75,7 +75,7 @@ export function NotesScribe(props: NotesScribeProps) {
   const isAbortedRef = useRef(false);
 
   const quota = useQuota(facilityId);
-  const SCRIBE_ENABLED = !!quota.quotas?.length;
+  const SCRIBE_ENABLED = !!quota.quotas?.some((q) => q.allow_notes_scribe);
 
   const {
     startRecording: startSegmentedRecording,
