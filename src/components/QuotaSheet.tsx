@@ -212,8 +212,7 @@ export default function QuotaSheet(props: {
               <div className="flex items-center justify-between">
                 <label>{t("ocr")}</label>
                 <Switch
-                  disabled={!quota.allow_scribe}
-                  checked={quota.allow_scribe && quota.allow_ocr}
+                  checked={quota.allow_ocr}
                   onCheckedChange={(checked) =>
                     setQuota({ ...quota, allow_ocr: checked })
                   }
