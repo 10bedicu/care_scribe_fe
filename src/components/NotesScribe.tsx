@@ -403,7 +403,7 @@ export function NotesScribe(props: NotesScribeProps) {
       <div className="flex shrink-0 items-stretch">
         <Button
           className={cn(
-            "size-10 shrink-0 rounded-r-none",
+            "relative size-10 shrink-0 rounded-r-none",
             isRecording
               ? "animate-pulse bg-red-500 text-white hover:bg-red-500"
               : "text-white",
@@ -412,6 +412,9 @@ export function NotesScribe(props: NotesScribeProps) {
           disabled={isBusy || isReviewing || isFailed}
           type="button"
         >
+          <div className="absolute top-0.5 right-0.5 text-[8px] font-semibold tracking-wide text-white uppercase">
+            Beta
+          </div>
           {isBusy ? (
             <ReloadIcon className="size-5 animate-spin text-white" />
           ) : (
