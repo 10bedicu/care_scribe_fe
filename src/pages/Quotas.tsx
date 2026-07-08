@@ -1,6 +1,7 @@
 import SidebarIcon from "@/components/Icon";
 import { PaginationControls } from "@/components/Pagination";
 import QuotaSheet from "@/components/QuotaSheet";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -149,7 +150,7 @@ export default function ScribeQuotas() {
               <TableHead>{t("tokens_per_user")}</TableHead>
               <TableHead>{t("used_tokens")}</TableHead>
               <TableHead>{t("available_tokens")}</TableHead>
-              <TableHead>{t("ocr_allowed")}</TableHead>
+              <TableHead>{t("features")}</TableHead>
               <TableHead>{t("created_at")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -174,7 +175,24 @@ export default function ScribeQuotas() {
                 <TableCell>
                   {(quota.tokens - quota.used).toLocaleString()}
                 </TableCell>
-                <TableCell>{quota.allow_ocr ? t("yes") : t("no")}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {quota.allow_ocr && (
+                      <Badge variant="secondary">{t("ocr")}</Badge>
+                    )}
+                    {quota.allow_notes_scribe && (
+                      <Badge variant="secondary">{t("notes")}</Badge>
+                    )}
+                    {quota.allow_scribe && (
+                      <Badge variant="secondary">{t("forms")}</Badge>
+                    )}
+                    {!quota.allow_ocr &&
+                      !quota.allow_notes_scribe &&
+                      !quota.allow_scribe && (
+                        <span className="text-neutral-400">—</span>
+                      )}
+                  </div>
+                </TableCell>
                 <TableCell>
                   {dayjs(quota.created_date).format("D MMMM YYYY")}
                 </TableCell>

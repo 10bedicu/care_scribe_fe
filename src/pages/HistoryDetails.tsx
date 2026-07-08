@@ -232,6 +232,11 @@ export default function HistoryDetailsPage(props: {
       hide: !meta?.completion_cached_text_tokens,
     },
     {
+      label: t("allotted_output_tokens"),
+      value: meta?.transcription_allotted_output_tokens,
+      hide: !meta?.transcription_allotted_output_tokens,
+    },
+    {
       label: t("output_tokens"),
       value: meta?.completion_output_tokens || 0,
     },
@@ -540,7 +545,6 @@ export default function HistoryDetailsPage(props: {
               </TabsContent>
               <TabsContent value="metadata">
                 <h3 className="text-xl">{t("metadata")}</h3>
-
                 <div className="mt-4 mb-2 font-semibold">{t("prompt")}</div>
                 <pre className="max-h-64 overflow-y-auto rounded-md bg-neutral-100 p-2 text-xs break-all whitespace-pre-wrap">
                   {meta?.prompt}
@@ -586,7 +590,10 @@ export default function HistoryDetailsPage(props: {
                       {metaData
                         .filter((m) => !m.hide)
                         .map((item, index) => (
-                          <tr key={index} className="pb-2 text-sm">
+                          <tr
+                            key={index}
+                            className="border-b border-b-black/10 pb-2 text-sm"
+                          >
                             <td className="text-left">{item.label}</td>
                             <td className="w-30 text-right font-semibold">
                               {item.value}

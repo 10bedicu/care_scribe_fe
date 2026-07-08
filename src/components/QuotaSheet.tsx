@@ -45,6 +45,8 @@ export default function QuotaSheet(props: {
     facility_external_id: "",
     tokens: 1000000,
     allow_ocr: false,
+    allow_scribe: true,
+    allow_notes_scribe: true,
     tokens_per_user: 100000,
   });
 
@@ -64,6 +66,8 @@ export default function QuotaSheet(props: {
         facility_external_id: initQuota?.facility.id || "",
         tokens: initQuota.tokens,
         allow_ocr: initQuota.allow_ocr,
+        allow_scribe: initQuota.allow_scribe,
+        allow_notes_scribe: initQuota.allow_notes_scribe,
         tokens_per_user: initQuota.tokens_per_user,
       });
     }
@@ -193,14 +197,37 @@ export default function QuotaSheet(props: {
               }
             />
           </div>
-          <div className="mt-4 flex items-center gap-2">
-            <label>{t("ocr_allowed")}</label>
-            <Switch
-              checked={quota.allow_ocr}
-              onCheckedChange={(checked) =>
-                setQuota({ ...quota, allow_ocr: checked })
-              }
-            />
+          <div className="mt-4">
+            <h2 className="text-lg font-medium">{t("features")}</h2>
+            <div className="mt-2 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <label>{t("forms")}</label>
+                <Switch
+                  checked={quota.allow_scribe}
+                  onCheckedChange={(checked) =>
+                    setQuota({ ...quota, allow_scribe: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label>{t("ocr")}</label>
+                <Switch
+                  checked={quota.allow_ocr}
+                  onCheckedChange={(checked) =>
+                    setQuota({ ...quota, allow_ocr: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label>{t("notes")}</label>
+                <Switch
+                  checked={quota.allow_notes_scribe}
+                  onCheckedChange={(checked) =>
+                    setQuota({ ...quota, allow_notes_scribe: checked })
+                  }
+                />
+              </div>
+            </div>
           </div>
           <SheetFooter className="p-0">
             <SheetClose>
@@ -212,6 +239,8 @@ export default function QuotaSheet(props: {
                     facility_external_id: "",
                     tokens: 1000000,
                     allow_ocr: false,
+                    allow_scribe: true,
+                    allow_notes_scribe: true,
                     tokens_per_user: 100000,
                   });
                 }}

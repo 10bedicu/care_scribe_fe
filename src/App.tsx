@@ -16,7 +16,7 @@ export default function App(props: {
     ? path.split("/facility/")[1].split("/")[0]
     : undefined;
   const quota = useQuota(facilityId);
-  const SCRIBE_ENABLED = !!quota.quotas?.length;
+  const SCRIBE_ENABLED = !!quota.quotas?.some((q) => q.allow_scribe && !q.user);
 
   useEffect(() => {
     if (!SCRIBE_ENABLED) return;

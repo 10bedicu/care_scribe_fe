@@ -1,6 +1,7 @@
 import SidebarIcon from "@/components/Icon";
 import { PaginationControls } from "@/components/Pagination";
 import QuotaSheet from "@/components/QuotaSheet";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,6 +63,8 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
       quota: {
         tokens?: number;
         allow_ocr?: boolean;
+        allow_scribe?: boolean;
+        allow_notes_scribe?: boolean;
         tokens_per_user?: number;
       };
     }) =>
@@ -153,12 +156,27 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
     },
     {
       icon: <CameraIcon />,
-      label: t("ocr_allowed"),
-      value: facilityQuota
-        ? facilityQuota.allow_ocr
-          ? t("yes")
-          : t("no")
-        : "",
+      label: t("features"),
+      value: facilityQuota ? (
+        <div className="flex flex-wrap items-center gap-1">
+          {facilityQuota.allow_ocr && (
+            <Badge variant="secondary">{t("ocr")}</Badge>
+          )}
+          {facilityQuota.allow_notes_scribe && (
+            <Badge variant="secondary">{t("notes")}</Badge>
+          )}
+          {facilityQuota.allow_scribe && (
+            <Badge variant="secondary">{t("forms")}</Badge>
+          )}
+          {!facilityQuota.allow_ocr &&
+            !facilityQuota.allow_notes_scribe &&
+            !facilityQuota.allow_scribe && (
+              <span className="text-neutral-400">—</span>
+            )}
+        </div>
+      ) : (
+        ""
+      ),
     },
     {
       icon: <CalendarIcon />,
@@ -181,6 +199,8 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
               quota: {
                 tokens: quota.tokens,
                 allow_ocr: quota.allow_ocr,
+                allow_scribe: quota.allow_scribe,
+                allow_notes_scribe: quota.allow_notes_scribe,
                 tokens_per_user: quota.tokens_per_user,
               },
             });

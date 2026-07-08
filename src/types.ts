@@ -129,6 +129,7 @@ export type ScribeProcessing = {
   completion_time?: number;
   completion_id?: string;
   transcription_ids?: string[];
+  transcription_allotted_output_tokens?: number;
   prompt?: string;
   function?: Record<string, unknown>;
   processed_ai_response?: Awaited<ReturnType<typeof cleanAIResponse>>["meta"];
@@ -398,6 +399,8 @@ export type ScribeQuota = {
   tokens_per_user: number;
   used: number;
   allow_ocr: boolean;
+  allow_scribe: boolean;
+  allow_notes_scribe: boolean;
   tnc_hash: string | null;
   tnc_accepted_date: string | null;
 };
@@ -406,6 +409,8 @@ export type ScribeQuotaCreateRequest = {
   facility_external_id?: string;
   tokens: number;
   allow_ocr: boolean;
+  allow_scribe: boolean;
+  allow_notes_scribe: boolean;
   tokens_per_user: number;
 };
 
