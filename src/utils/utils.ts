@@ -125,6 +125,7 @@ export const calculateCost = (
     console.warn(`Model ${model} not found in AI_MODELS`);
     return 0;
   }
+
   const { input, output, cached } = modelData.cost;
   let audio_input: number = input;
   let audio_cached: number = cached;

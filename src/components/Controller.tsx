@@ -33,17 +33,9 @@ import { twMerge } from "tailwind-merge";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useQuota } from "@/hooks/useQuota";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import TncDialog from "./TncDialog";
 import ControllerDropDownMenu from "./ControllerDropDownMenu";
 import { useStorage } from "@/hooks/useStorage";
-import { useContainerRef } from "@/hooks/useContainerRef";
 import { cleanAIResponse, poller } from "@/utils/response-utils";
 import {
   getFieldsToReview,
@@ -59,9 +51,10 @@ function MetaInformation(props: { meta: ScribeModel["meta"] }) {
     props.meta.processings?.[props.meta.processings.length - 1];
 
   const info = {
-    "Audio Model": latestProcessing?.audio_model || "-",
+    "Transcribe Model": latestProcessing?.transcribe_model || "-",
     "Chat Model": latestProcessing?.chat_model,
-    Provider: latestProcessing?.provider,
+    "Chat Provider": latestProcessing?.chat_provider,
+    "Transcribe Provider": latestProcessing?.transcribe_provider,
     "Input Tokens": latestProcessing?.completion_input_tokens || 0,
     "Cached Tokens": latestProcessing?.completion_cached_tokens || 0,
     "Output Tokens": latestProcessing?.completion_output_tokens || 0,
@@ -102,7 +95,6 @@ export function Controller(props: {
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const path = usePath();
-  const containerRef = useContainerRef();
   const isAbortedRef = useRef(false);
   const [formStateSnapshot, setFormStateSnapshot] =
     useState<typeof props.formState>(null);
@@ -619,6 +611,7 @@ export function Controller(props: {
               setTranscript(scribe.transcript || "");
               setInstanceId(scribe.external_id);
             }}
+            transcriptOnly={false}
           />
 
           {[
@@ -675,37 +668,12 @@ export function Controller(props: {
         />
       )}
 
-      <Dialog open={showTnc} onOpenChange={setShowTnc}>
-        <DialogContent
-          portalProps={{ container: containerRef?.current }}
-          className="break-normal"
-        >
-          <DialogHeader>
-            <DialogTitle>{t("terms_and_conditions")}</DialogTitle>
-            <DialogDescription>
-              {t("terms_and_conditions_description")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-auto rounded-md bg-neutral-50 p-2 text-sm">
-            <div
-              className="reset-tw"
-              dangerouslySetInnerHTML={{
-                __html: quota.tnc || "LOADING...",
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={async () => {
-                quota.acceptTnc();
-                setShowTnc(false);
-              }}
-            >
-              {t("accept")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TncDialog
+        open={showTnc}
+        onOpenChange={setShowTnc}
+        tnc={quota.tnc}
+        onAccept={quota.acceptTnc}
+      />
     </>
   );
 }

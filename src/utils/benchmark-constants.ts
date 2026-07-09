@@ -1712,7 +1712,7 @@ export const allStructuredTypesForm = [
 
 export const BENCHMARK_AUDIOS = {
   "Line by Line Dictation": {
-    path: "https://maalgaadi.kacker.net/cmd046aoqmkfvrz0blp6c5byf",
+    path: "https://maalgaadi-cdn.kacker.net/cmd046aoqmkfvrz0blp6c5byf.webm",
     type: "webm",
     form: communityNurseHomecareForm,
     formFill: {
@@ -1890,7 +1890,7 @@ export const BENCHMARK_AUDIOS = {
     },
   },
   "Clinically Viable Dictation": {
-    path: "https://maalgaadi.kacker.net/cmd2tt56bmwinrz0bi43tv8nr",
+    path: "https://maalgaadi-cdn.kacker.net/cmd2tt56bmwinrz0bi43tv8nr.webm",
     type: "webm",
     form: communityNurseHomecareForm,
     formFill: {
@@ -2200,7 +2200,7 @@ export const BENCHMARK_AUDIOS = {
     },
   },
   "Long Dictation": {
-    path: "https://maalgaadi.kacker.net/cmdih9n7op18trz0b1x8f11cp",
+    path: "https://maalgaadi-cdn.kacker.net/cmdih9n7op18trz0b1x8f11cp.webm",
     type: "webm",
     form: allStructuredTypesForm,
     formFill: {

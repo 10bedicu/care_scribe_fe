@@ -11,15 +11,15 @@ import { Skeleton } from "./ui/skeleton";
 import HistoryDetailsPage from "@/pages/HistoryDetails";
 import { twMerge } from "tailwind-merge";
 import { StatusBadge } from "./StatusBadge";
-import { useContainerRef } from "@/hooks/useContainerRef";
 
 export default function HistorySheet(props: {
   open: boolean;
   setOpen: (open: boolean) => void;
   onUseScribe: (scribe: ScribeModel) => void;
+  portalContainer?: HTMLElement | null;
+  transcriptOnly?: boolean;
 }) {
-  const { open, setOpen, onUseScribe } = props;
-  const containerRef = useContainerRef();
+  const { open, setOpen, onUseScribe, portalContainer, transcriptOnly } = props;
   const { t } = useTranslation(I18NNAMESPACE);
 
   // State for the modal
@@ -28,7 +28,7 @@ export default function HistorySheet(props: {
   );
 
   const historyQuery = useInfiniteQuery({
-    queryKey: ["scribe-history"],
+    queryKey: ["scribe-history", { transcriptOnly }],
     initialPageParam: 0,
     queryFn: async ({ pageParam = 0 }) =>
       API.scribe.list({
@@ -36,6 +36,9 @@ export default function HistorySheet(props: {
         benchmark: false,
         limit: 10,
         ordering: "-modified_date",
+        ...(typeof transcriptOnly === "boolean"
+          ? { transcript_only: transcriptOnly }
+          : {}),
       }),
     getNextPageParam: (lastPage, _, lastPageParam) => {
       if (lastPage.count > lastPageParam + 10) {
@@ -67,7 +70,7 @@ export default function HistorySheet(props: {
     <>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
-          portalProps={{ container: containerRef?.current }}
+          portalProps={{ container: portalContainer }}
           className="overflow-y-auto"
           onScroll={handleScroll}
         >
@@ -131,7 +134,7 @@ export default function HistorySheet(props: {
         onOpenChange={() => setSelectedScribe(null)}
       >
         <SheetContent
-          portalProps={{ container: containerRef?.current }}
+          portalProps={{ container: portalContainer }}
           className="overflow-y-auto py-8"
           onScroll={handleScroll}
         >

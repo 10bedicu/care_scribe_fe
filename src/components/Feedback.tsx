@@ -14,8 +14,11 @@ import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
 import { useContainerRef } from "@/hooks/useContainerRef";
 
-export default function Feedback(props: { scribe: ScribeModel }) {
-  const { scribe } = props;
+export default function Feedback(props: {
+  scribe: ScribeModel;
+  portalContainer?: HTMLElement | null;
+}) {
+  const { scribe, portalContainer } = props;
   const [feedback, setFeedback] = useState<{
     isPositive: boolean | null;
     comments: string;
@@ -25,6 +28,7 @@ export default function Feedback(props: { scribe: ScribeModel }) {
   });
 
   const containerRef = useContainerRef();
+  const dialogContainer = portalContainer ?? containerRef?.current ?? null;
   const [currentFeedback, setCurrentFeedback] = useState({
     isPositive: scribe.is_feedback_positive,
     comments: scribe.feedback_comments,
@@ -83,7 +87,10 @@ export default function Feedback(props: { scribe: ScribeModel }) {
           }
         }}
       >
-        <DialogContent portalProps={{ container: containerRef?.current }}>
+        <DialogContent
+          portalProps={{ container: dialogContainer }}
+          className="text-neutral-950 dark:text-neutral-50"
+        >
           <DialogTitle className="text-lg font-semibold">
             {feedback.isPositive
               ? "Thank you for your feedback! Can you tell us what you liked?"

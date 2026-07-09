@@ -92,7 +92,7 @@ export type ScribeModel = {
       })
     | null;
   status: (typeof SCRIBE_STATUS)[number];
-  realtime_token: string | null;
+  transcript_only: boolean;
   prompt?: string;
   meta: {
     processings?: ScribeProcessing[];
@@ -107,7 +107,12 @@ export type ScribeModel = {
 
 export type ScribeProcessing = {
   created_date?: string;
-  provider?: string;
+  // Provider info — split into chat vs transcribe (may differ)
+  chat_provider?: "openai" | "azure" | "google";
+  transcribe_provider?: "openai" | "azure" | "google";
+  // Model names (bare model, no "provider/" prefix in meta)
+  chat_model?: string;
+  transcribe_model?: string;
   thinking?: string;
   transcription_time?: number;
   completion_output_tokens?: number;
@@ -123,13 +128,16 @@ export type ScribeProcessing = {
   completion_total_tokens?: number;
   completion_time?: number;
   completion_id?: string;
+  transcription_ids?: string[];
+  transcription_allotted_output_tokens?: number;
   prompt?: string;
   function?: Record<string, unknown>;
   processed_ai_response?: Awaited<ReturnType<typeof cleanAIResponse>>["meta"];
   ai_response?: ScribeModel["ai_response"];
   form_data?: ScribeModel["form_data"];
-  chat_model?: string;
-  audio_model?: string;
+  transcript_only?: boolean;
+  retries?: number;
+  cache_name?: string;
   error?: string;
 };
 
@@ -139,6 +147,7 @@ export type ScribeCreateRequest = {
   requested_in_facility_id?: string;
   requested_in_encounter_id?: string;
   transcript?: ScribeModel["transcript"];
+  transcript_only?: boolean;
   processed_ai_response?: ScribeProcessing["processed_ai_response"];
   benchmark?: boolean;
   chat_model?: string;
@@ -240,6 +249,7 @@ export interface ScribeFileModel {
   upload_completed: boolean;
   read_signed_url: string;
   length: number;
+  mime_type: string;
 }
 
 export interface FacilityModel {
@@ -389,6 +399,8 @@ export type ScribeQuota = {
   tokens_per_user: number;
   used: number;
   allow_ocr: boolean;
+  allow_scribe: boolean;
+  allow_notes_scribe: boolean;
   tnc_hash: string | null;
   tnc_accepted_date: string | null;
 };
@@ -397,6 +409,8 @@ export type ScribeQuotaCreateRequest = {
   facility_external_id?: string;
   tokens: number;
   allow_ocr: boolean;
+  allow_scribe: boolean;
+  allow_notes_scribe: boolean;
   tokens_per_user: number;
 };
 

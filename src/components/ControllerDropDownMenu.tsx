@@ -17,38 +17,56 @@ import { I18NNAMESPACE } from "@/utils/constants";
 import { useTranslation } from "react-i18next";
 import { useMicrophones } from "@/hooks/useMicrophone";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import useAuthUser from "@/hooks/useAuthUser";
 import { ScribeModel } from "@/types";
 import HistorySheet from "./History";
-import { useContainerRef } from "@/hooks/useContainerRef";
 import { useStorage } from "@/hooks/useStorage";
+import { cn } from "@/utils/utils";
 
 export default function ControllerDropDownMenu(props: {
   onUseScribe: (scribe: ScribeModel) => void;
+  triggerClassName?: string;
+  triggerIconClassName?: string;
+  transcriptOnly?: boolean;
 }) {
   const { t } = useTranslation(I18NNAMESPACE);
-  const containerRef = useContainerRef();
   const [devMode, setDevMode] = useStorage("scribe-enable-dev-mode");
   const [fetchMicrophones, setFetchMicrophones] = useState(false);
   const [currentMic, setCurrentMic] = useStorage("scribe-microphone");
   const user = useAuthUser();
   const [historySheetOpen, setHistorySheetOpen] = useState(false);
 
+  const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(
+    null,
+  );
+
   const { microphones, error: micError } = useMicrophones(!fetchMicrophones);
 
   return (
     <>
+      {createPortal(
+        <div className="scribe-container" ref={setPortalContainer} />,
+        document.body,
+      )}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <button className="flex aspect-square w-6 items-center justify-center rounded-lg text-sm transition-all hover:bg-black/10">
+          <button
+            className={cn(
+              "flex aspect-square w-6 items-center justify-center rounded-lg text-sm transition-all hover:bg-black/10",
+              props.triggerClassName,
+            )}
+          >
             {/* Ellipsis Icon*/}
-            <DotsVerticalIcon className="text-xl" />
+            <DotsVerticalIcon
+              className={cn("text-xl", props.triggerIconClassName)}
+            />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
           className="w-48"
-          portalProps={{ container: containerRef?.current }}
+          portalProps={{ container: portalContainer }}
         >
           <DropdownMenuGroup>
             <DropdownMenuSub>
@@ -104,6 +122,8 @@ export default function ControllerDropDownMenu(props: {
         open={historySheetOpen}
         setOpen={setHistorySheetOpen}
         onUseScribe={props.onUseScribe}
+        portalContainer={portalContainer}
+        transcriptOnly={props.transcriptOnly}
       />
     </>
   );

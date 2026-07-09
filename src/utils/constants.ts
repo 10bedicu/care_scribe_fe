@@ -513,7 +513,25 @@ export const AI_MODELS = {
       output: 10,
     },
   },
-  "google/gemini-3-pro-preview": {
+  "google/gemini-3-flash-preview": {
+    cost: {
+      input: 0.5,
+      audio_input: 1,
+      output: 3,
+      cached: 0.05,
+      audio_cached: 0.1,
+    },
+  },
+  "google/gemini-3.1-flash-lite-preview": {
+    cost: {
+      input: 0.25,
+      audio_input: 0.5,
+      output: 1.5,
+      cached: 0.025,
+      audio_cached: 0.05,
+    },
+  },
+  "google/gemini-3.1-pro-preview": {
     cost: {
       input: 2,
       output: 12,

@@ -1,7 +1,7 @@
 import { ImageIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { ScribeControllerPosition, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
-import useKeyboardShortcut from "use-keyboard-shortcut";
+import useKeyboardShortcut from "@/hooks/useKeyboardShortcut";
 import { MicrophoneIcon, MicrophoneSlashIcon } from "@/utils/icons";
 import { useRef, useState } from "react";
 
