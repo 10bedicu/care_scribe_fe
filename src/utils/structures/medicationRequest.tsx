@@ -43,6 +43,10 @@ const doseRange = z.object({
   high: doseQuantity,
 });
 
+const DOSAGE_FREQUENCY_OPTIONS = Object.values(
+  MEDICATION_REQUEST_TIMING_OPTIONS,
+).map((timing) => timing.timing.code.display) as [string];
+
 const toolStructure = z.array(
   z
     .object({
@@ -69,15 +73,24 @@ const toolStructure = z.array(
         •	1 year -> the value will be 1 and unit will be “a”.
         ... and so on.
     `),
-      dosage_frequency: enumDescription(
-        Object.values(MEDICATION_REQUEST_TIMING_OPTIONS).map(
-          (timing) => timing.timing.code.display,
-        ) as [string],
-      ),
+      dosage_frequency: z
+        .string()
+        .nullable()
+        .describe(
+          `The scheduled dosing frequency for a regularly-taken medication. ENUM VALUE -- ONLY USE: ${DOSAGE_FREQUENCY_OPTIONS.join(
+            " | ",
+          )}. Leave this null when the medication is taken only as needed (PRN) / "if required" / "SOS" — set dosage_as_needed_boolean to true instead.`,
+        ),
+      dosage_as_needed_boolean: z
+        .boolean()
+        .nullable()
+        .describe(
+          'Set to true when the medication is to be taken only as needed (PRN) rather than on a fixed schedule — e.g. the clinician says "if required", "only if needed", "SOS", "when necessary", or (Hindi/Hinglish) "agar zarurat pade" / "zarurat padne par" / "jarurat pade toh". When true, leave dosage_frequency and dosage_duration null. Default to false for regularly-scheduled medications.',
+        ),
       dosage_as_needed_for: indicatorReason()
         .nullable()
         .describe(
-          "Indicator: Fill only if the medication is prescribed as needed (PRN), or if an indicator is explicitly provided. Do not assume or infer this value. If no indicator is stated, leave this field blank.",
+          "The specific clinical reason/indication for an as-needed (PRN) medication (e.g. 'for pain', 'for fever'). Only fill this when a specific reason is explicitly stated. A medication can be PRN without a reason — use dosage_as_needed_boolean to mark PRN and leave this null when no specific indication is given.",
         ),
       dosage_site: site()
         .nullable()
@@ -255,6 +268,12 @@ export const medicationRequestStructure: Structure<
         (timing) =>
           timing.timing.code.display === medicationRequest.dosage_frequency,
       );
+
+      const isPrn = !!(
+        medicationRequest.dosage_as_needed_boolean ||
+        medicationRequest.dosage_as_needed_for
+      );
+
       const medReq: MedicationRequest = {
         medication: code || undefined,
         ...(productKnowledge
@@ -280,7 +299,7 @@ export const medicationRequestStructure: Structure<
               ? [additionalInstructions]
               : [],
             timing:
-              dosageTiming && !medicationRequest.dosage_as_needed_for
+              dosageTiming && !isPrn
                 ? {
                     repeat: {
                       frequency: dosageTiming?.timing.repeat.frequency,
@@ -298,7 +317,7 @@ export const medicationRequestStructure: Structure<
                     code: dosageTiming?.timing.code,
                   }
                 : undefined,
-            as_needed_boolean: !!medicationRequest.dosage_as_needed_for,
+            as_needed_boolean: isPrn,
             as_needed_for: asNeededFor || undefined,
             site: site || undefined,
             route: route || undefined,
@@ -457,12 +476,14 @@ export const medicationRequestStructure: Structure<
               <span className="text-xs font-normal capitalize opacity-70">
                 {medicationRequest.intent?.replace("_", " ")}
               </span>
-              <span className="rounded-xl bg-white/10 px-2 py-1 text-[10px] italic">
-                SNOMED:{" "}
-                {medicationRequest.medication?.code ||
-                  medicationRequest.requested_product_internal?.code?.code ||
-                  "N/A"}
-              </span>
+              {(medicationRequest.medication?.code ||
+                medicationRequest.requested_product_internal?.code?.code) && (
+                <span className="rounded-xl bg-white/10 px-2 py-1 text-[10px] italic">
+                  SNOMED:{" "}
+                  {medicationRequest.medication?.code ||
+                    medicationRequest.requested_product_internal?.code?.code}
+                </span>
+              )}
             </div>
             <div className="text-xs opacity-70">
               Authored On{" "}
