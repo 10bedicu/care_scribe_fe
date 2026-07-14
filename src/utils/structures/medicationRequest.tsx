@@ -5,7 +5,7 @@ import {
   validateEnumDescription,
 } from ".";
 import { z } from "zod";
-import { Code, UserBareMinimum } from "@/types";
+import { Code, ProductKnowledgeBase, UserBareMinimum } from "@/types";
 import {
   BOUNDS_DURATION_UNITS,
   DOSAGE_UNITS_CODES,
@@ -24,6 +24,7 @@ import {
 } from "./code";
 import {
   lookupCode,
+  searchProductKnowledge,
   shiftUTCToLocalClockTime,
   validateTime,
 } from "../response-utils";
@@ -129,18 +130,6 @@ export interface DoseRange {
   high: DosageQuantity;
 }
 
-export interface ProductKnowledgeBase {
-  id: string;
-  slug: string;
-  product_type: unknown;
-  status: unknown;
-  code?: Code;
-  name: string;
-  names: unknown[];
-  storage_guidelines: unknown[];
-  definitional?: unknown;
-}
-
 interface MedicationRequest {
   status?: (typeof MEDICATION_REQUEST_STATUS)[number];
   intent?: (typeof MEDICATION_REQUEST_INTENT)[number];
@@ -196,12 +185,21 @@ export const medicationRequestStructure: Structure<
     const errors: string[] = [];
 
     const parsed = data.map(async (medicationRequest) => {
-      const code = await lookupCode(
-        medicationRequest.medicine.code,
-        medicationRequest.medicine.display_names,
-        "system-medication",
-      );
-      if (!code) {
+      const productKnowledge = meta.facilityId
+        ? await searchProductKnowledge(
+            meta.facilityId,
+            medicationRequest.medicine.display_names,
+          )
+        : null;
+
+      const code = productKnowledge
+        ? undefined
+        : await lookupCode(
+            medicationRequest.medicine.code,
+            medicationRequest.medicine.display_names,
+            "system-medication",
+          );
+      if (!productKnowledge && !code) {
         errors.push(
           `Could not find a medication that matches with ${medicationRequest.medicine.display_names[0]}. Please enter manually.`,
         );
@@ -258,7 +256,13 @@ export const medicationRequestStructure: Structure<
           timing.timing.code.display === medicationRequest.dosage_frequency,
       );
       const medReq: MedicationRequest = {
-        medication: code,
+        medication: code || undefined,
+        ...(productKnowledge
+          ? {
+              requested_product: productKnowledge.id,
+              requested_product_internal: productKnowledge,
+            }
+          : {}),
         intent:
           validateEnumDescription(
             medicationRequest.intent,
@@ -415,11 +419,19 @@ export const medicationRequestStructure: Structure<
     const newMedReq = (await Promise.all(parsed)).filter(
       (s) => !!s,
     ) as MedicationRequest[];
-    // remove any duplicates
-    const currentCodes = new Set(currentData?.map((s) => s.medication?.code));
+    // remove any duplicates, keyed by product knowledge (when resolved to a
+    // facility product) or the medication value-set code otherwise.
+    const dedupKey = (s: MedicationRequest) =>
+      s.requested_product || s.medication?.code;
+    const currentKeys = new Set(
+      currentData?.map(dedupKey).filter((k): k is string => !!k),
+    );
     const merged = [
       ...(currentData || []),
-      ...newMedReq.filter((s) => !currentCodes.has(s.medication?.code)),
+      ...newMedReq.filter((s) => {
+        const key = dedupKey(s);
+        return !key || !currentKeys.has(key);
+      }),
     ];
     return {
       data: merged,
@@ -439,7 +451,8 @@ export const medicationRequestStructure: Structure<
               "display" in medicationRequest.medication
                 ? medicationRequest.medication.display
                 : medicationRequest.requested_product_internal
-                  ? medicationRequest.requested_product_internal.code?.display
+                  ? medicationRequest.requested_product_internal.name ||
+                    medicationRequest.requested_product_internal.code?.display
                   : "N/A"}{" "}
               <span className="text-xs font-normal capitalize opacity-70">
                 {medicationRequest.intent?.replace("_", " ")}
@@ -511,6 +524,12 @@ export const medicationRequestStructure: Structure<
             {medicationRequest.note && (
               <div className="mt-1 whitespace-pre-wrap italic opacity-80">
                 Note: {medicationRequest.note}
+              </div>
+            )}
+            {(medicationRequest.requested_product ||
+              medicationRequest.requested_product_internal) && (
+              <div className="mt-1 text-[10px] italic opacity-60">
+                from product knowledge
               </div>
             )}
           </div>

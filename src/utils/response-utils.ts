@@ -1,5 +1,6 @@
 import {
   Code,
+  ProductKnowledgeBase,
   ScribeAIResponse,
   ScribeDeseriliazedValue,
   ScribeHydratedAndRawField,
@@ -483,6 +484,40 @@ export async function searchByDisplay(
     } catch (err) {
       console.warn(
         `searchByDisplay failed for slug "${slug}" / display "${d}"`,
+        err,
+      );
+    }
+  }
+  return null;
+}
+
+export async function searchProductKnowledge(
+  facilityId: string,
+  displays: string[],
+): Promise<ProductKnowledgeBase | null> {
+  for (const d of displays) {
+    if (!d) continue;
+    try {
+      const { results } = await API.productKnowledge.list({
+        facility: facilityId,
+        name: d,
+        status: "active",
+        limit: 10,
+      });
+      if (!results || !results.length) continue;
+      const fuse = new Fuse(results, {
+        keys: ["name", "names.name"],
+        ignoreLocation: true,
+        includeScore: true,
+        threshold: 0.4,
+      });
+      const best = fuse.search(d)[0]?.item;
+      if (best) {
+        return best;
+      }
+    } catch (err) {
+      console.warn(
+        `searchProductKnowledge failed for facility "${facilityId}" / display "${d}"`,
         err,
       );
     }

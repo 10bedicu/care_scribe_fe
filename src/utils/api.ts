@@ -4,6 +4,7 @@ import {
   CreateFileResponse,
   FacilityModel,
   FileUploadModel,
+  ProductKnowledgeBase,
   ScribeCreateRequest,
   ScribeFileModel,
   ScribeModel,
@@ -157,6 +158,27 @@ export const API = {
       }>(`/api/v1/valueset/${system}/expand/`, "POST", {
         search: query,
         count,
+      }),
+  },
+  productKnowledge: {
+    list: (
+      filters: {
+        facility?: string;
+        name?: string;
+        category?: string;
+        status?: string;
+        offset?: number;
+        limit?: number;
+      } = {},
+    ) =>
+      request<{
+        next: string | null;
+        previous: string | null;
+        results: ProductKnowledgeBase[];
+        count: number;
+      }>(`/api/v1/product_knowledge/`, "GET", {
+        include_instance: true,
+        ...filters,
       }),
   },
   activityDefinitions: {

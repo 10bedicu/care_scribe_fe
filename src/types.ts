@@ -383,6 +383,23 @@ export interface Code {
   display?: string;
 }
 
+export interface ProductKnowledgeName {
+  name_type?: string;
+  name: string;
+}
+
+export interface ProductKnowledgeBase {
+  id: string;
+  slug: string;
+  product_type: unknown;
+  status: unknown;
+  code?: Code;
+  name: string;
+  names: ProductKnowledgeName[];
+  storage_guidelines: unknown[];
+  definitional?: unknown;
+}
+
 export type ScribeControllerPosition =
   | "top-left"
   | "top-right"
