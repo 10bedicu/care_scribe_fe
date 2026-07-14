@@ -39,11 +39,14 @@ const request = async <T>(
   let payload: null | string = formdata ? data : JSON.stringify(data);
 
   if (method === "GET") {
-    const requestParams = data
-      ? `?${Object.keys(data)
-          .filter((key) => data[key] !== null && data[key] !== undefined)
-          .map((key) => `${key}=${data[key]}`)
-          .join("&")}`
+    const searchParams = new URLSearchParams();
+    if (data) {
+      Object.keys(data)
+        .filter((key) => data[key] !== null && data[key] !== undefined)
+        .forEach((key) => searchParams.append(key, String(data[key])));
+    }
+    const requestParams = searchParams.toString()
+      ? `?${searchParams.toString()}`
       : "";
     url += requestParams;
     payload = null;
@@ -124,7 +127,10 @@ export const API = {
       data: Partial<FileUploadModel>,
     ) =>
       request<FileUploadModel>(
-        `/api/care_scribe/scribe_file/${id}/?file_type=${fileType}&associating_id=${associatingId}`,
+        `/api/care_scribe/scribe_file/${id}/?${new URLSearchParams({
+          file_type: fileType,
+          associating_id: associatingId,
+        }).toString()}`,
         "PATCH",
         data,
       ),

@@ -45,7 +45,7 @@ const doseRange = z.object({
 
 const DOSAGE_FREQUENCY_OPTIONS = Object.values(
   MEDICATION_REQUEST_TIMING_OPTIONS,
-).map((timing) => timing.timing.code.display) as [string];
+).map((timing) => timing.timing.code.display);
 
 const toolStructure = z.array(
   z
