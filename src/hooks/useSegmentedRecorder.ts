@@ -133,6 +133,7 @@ const useSegmentedRecording = () => {
     audioBlobs,
     setAudioBlobs,
     microphoneAccess, // Return microphoneAccess
+    stream: recorder?.stream ?? null,
   };
 };
 

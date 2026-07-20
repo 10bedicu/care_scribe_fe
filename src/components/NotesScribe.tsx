@@ -1,7 +1,7 @@
 import { cn } from "@/utils/utils";
 import { Button } from "./ui/button";
 import { MicrophoneIcon } from "@/utils/icons";
-import { ReloadIcon } from "@radix-ui/react-icons";
+import { ExclamationTriangleIcon, ReloadIcon } from "@radix-ui/react-icons";
 import {
   QueryClient,
   QueryClientProvider,
@@ -28,6 +28,8 @@ import useKeyboardShortcut from "@/hooks/useKeyboardShortcut";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/utils/constants";
 import ControllerDropDownMenu from "./ControllerDropDownMenu";
+import SpeechIndicator from "./SpeechIndicator";
+import { useAudioLevel } from "@/hooks/useAudioLevel";
 
 export type NotesScribeProps = {
   message: string;
@@ -45,6 +47,14 @@ type NotesScribeStatus =
 export function NotesScribe(props: NotesScribeProps) {
   const { t } = useTranslation(I18NNAMESPACE);
   const path = usePath();
+
+  const getTranscriptionErrorMessage = (err: unknown) => {
+    const reason = err instanceof Error ? err.message : null;
+    if (reason && reason !== "Transcription failed") {
+      return t("failed_to_transcribe_recording_reason", { reason });
+    }
+    return t("failed_to_transcribe_recording");
+  };
 
   const facilityId = path?.includes("/facility/")
     ? path.split("/facility/")[1].split("/")[0]
@@ -66,6 +76,8 @@ export function NotesScribe(props: NotesScribeProps) {
   const [error, setError] = useState<string | null>(null);
   const [scribe, setScribe] = useState<ScribeModel | null>(null);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSlowNetwork, setIsSlowNetwork] = useState(false);
   const [proposedTranscript, setProposedTranscript] = useState<string | null>(
     null,
   );
@@ -84,12 +96,15 @@ export function NotesScribe(props: NotesScribeProps) {
     stopRecording: stopSegmentedRecording,
     resetRecording,
     audioBlobs,
+    stream,
   } = useSegmentedRecording();
 
   const isRecording = status === "RECORDING";
   const isBusy = status === "UPLOADING" || status === "TRANSCRIBING";
   const isReviewing = status === "REVIEWING";
   const isFailed = status === "FAILED";
+
+  const audioLevels = useAudioLevel(isRecording ? stream : null, 3);
 
   useEffect(() => {
     if (container.current) {
@@ -111,6 +126,8 @@ export function NotesScribe(props: NotesScribeProps) {
     isAbortedRef.current = false;
     setError(null);
     setProposedTranscript(null);
+    setUploadProgress(0);
+    setIsSlowNetwork(false);
     setStatus("UPLOADING");
 
     let scribeInstance = scribe;
@@ -128,12 +145,30 @@ export function NotesScribe(props: NotesScribeProps) {
       }
 
       if (!filesUploaded) {
+        const totalUploads = blobs.length;
+        const uploadPercentages = new Array(totalUploads).fill(0);
+        const updateUploadProgress = (index: number, percent: number) => {
+          uploadPercentages[index] = percent;
+          const overall = Math.round(
+            uploadPercentages.reduce((sum, p) => sum + p, 0) / totalUploads,
+          );
+          setUploadProgress(overall);
+        };
+
+        const slowNetworkFlags = new Array(totalUploads).fill(false);
+        const updateSlowNetwork = (index: number, isSlow: boolean) => {
+          slowNetworkFlags[index] = isSlow;
+          setIsSlowNetwork(slowNetworkFlags.some(Boolean));
+        };
+
         await Promise.all(
-          blobs.map((blob) =>
+          blobs.map((blob, index) =>
             uploadScribeFile(
               blob,
               scribeInstance!.external_id,
               ScribeFileType.AUDIO,
+              (percent) => updateUploadProgress(index, percent),
+              (isSlow) => updateSlowNetwork(index, isSlow),
             ),
           ),
         );
@@ -189,8 +224,9 @@ export function NotesScribe(props: NotesScribeProps) {
     } catch (err) {
       console.error("Failed to transcribe note", err);
       if (!isAbortedRef.current) {
-        setError(t("failed_to_transcribe_recording"));
-        toast.error(t("failed_to_transcribe_recording"));
+        const message = getTranscriptionErrorMessage(err);
+        setError(message);
+        toast.error(message);
         setStatus("FAILED");
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
@@ -208,6 +244,8 @@ export function NotesScribe(props: NotesScribeProps) {
     setScribe(null);
     setUploadComplete(false);
     setProposedTranscript(null);
+    setUploadProgress(0);
+    setIsSlowNetwork(false);
     resetRecording();
     setStatus("IDLE");
   };
@@ -230,6 +268,8 @@ export function NotesScribe(props: NotesScribeProps) {
     setProposedTranscript(null);
     setScribe(null);
     setUploadComplete(false);
+    setUploadProgress(0);
+    setIsSlowNetwork(false);
     resetRecording();
     setStatus("IDLE");
   };
@@ -288,8 +328,9 @@ export function NotesScribe(props: NotesScribeProps) {
     } catch (err) {
       console.error("Failed to re-process transcription", err);
       if (!isAbortedRef.current) {
-        setError(t("failed_to_transcribe_recording"));
-        toast.error(t("failed_to_transcribe_recording"));
+        const message = getTranscriptionErrorMessage(err);
+        setError(message);
+        toast.error(message);
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
       setStatus("IDLE");
@@ -341,6 +382,8 @@ export function NotesScribe(props: NotesScribeProps) {
       resetRecording();
       setScribe(null);
       setUploadComplete(false);
+      setUploadProgress(0);
+      setIsSlowNetwork(false);
       await startSegmentedRecording();
       setStatus("RECORDING");
       timer.start();
@@ -355,7 +398,7 @@ export function NotesScribe(props: NotesScribeProps) {
 
   const busyLabel =
     status === "UPLOADING"
-      ? t("uploading")
+      ? t("uploading", { percent: uploadProgress })
       : status === "TRANSCRIBING"
         ? t("transcribing")
         : null;
@@ -363,17 +406,23 @@ export function NotesScribe(props: NotesScribeProps) {
   return (
     <div className="scribe-container relative" ref={container}>
       {isRecording && (
-        <div className="absolute -top-12 left-1/2 z-10 -translate-x-1/2 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
+        <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
           {timer.time}
         </div>
       )}
       {busyLabel && (
-        <div className="absolute -top-12 left-1/2 z-10 -translate-x-1/2 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
-          {busyLabel}
+        <div className="absolute bottom-full left-1/2 z-10 mb-2 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
+          <span>{busyLabel}</span>
+          {status === "UPLOADING" && isSlowNetwork && (
+            <span className="flex items-center gap-1 text-[10px] font-normal text-yellow-400">
+              <ExclamationTriangleIcon className="size-2.5 shrink-0" />
+              {t("slow_network_detected")}
+            </span>
+          )}
         </div>
       )}
       {error && !isFailed && (
-        <div className="absolute -top-12 left-1/2 z-10 -translate-x-1/2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
+        <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
           {error}
         </div>
       )}
@@ -417,6 +466,8 @@ export function NotesScribe(props: NotesScribeProps) {
           </div>
           {isBusy ? (
             <ReloadIcon className="size-5 animate-spin text-white" />
+          ) : isRecording ? (
+            <SpeechIndicator levels={audioLevels} />
           ) : (
             <MicrophoneIcon className="size-8 fill-current text-white" />
           )}

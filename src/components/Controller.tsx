@@ -13,6 +13,7 @@ import {
   ChevronUpIcon,
   Cross1Icon,
   CrossCircledIcon,
+  ExclamationTriangleIcon,
   ImageIcon,
 } from "@radix-ui/react-icons";
 import FileUpload from "./FileUpload";
@@ -23,8 +24,10 @@ import { I18NNAMESPACE } from "@/utils/constants";
 import Lottie from "lottie-react";
 import ScribeButton from "./ScribeButton";
 import ScribeReview from "./Review";
+import SpeechIndicator from "./SpeechIndicator";
 import { Textarea } from "./ui/textarea";
 import animationData from "../assets/animation.json";
+import useAudioLevel from "@/hooks/useAudioLevel";
 import useSegmentedRecording from "@/hooks/useSegmentedRecorder";
 import { useTimer } from "@/hooks/useTimer";
 import { useTranslation } from "react-i18next";
@@ -83,6 +86,8 @@ export function Controller(props: {
 }) {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSlowNetwork, setIsSlowNetwork] = useState(false);
   const { t } = useTranslation(I18NNAMESPACE);
   const [transcript, setTranscript] = useState<string>();
   const timer = useTimer();
@@ -120,7 +125,10 @@ export function Controller(props: {
     resetRecording,
     audioBlobs,
     setAudioBlobs,
+    stream,
   } = useSegmentedRecording();
+
+  const audioLevels = useAudioLevel(status === "RECORDING" ? stream : null, 5);
 
   const meta = scribe?.meta.processings?.[scribe.meta.processings.length - 1];
 
@@ -264,16 +272,41 @@ export function Controller(props: {
       requested_in_encounter_id: encounterId || "",
     });
 
+    const totalUploads = audioBlobs.length + files.length;
+    const uploadPercentages = new Array(totalUploads).fill(0);
+    const updateUploadProgress = (index: number, percent: number) => {
+      uploadPercentages[index] = percent;
+      const overall = Math.round(
+        uploadPercentages.reduce((sum, p) => sum + p, 0) / totalUploads,
+      );
+      setUploadProgress(overall);
+    };
+
+    const slowNetworkFlags = new Array(totalUploads).fill(false);
+    const updateSlowNetwork = (index: number, isSlow: boolean) => {
+      slowNetworkFlags[index] = isSlow;
+      setIsSlowNetwork(slowNetworkFlags.some(Boolean));
+    };
+
     try {
       await Promise.all([
-        ...audioBlobs.map((blob) =>
-          uploadScribeFile(blob, data?.external_id ?? "", ScribeFileType.AUDIO),
+        ...audioBlobs.map((blob, index) =>
+          uploadScribeFile(
+            blob,
+            data?.external_id ?? "",
+            ScribeFileType.AUDIO,
+            (percent) => updateUploadProgress(index, percent),
+            (isSlow) => updateSlowNetwork(index, isSlow),
+          ),
         ),
-        ...files.map((file) =>
+        ...files.map((file, index) =>
           uploadScribeFile(
             file,
             data?.external_id ?? "",
             ScribeFileType.DOCUMENT,
+            (percent) =>
+              updateUploadProgress(audioBlobs.length + index, percent),
+            (isSlow) => updateSlowNetwork(audioBlobs.length + index, isSlow),
           ),
         ),
       ]);
@@ -336,6 +369,8 @@ export function Controller(props: {
     setToReview(undefined);
     timer.stop();
     timer.reset();
+    setUploadProgress(0);
+    setIsSlowNetwork(false);
     setStatus("UPLOADING");
     stopSegmentedRecording();
 
@@ -386,6 +421,8 @@ export function Controller(props: {
     setTranscript(undefined);
     setLastTranscript(undefined);
     setScribe(null);
+    setUploadProgress(0);
+    setIsSlowNetwork(false);
   };
 
   const handleProcessFile = async () => {
@@ -395,6 +432,8 @@ export function Controller(props: {
     }
     setError(null);
     isAbortedRef.current = false;
+    setUploadProgress(0);
+    setIsSlowNetwork(false);
     setStatus("UPLOADING");
     setError(null);
     const fields = getQuestionInputs(props.formState);
@@ -438,6 +477,11 @@ export function Controller(props: {
             <div className="flex items-center justify-center p-4 py-10">
               <div className="text-center">
                 <div className="text-xl font-black">{timer.time}</div>
+                <SpeechIndicator
+                  levels={audioLevels}
+                  barClassName="bg-neutral-800"
+                  className="my-2"
+                />
                 <p>{t("hearing")}</p>
               </div>
             </div>
@@ -485,15 +529,36 @@ export function Controller(props: {
           {(status === "TRANSCRIBING" ||
             status === "UPLOADING" ||
             status === "THINKING") && (
-            <div className="flex flex-col items-center justify-center gap-2">
+            <div className="flex flex-col items-center justify-center gap-2 p-4">
               <div className="w-32">
                 <Lottie animationData={animationData} loop autoPlay />
               </div>
               <div className="-translate-y-4 text-sm text-neutral-700">
                 {status === "UPLOADING"
-                  ? t("uploading_file")
+                  ? t("uploading", { percent: uploadProgress })
                   : t("copilot_thinking")}
               </div>
+              {status === "UPLOADING" && (
+                <div
+                  className="h-1.5 w-40 -translate-y-4 overflow-hidden rounded-full bg-neutral-200"
+                  role="progressbar"
+                  aria-valuenow={uploadProgress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={t("uploading", { percent: uploadProgress })}
+                >
+                  <div
+                    className="bg-primary-500 h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+              {status === "UPLOADING" && isSlowNetwork && (
+                <div className="flex -translate-y-3 items-center gap-1.5 text-xs font-medium text-yellow-600">
+                  <ExclamationTriangleIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span>{t("slow_network_detected")}</span>
+                </div>
+              )}
             </div>
           )}
           {typeof lastTranscript !== "undefined" &&
