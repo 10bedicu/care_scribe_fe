@@ -1,4 +1,8 @@
-import { ScribeQuota, ScribeQuotaCreateRequest } from "@/types";
+import {
+  ScribeQuota,
+  ScribeQuotaCreateRequest,
+  ScribeQuotaFacilityOption,
+} from "@/types";
 import {
   Sheet,
   SheetClose,
@@ -25,15 +29,19 @@ import {
   CommandItem,
   CommandList,
 } from "./ui/command";
-import { CheckIcon, CaretSortIcon } from "@radix-ui/react-icons";
+import { CheckIcon, CaretSortIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { cn } from "@/utils/utils";
 import { Skeleton } from "./ui/skeleton";
+import { Badge } from "./ui/badge";
 
 export default function QuotaSheet(props: {
   quota?: ScribeQuota;
   open: boolean;
   onClose: () => void;
-  onSubmit: (quota: ScribeQuotaCreateRequest) => void;
+  onSubmit: (
+    quota: ScribeQuotaCreateRequest,
+    facilities: ScribeQuotaFacilityOption[],
+  ) => void | Promise<unknown>;
   onDelete: () => void;
 }) {
   const { quota: initQuota, open, onClose, onSubmit } = props;
@@ -50,14 +58,58 @@ export default function QuotaSheet(props: {
     tokens_per_user: 100000,
   });
 
+  const [selectedFacilities, setSelectedFacilities] = useState<
+    ScribeQuotaFacilityOption[]
+  >([]);
+
+  const toggleFacility = (facility: ScribeQuotaFacilityOption) => {
+    setSelectedFacilities((prev) =>
+      prev.some((f) => f.id === facility.id)
+        ? prev.filter((f) => f.id !== facility.id)
+        : [...prev, facility],
+    );
+  };
+
+  const isCreating = !initQuota?.external_id;
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await onSubmit(quota, isCreating ? selectedFacilities : []);
+    } catch {
+      // Parent reports the error; keep the form intact so it can be corrected.
+      return;
+    } finally {
+      setSubmitting(false);
+    }
+    if (isCreating) {
+      setSelectedFacilities([]);
+      setQuota({
+        facility_external_id: "",
+        tokens: 1000000,
+        allow_ocr: false,
+        allow_scribe: true,
+        allow_notes_scribe: true,
+        tokens_per_user: 100000,
+      });
+    }
+  };
+
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
 
   const facilityQuery = useQuery({
-    queryKey: ["all-facilities", debouncedSearchQuery],
+    queryKey: ["scribe-unassigned-facilities", debouncedSearchQuery],
     queryFn: () =>
-      API.facilities.all({ limit: 50, search_text: debouncedSearchQuery }),
+      API.quotas.unassignedFacilities({
+        limit: 50,
+        search: debouncedSearchQuery || undefined,
+      }),
+    // Refetches on every open so newly assigned or freed facilities are reflected.
+    enabled: open && isCreating,
   });
 
   useEffect(() => {
@@ -94,9 +146,9 @@ export default function QuotaSheet(props: {
           Scribe services based on the number of tokens allocated.
         </SheetDescription>
         <div className="p-4 pt-0">
-          {!initQuota?.external_id && (
+          {isCreating && (
             <>
-              <label>{t("facility")}</label>
+              <label>{t("facilities")}</label>
               <Popover
                 modal={false}
                 open={comboboxOpen}
@@ -109,12 +161,11 @@ export default function QuotaSheet(props: {
                     aria-expanded={comboboxOpen}
                     className="w-full justify-between"
                   >
-                    {quota.facility_external_id
-                      ? facilityQuery.data?.results.find(
-                          (facility) =>
-                            facility.id === quota.facility_external_id,
-                        )?.name
-                      : t("facility")}
+                    {selectedFacilities.length
+                      ? t("n_facilities_selected", {
+                          count: selectedFacilities.length,
+                        })
+                      : t("select_facilities")}
                     <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -146,19 +197,20 @@ export default function QuotaSheet(props: {
                           <CommandItem
                             key={facility.id}
                             value={facility.id || ""}
-                            onSelect={(currentValue) => {
-                              setQuota({
-                                ...quota,
-                                facility_external_id: currentValue,
-                              });
-                              setComboboxOpen(false);
-                            }}
+                            onSelect={() =>
+                              toggleFacility({
+                                id: facility.id || "",
+                                name: facility.name || "",
+                              })
+                            }
                           >
                             {facility.name}
                             <CheckIcon
                               className={cn(
                                 "ml-auto h-4 w-4",
-                                quota.facility_external_id === facility.id
+                                selectedFacilities.some(
+                                  (f) => f.id === facility.id,
+                                )
                                   ? "opacity-100"
                                   : "opacity-0",
                               )}
@@ -170,6 +222,28 @@ export default function QuotaSheet(props: {
                   </Command>
                 </PopoverContent>
               </Popover>
+              {selectedFacilities.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {selectedFacilities.map((facility) => (
+                    <Badge
+                      key={facility.id}
+                      variant="secondary"
+                      className="gap-1"
+                    >
+                      {facility.name}
+                      <button
+                        type="button"
+                        aria-label={t("remove_facility", {
+                          name: facility.name,
+                        })}
+                        onClick={() => toggleFacility(facility)}
+                      >
+                        <Cross2Icon className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </>
           )}
           <div className="mt-4">
@@ -203,6 +277,7 @@ export default function QuotaSheet(props: {
               <div className="flex items-center justify-between">
                 <label>{t("forms")}</label>
                 <Switch
+                  className="data-[state=checked]:bg-primary-700"
                   checked={quota.allow_scribe}
                   onCheckedChange={(checked) =>
                     setQuota({ ...quota, allow_scribe: checked })
@@ -212,6 +287,7 @@ export default function QuotaSheet(props: {
               <div className="flex items-center justify-between">
                 <label>{t("ocr")}</label>
                 <Switch
+                  className="data-[state=checked]:bg-primary-700"
                   checked={quota.allow_ocr}
                   onCheckedChange={(checked) =>
                     setQuota({ ...quota, allow_ocr: checked })
@@ -221,6 +297,7 @@ export default function QuotaSheet(props: {
               <div className="flex items-center justify-between">
                 <label>{t("notes")}</label>
                 <Switch
+                  className="data-[state=checked]:bg-primary-700"
                   checked={quota.allow_notes_scribe}
                   onCheckedChange={(checked) =>
                     setQuota({ ...quota, allow_notes_scribe: checked })
@@ -230,25 +307,19 @@ export default function QuotaSheet(props: {
             </div>
           </div>
           <SheetFooter className="p-0">
-            <SheetClose>
-              <Button
-                disabled={!quota.facility_external_id || quota.tokens < 1}
-                onClick={() => {
-                  onSubmit(quota);
-                  setQuota({
-                    facility_external_id: "",
-                    tokens: 1000000,
-                    allow_ocr: false,
-                    allow_scribe: true,
-                    allow_notes_scribe: true,
-                    tokens_per_user: 100000,
-                  });
-                }}
-                className="mt-4 w-full"
-              >
-                {initQuota ? t("update_quota") : t("create_quota")}
-              </Button>
-            </SheetClose>
+            <Button
+              disabled={
+                submitting ||
+                (isCreating
+                  ? !selectedFacilities.length
+                  : !quota.facility_external_id) ||
+                quota.tokens < 1
+              }
+              onClick={handleSubmit}
+              className="mt-4 w-full"
+            >
+              {initQuota ? t("update_quota") : t("create_quota")}
+            </Button>
             {initQuota?.external_id && (
               <SheetClose>
                 <Button

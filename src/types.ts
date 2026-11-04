@@ -414,6 +414,24 @@ export type ScribeQuotaCreateRequest = {
   tokens_per_user: number;
 };
 
+export type ScribeQuotaFacilityOption = {
+  id: string;
+  name: string;
+};
+
+export type ScribeQuotaBulkCreateRequest = Omit<
+  ScribeQuotaCreateRequest,
+  "facility_external_id"
+> & {
+  facility_external_ids: string[];
+};
+
+export type ScribeQuotaBulkUpdateRequest = Partial<
+  Omit<ScribeQuotaCreateRequest, "facility_external_id">
+> & {
+  external_ids: string[];
+};
+
 export type ScribeQuotaFilter = {
   facility?: string | null;
   username?: string | null;
