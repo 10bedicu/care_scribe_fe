@@ -414,6 +414,28 @@ export type ScribeQuotaCreateRequest = {
   tokens_per_user: number;
 };
 
+export type ScribeQuotaFacilityOption = {
+  id: string;
+  name: string;
+};
+
+export type ScribeQuotaBulkChanges = Partial<
+  Omit<ScribeQuotaCreateRequest, "facility_external_id">
+>;
+
+export type BatchSubRequest = {
+  reference_id: string;
+  url: string;
+  method: "POST" | "PATCH" | "DELETE";
+  body: object;
+};
+
+export type BatchRequestResult = {
+  reference_id: string;
+  status_code: number;
+  data?: unknown;
+};
+
 export type ScribeQuotaFilter = {
   facility?: string | null;
   username?: string | null;
