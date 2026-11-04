@@ -1,4 +1,4 @@
-import { ScribeQuota, ScribeQuotaBulkUpdateRequest } from "@/types";
+import { ScribeQuota, ScribeQuotaBulkChanges } from "@/types";
 import {
   Sheet,
   SheetContent,
@@ -30,11 +30,6 @@ const INITIAL_FEATURES: Record<FeatureKey, FeatureChange> = {
   allow_ocr: "keep",
   allow_notes_scribe: "keep",
 };
-
-export type ScribeQuotaBulkChanges = Omit<
-  ScribeQuotaBulkUpdateRequest,
-  "external_ids"
->;
 
 export default function BulkQuotaEditSheet(props: {
   quotas: ScribeQuota[];

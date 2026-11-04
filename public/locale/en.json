@@ -154,8 +154,8 @@
   "remove_facility": "Remove {{name}}",
   "quotas_created_successfully_one": "{{count}} quota created successfully",
   "quotas_created_successfully_other": "{{count}} quotas created successfully",
-  "bulk_quota_creation_failed_one": "No quotas were created. {{count}} facility has errors:",
-  "bulk_quota_creation_failed_other": "No quotas were created. {{count}} facilities have errors:",
+  "bulk_quota_creation_failed_one": "{{count}} quota could not be created. It is still selected so you can retry.",
+  "bulk_quota_creation_failed_other": "{{count}} quotas could not be created. They are still selected so you can retry.",
   "bulk_edit_quotas_one": "Edit {{count}} Quota",
   "bulk_edit_quotas_other": "Edit {{count}} Quotas",
   "bulk_edit_quotas_description": "Update tokens and features for all selected quotas at once.",
@@ -168,8 +168,8 @@
   "update_quotas_other": "Update {{count}} Quotas",
   "quotas_updated_successfully_one": "{{count}} quota updated successfully",
   "quotas_updated_successfully_other": "{{count}} quotas updated successfully",
-  "bulk_quota_update_failed_one": "No quotas were updated. {{count}} quota has errors:",
-  "bulk_quota_update_failed_other": "No quotas were updated. {{count}} quotas have errors:",
+  "bulk_quota_update_failed_one": "{{count}} quota could not be updated. It is still selected so you can retry.",
+  "bulk_quota_update_failed_other": "{{count}} quotas could not be updated. They are still selected so you can retry.",
   "n_selected": "{{count}} selected",
   "clear_selection": "Clear selection",
   "edit_selected": "Edit selected",
@@ -183,6 +183,6 @@
   "delete_quotas_other": "Delete {{count}} Quotas",
   "quotas_deleted_successfully_one": "{{count}} quota deleted successfully",
   "quotas_deleted_successfully_other": "{{count}} quotas deleted successfully",
-  "bulk_quota_deletion_failed_one": "No quotas were deleted. {{count}} quota has errors:",
-  "bulk_quota_deletion_failed_other": "No quotas were deleted. {{count}} quotas have errors:"
+  "bulk_quota_deletion_failed_one": "{{count}} quota could not be deleted. It is still selected so you can retry.",
+  "bulk_quota_deletion_failed_other": "{{count}} quotas could not be deleted. They are still selected so you can retry."
 }

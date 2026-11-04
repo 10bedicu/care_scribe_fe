@@ -1,7 +1,5 @@
 import SidebarIcon from "@/components/Icon";
-import BulkQuotaEditSheet, {
-  ScribeQuotaBulkChanges,
-} from "@/components/BulkQuotaEditSheet";
+import BulkQuotaEditSheet from "@/components/BulkQuotaEditSheet";
 import { PaginationControls } from "@/components/Pagination";
 import QuotaSheet from "@/components/QuotaSheet";
 import { Badge } from "@/components/ui/badge";
@@ -34,11 +32,13 @@ import {
 } from "@/components/ui/table";
 import {
   ScribeQuota,
+  ScribeQuotaBulkChanges,
   ScribeQuotaCreateRequest,
   ScribeQuotaFacilityOption,
   ScribeQuotaFilter,
 } from "@/types";
 import { API } from "@/utils/api";
+import { BatchFailure, BatchOutcome, runBatched } from "@/utils/batch";
 import { I18NNAMESPACE } from "@/utils/constants";
 import { debounce } from "@/utils/utils";
 import {
@@ -56,6 +56,8 @@ import { useContainerRef } from "@/hooks/useContainerRef";
 
 const quotaLabel = (quota?: ScribeQuota) =>
   quota?.facility ? quota.facility.name : quota?.user?.username;
+
+const QUOTA_URL = "/api/care_scribe/quota/";
 
 export default function ScribeQuotas() {
   const { t } = useTranslation(I18NNAMESPACE);
@@ -94,6 +96,39 @@ export default function ScribeQuotas() {
       }),
   });
 
+  const reportOutcome = (
+    outcome: BatchOutcome,
+    labelFor: (id: string) => string | undefined,
+    successKey: string,
+    failureKey: string,
+  ) => {
+    if (outcome.succeeded.length) {
+      toast.success(t(successKey, { count: outcome.succeeded.length }));
+      quotasQuery.refetch();
+    }
+    if (!outcome.failed.length) return;
+
+    const messages = Object.entries(outcome.errors).map(
+      ([id, message]) => `${labelFor(id) || id}: ${message}`,
+    );
+    toast.error(t(failureKey, { count: outcome.failed.length }), {
+      description: messages.length ? (
+        <ul className="list-disc pl-4">
+          {messages.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      ) : undefined,
+    });
+  };
+
+  const keepSelected = (ids: string[]) =>
+    setSelectedQuotas((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([id]) => ids.includes(id)),
+      ),
+    );
+
   const newQuotasMutation = useMutation({
     mutationFn: ({
       quota,
@@ -102,50 +137,23 @@ export default function ScribeQuotas() {
       quota: ScribeQuotaCreateRequest;
       facilities: ScribeQuotaFacilityOption[];
     }) =>
-      API.quotas.bulkCreate({
-        tokens: quota.tokens,
-        tokens_per_user: quota.tokens_per_user,
-        allow_ocr: quota.allow_ocr,
-        allow_scribe: quota.allow_scribe,
-        allow_notes_scribe: quota.allow_notes_scribe,
-        facility_external_ids: facilities.map((facility) => facility.id),
-      }),
-    onSuccess: (created) => {
-      toast.success(
-        t("quotas_created_successfully", { count: created.length }),
+      runBatched(
+        facilities.map((facility) => ({
+          reference_id: facility.id,
+          url: QUOTA_URL,
+          method: "POST",
+          body: { ...quota, facility_external_id: facility.id },
+        })),
+      ),
+    onSuccess: (outcome, { facilities }) => {
+      reportOutcome(
+        outcome,
+        (id) => facilities.find((facility) => facility.id === id)?.name,
+        "quotas_created_successfully",
+        "bulk_quota_creation_failed",
       );
-      setShowCreateQuotaSheet(false);
-      quotasQuery.refetch();
-      setQueryParams({ page: 1 });
-    },
-    onError: (error: any, { facilities }) => {
-      const facilityErrors: Record<string, string> | undefined =
-        error?.error?.facility_errors;
-
-      if (!facilityErrors) {
-        toast.error(
-          error?.error?.non_field_errors?.[0] || t("quota_creation_failed"),
-        );
-        return;
-      }
-
-      const messages = Object.entries(facilityErrors).map(
-        ([facilityId, message]) => {
-          const name =
-            facilities.find((facility) => facility.id === facilityId)?.name ||
-            facilityId;
-          return `${name}: ${message}`;
-        },
-      );
-      toast.error(t("bulk_quota_creation_failed", { count: messages.length }), {
-        description: (
-          <ul className="list-disc pl-4">
-            {messages.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        ),
-      });
+      if (outcome.succeeded.length) setQueryParams({ page: 1 });
+      if (!outcome.failed.length) setShowCreateQuotaSheet(false);
     },
   });
 
@@ -156,42 +164,23 @@ export default function ScribeQuotas() {
 
   const bulkUpdateMutation = useMutation({
     mutationFn: (changes: ScribeQuotaBulkChanges) =>
-      API.quotas.bulkUpdate({
-        ...changes,
-        external_ids: selectedList.map((quota) => quota.external_id),
-      }),
-    onSuccess: (updated) => {
-      toast.success(
-        t("quotas_updated_successfully", { count: updated.length }),
+      runBatched(
+        selectedList.map((quota) => ({
+          reference_id: quota.external_id,
+          url: `${QUOTA_URL}${quota.external_id}/`,
+          method: "PATCH",
+          body: changes,
+        })),
+      ),
+    onSuccess: (outcome) => {
+      reportOutcome(
+        outcome,
+        (id) => quotaLabel(selectedQuotas[id]),
+        "quotas_updated_successfully",
+        "bulk_quota_update_failed",
       );
-      setShowBulkEditSheet(false);
-      setSelectedQuotas({});
-      quotasQuery.refetch();
-    },
-    onError: (error: any) => {
-      const quotaErrors: Record<string, string> | undefined =
-        error?.error?.quota_errors;
-
-      if (!quotaErrors) {
-        toast.error(
-          error?.error?.non_field_errors?.[0] || t("quota_update_failed"),
-        );
-        return;
-      }
-
-      const messages = Object.entries(quotaErrors).map(
-        ([quotaId, message]) =>
-          `${quotaLabel(selectedQuotas[quotaId]) || quotaId}: ${message}`,
-      );
-      toast.error(t("bulk_quota_update_failed", { count: messages.length }), {
-        description: (
-          <ul className="list-disc pl-4">
-            {messages.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        ),
-      });
+      keepSelected(outcome.failed);
+      if (!outcome.failed.length) setShowBulkEditSheet(false);
     },
   });
 
@@ -199,38 +188,24 @@ export default function ScribeQuotas() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: () =>
-      API.quotas.bulkDelete(selectedList.map((quota) => quota.external_id)),
-    onSuccess: ({ deleted }) => {
-      toast.success(t("quotas_deleted_successfully", { count: deleted }));
-      setShowBulkDeleteDialog(false);
-      setSelectedQuotas({});
-      quotasQuery.refetch();
-      setQueryParams({ page: 1 });
-    },
-    onError: (error: any) => {
-      const quotaErrors: Record<string, string> | undefined =
-        error?.error?.quota_errors;
-
-      if (!quotaErrors) {
-        toast.error(
-          error?.error?.non_field_errors?.[0] || t("quota_deletion_failed"),
-        );
-        return;
-      }
-
-      const messages = Object.entries(quotaErrors).map(
-        ([quotaId, message]) =>
-          `${quotaLabel(selectedQuotas[quotaId]) || quotaId}: ${message}`,
+      runBatched(
+        selectedList.map((quota) => ({
+          reference_id: quota.external_id,
+          url: `${QUOTA_URL}${quota.external_id}/`,
+          method: "DELETE",
+          body: {},
+        })),
+      ),
+    onSuccess: (outcome) => {
+      reportOutcome(
+        outcome,
+        (id) => quotaLabel(selectedQuotas[id]),
+        "quotas_deleted_successfully",
+        "bulk_quota_deletion_failed",
       );
-      toast.error(t("bulk_quota_deletion_failed", { count: messages.length }), {
-        description: (
-          <ul className="list-disc pl-4">
-            {messages.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        ),
-      });
+      keepSelected(outcome.failed);
+      if (outcome.succeeded.length) setQueryParams({ page: 1 });
+      if (!outcome.failed.length) setShowBulkDeleteDialog(false);
     },
   });
 
@@ -288,16 +263,23 @@ export default function ScribeQuotas() {
         <QuotaSheet
           open={showCreateQuotaSheet}
           onClose={() => setShowCreateQuotaSheet(false)}
-          onSubmit={(quota, facilities) =>
-            newQuotasMutation.mutateAsync({ quota, facilities })
-          }
+          onSubmit={async (quota, facilities) => {
+            const { failed } = await newQuotasMutation.mutateAsync({
+              quota,
+              facilities,
+            });
+            if (failed.length) throw new BatchFailure(failed);
+          }}
           onDelete={() => console.log("Delete not possible")}
         />
         <BulkQuotaEditSheet
           quotas={selectedList}
           open={showBulkEditSheet}
           onClose={() => setShowBulkEditSheet(false)}
-          onSubmit={(changes) => bulkUpdateMutation.mutateAsync(changes)}
+          onSubmit={async (changes) => {
+            const { failed } = await bulkUpdateMutation.mutateAsync(changes);
+            if (failed.length) throw new BatchFailure(failed);
+          }}
         />
         <Dialog
           open={showBulkDeleteDialog}

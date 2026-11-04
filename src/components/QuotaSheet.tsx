@@ -1,4 +1,5 @@
 import {
+  FacilityModel,
   ScribeQuota,
   ScribeQuotaCreateRequest,
   ScribeQuotaFacilityOption,
@@ -33,6 +34,48 @@ import { CheckIcon, CaretSortIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { cn } from "@/utils/utils";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
+import { BatchFailure } from "@/utils/batch";
+
+const FACILITY_RESULTS = 50;
+// CARE caps list endpoints at limit=200.
+const FACILITY_PAGE_SIZE = 200;
+
+const fetchAssignedFacilityIds = async () => {
+  const ids = new Set<string>();
+  for (let offset = 0; ; offset += 500) {
+    const page = await API.quotas.list({ limit: 500, offset });
+    page.results.forEach((quota) => {
+      if (quota.facility?.id) ids.add(quota.facility.id);
+    });
+    if (!page.next) return ids;
+  }
+};
+
+// Pages through facilities so assigned ones being filtered out don't leave the list short.
+const fetchUnassignedFacilities = async (
+  search: string,
+  assigned: Set<string>,
+) => {
+  const results: FacilityModel[] = [];
+  for (
+    let offset = 0;
+    results.length < FACILITY_RESULTS;
+    offset += FACILITY_PAGE_SIZE
+  ) {
+    const page = await API.facilities.all({
+      search_text: search || undefined,
+      limit: FACILITY_PAGE_SIZE,
+      offset,
+    });
+    results.push(
+      ...page.results.filter(
+        (facility) => facility.id && !assigned.has(facility.id),
+      ),
+    );
+    if (offset + FACILITY_PAGE_SIZE >= page.count) break;
+  }
+  return results.slice(0, FACILITY_RESULTS);
+};
 
 export default function QuotaSheet(props: {
   quota?: ScribeQuota;
@@ -78,7 +121,12 @@ export default function QuotaSheet(props: {
     setSubmitting(true);
     try {
       await onSubmit(quota, isCreating ? selectedFacilities : []);
-    } catch {
+    } catch (error) {
+      if (error instanceof BatchFailure) {
+        setSelectedFacilities((prev) =>
+          prev.filter((facility) => error.failed.includes(facility.id)),
+        );
+      }
       // Parent reports the error; keep the form intact so it can be corrected.
       return;
     } finally {
@@ -101,15 +149,22 @@ export default function QuotaSheet(props: {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
 
-  const facilityQuery = useQuery({
-    queryKey: ["scribe-unassigned-facilities", debouncedSearchQuery],
-    queryFn: () =>
-      API.quotas.unassignedFacilities({
-        limit: 50,
-        search: debouncedSearchQuery || undefined,
-      }),
-    // Refetches on every open so newly assigned or freed facilities are reflected.
+  // Refetch on every open so newly assigned or freed facilities are reflected.
+  const assignedQuery = useQuery({
+    queryKey: ["scribe-assigned-facility-ids"],
+    queryFn: fetchAssignedFacilityIds,
     enabled: open && isCreating,
+  });
+
+  const facilityQuery = useQuery({
+    queryKey: [
+      "scribe-unassigned-facilities",
+      debouncedSearchQuery,
+      assignedQuery.dataUpdatedAt,
+    ],
+    queryFn: () =>
+      fetchUnassignedFacilities(debouncedSearchQuery, assignedQuery.data!),
+    enabled: open && isCreating && !!assignedQuery.data,
   });
 
   useEffect(() => {
@@ -181,7 +236,7 @@ export default function QuotaSheet(props: {
                       onValueChange={setSearchQuery}
                     />
                     <CommandList>
-                      {facilityQuery.isLoading && (
+                      {(assignedQuery.isLoading || facilityQuery.isLoading) && (
                         <div className="flex w-full flex-col gap-1 p-1">
                           <Skeleton className="h-[35px] w-full rounded-lg" />
                           <Skeleton className="h-[35px] w-full rounded-lg" />
@@ -189,11 +244,11 @@ export default function QuotaSheet(props: {
                         </div>
                       )}
                       {facilityQuery.isFetched &&
-                        facilityQuery.data?.results.length === 0 && (
+                        facilityQuery.data?.length === 0 && (
                           <CommandEmpty>{t("no_facility_found")}</CommandEmpty>
                         )}
                       <CommandGroup>
-                        {facilityQuery.data?.results.map((facility) => (
+                        {facilityQuery.data?.map((facility) => (
                           <CommandItem
                             key={facility.id}
                             value={facility.id || ""}

@@ -1,4 +1,6 @@
 import {
+  BatchRequestResult,
+  BatchSubRequest,
   Code,
   CreateFileRequest,
   CreateFileResponse,
@@ -8,8 +10,6 @@ import {
   ScribeFileModel,
   ScribeModel,
   ScribeQuota,
-  ScribeQuotaBulkCreateRequest,
-  ScribeQuotaBulkUpdateRequest,
   ScribeQuotaCreateRequest,
   ScribeQuotaFilter,
   UserBareMinimum,
@@ -215,25 +215,6 @@ export const API = {
       request<ScribeQuota>(`/api/care_scribe/quota/${id}/`, "GET"),
     create: (data: ScribeQuotaCreateRequest) =>
       request<ScribeQuota>(`/api/care_scribe/quota/`, "POST", data),
-    bulkCreate: (data: ScribeQuotaBulkCreateRequest) =>
-      request<ScribeQuota[]>(`/api/care_scribe/quota/bulk/`, "POST", data),
-    bulkUpdate: (data: ScribeQuotaBulkUpdateRequest) =>
-      request<ScribeQuota[]>(`/api/care_scribe/quota/bulk/`, "PATCH", data),
-    bulkDelete: (externalIds: string[]) =>
-      request<{ deleted: number }>(`/api/care_scribe/quota/bulk/`, "DELETE", {
-        external_ids: externalIds,
-      }),
-    unassignedFacilities: (filters: {
-      search?: string;
-      offset?: number;
-      limit?: number;
-    }) =>
-      request<{
-        next: string | null;
-        previous: string | null;
-        results: FacilityModel[];
-        count: number;
-      }>(`/api/care_scribe/quota/unassigned-facilities/`, "GET", filters),
     update: (id: string, data: Partial<ScribeQuotaCreateRequest>) =>
       request<ScribeQuota>(`/api/care_scribe/quota/${id}/`, "PATCH", data),
     delete: (id: string) =>
@@ -251,4 +232,10 @@ export const API = {
         facility_id: facilityId,
       }),
   },
+  batch: (requests: BatchSubRequest[]) =>
+    request<{ results: BatchRequestResult[] }>(
+      `/api/v1/batch_requests/`,
+      "POST",
+      { requests },
+    ),
 };
