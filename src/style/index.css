@@ -3,6 +3,20 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 
+/* Primary palette comes from CARE core at runtime; values here are core's defaults as fallback. */
+@theme reference inline {
+  --color-primary-50: var(--color-primary-50, #ecfdf5);
+  --color-primary-100: var(--color-primary-100, #def7ec);
+  --color-primary-200: var(--color-primary-200, #bcf0da);
+  --color-primary-300: var(--color-primary-300, #84e1bc);
+  --color-primary-400: var(--color-primary-400, #31c48d);
+  --color-primary-500: var(--color-primary-500, #0d9f6e);
+  --color-primary-600: var(--color-primary-600, #057a55);
+  --color-primary-700: var(--color-primary-700, #046c4e);
+  --color-primary-800: var(--color-primary-800, #03543f);
+  --color-primary-900: var(--color-primary-900, #014737);
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
@@ -13,7 +27,7 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentColor);
   }
-
+S
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;

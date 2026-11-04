@@ -41,7 +41,7 @@ export default function QuotaSheet(props: {
   onSubmit: (
     quota: ScribeQuotaCreateRequest,
     facilities: ScribeQuotaFacilityOption[],
-  ) => void | Promise<unknown>;
+  ) => Promise<unknown>;
   onDelete: () => void;
 }) {
   const { quota: initQuota, open, onClose, onSubmit } = props;
@@ -145,7 +145,7 @@ export default function QuotaSheet(props: {
           Set/Edit the quota for a user or facility. This will allow them to use
           Scribe services based on the number of tokens allocated.
         </SheetDescription>
-        <div className="p-4 pt-0">
+        <div className="overflow-y-auto p-4 pt-0">
           {isCreating && (
             <>
               <label>{t("facilities")}</label>
@@ -223,7 +223,7 @@ export default function QuotaSheet(props: {
                 </PopoverContent>
               </Popover>
               {selectedFacilities.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="mt-2 flex max-h-32 flex-wrap gap-1 overflow-y-auto">
                   {selectedFacilities.map((facility) => (
                     <Badge
                       key={facility.id}
