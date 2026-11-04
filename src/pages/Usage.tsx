@@ -193,8 +193,8 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
         <QuotaSheet
           open={openQuotaSheet}
           onClose={() => setOpenQuotaSheet(false)}
-          onSubmit={(quota) => {
-            updateQuotaMutation.mutate({
+          onSubmit={(quota) =>
+            updateQuotaMutation.mutateAsync({
               quotaId: facilityQuota.external_id,
               quota: {
                 tokens: quota.tokens,
@@ -203,8 +203,8 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
                 allow_notes_scribe: quota.allow_notes_scribe,
                 tokens_per_user: quota.tokens_per_user,
               },
-            });
-          }}
+            })
+          }
           onDelete={() => {
             deleteQuotaMutation.mutate(facilityQuota.external_id);
           }}

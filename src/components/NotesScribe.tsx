@@ -514,7 +514,13 @@ export default function NotesScribeProvider(props: NotesScribeProps) {
       <ContainerRefProvider>
         <NotesScribe {...props} />
         {createPortal(
-          <Toaster position="top-right" richColors expand theme="light" />,
+          <Toaster
+            position="top-right"
+            richColors
+            expand
+            theme="light"
+            closeButton
+          />,
           document.body,
         )}
       </ContainerRefProvider>

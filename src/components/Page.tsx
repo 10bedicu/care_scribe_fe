@@ -27,7 +27,13 @@ export default function Page(props: { children: React.ReactNode }) {
   return (
     <ContainerRefProvider>
       <QueryClientProvider client={queryClient}>
-        <Toaster position="top-right" richColors expand theme="light" />
+        <Toaster
+          position="top-right"
+          richColors
+          expand
+          theme="light"
+          closeButton
+        />
         <Providers>{props.children}</Providers>
       </QueryClientProvider>
     </ContainerRefProvider>

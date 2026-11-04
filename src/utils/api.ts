@@ -1,4 +1,6 @@
 import {
+  BatchRequestResult,
+  BatchSubRequest,
   Code,
   CreateFileRequest,
   CreateFileResponse,
@@ -230,4 +232,10 @@ export const API = {
         facility_id: facilityId,
       }),
   },
+  batch: (requests: BatchSubRequest[]) =>
+    request<{ results: BatchRequestResult[] }>(
+      `/api/v1/batch_requests/`,
+      "POST",
+      { requests },
+    ),
 };
