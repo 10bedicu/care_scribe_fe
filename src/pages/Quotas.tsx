@@ -122,10 +122,11 @@ export default function ScribeQuotas() {
     });
   };
 
-  const keepSelected = (ids: string[]) =>
+  // Only drop processed quotas; others may have been selected while the request was pending.
+  const deselect = (ids: string[]) =>
     setSelectedQuotas((prev) =>
       Object.fromEntries(
-        Object.entries(prev).filter(([id]) => ids.includes(id)),
+        Object.entries(prev).filter(([id]) => !ids.includes(id)),
       ),
     );
 
@@ -179,7 +180,7 @@ export default function ScribeQuotas() {
         "quotas_updated_successfully",
         "bulk_quota_update_failed",
       );
-      keepSelected(outcome.failed);
+      deselect(outcome.succeeded);
       if (!outcome.failed.length) setShowBulkEditSheet(false);
     },
   });
@@ -203,7 +204,7 @@ export default function ScribeQuotas() {
         "quotas_deleted_successfully",
         "bulk_quota_deletion_failed",
       );
-      keepSelected(outcome.failed);
+      deselect(outcome.succeeded);
       if (outcome.succeeded.length) setQueryParams({ page: 1 });
       if (!outcome.failed.length) setShowBulkDeleteDialog(false);
     },

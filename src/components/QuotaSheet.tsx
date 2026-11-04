@@ -38,12 +38,12 @@ import { BatchFailure } from "@/utils/batch";
 
 const FACILITY_RESULTS = 50;
 // CARE caps list endpoints at limit=200.
-const FACILITY_PAGE_SIZE = 200;
+const PAGE_SIZE = 200;
 
 const fetchAssignedFacilityIds = async () => {
   const ids = new Set<string>();
-  for (let offset = 0; ; offset += 500) {
-    const page = await API.quotas.list({ limit: 500, offset });
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const page = await API.quotas.list({ limit: PAGE_SIZE, offset });
     page.results.forEach((quota) => {
       if (quota.facility?.id) ids.add(quota.facility.id);
     });
@@ -57,14 +57,10 @@ const fetchUnassignedFacilities = async (
   assigned: Set<string>,
 ) => {
   const results: FacilityModel[] = [];
-  for (
-    let offset = 0;
-    results.length < FACILITY_RESULTS;
-    offset += FACILITY_PAGE_SIZE
-  ) {
+  for (let offset = 0; results.length < FACILITY_RESULTS; offset += PAGE_SIZE) {
     const page = await API.facilities.all({
       search_text: search || undefined,
-      limit: FACILITY_PAGE_SIZE,
+      limit: PAGE_SIZE,
       offset,
     });
     results.push(
@@ -72,7 +68,7 @@ const fetchUnassignedFacilities = async (
         (facility) => facility.id && !assigned.has(facility.id),
       ),
     );
-    if (offset + FACILITY_PAGE_SIZE >= page.count) break;
+    if (offset + PAGE_SIZE >= page.count) break;
   }
   return results.slice(0, FACILITY_RESULTS);
 };
@@ -118,14 +114,24 @@ export default function QuotaSheet(props: {
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    const submitted = isCreating ? selectedFacilities : [];
+    // Only drop processed facilities; others may have been selected while the request was pending.
+    const deselect = (ids: string[]) =>
+      setSelectedFacilities((prev) =>
+        prev.filter((facility) => !ids.includes(facility.id)),
+      );
+
     setSubmitting(true);
     try {
-      await onSubmit(quota, isCreating ? selectedFacilities : []);
+      await onSubmit(quota, submitted);
     } catch (error) {
       if (error instanceof BatchFailure) {
-        setSelectedFacilities((prev) =>
-          prev.filter((facility) => error.failed.includes(facility.id)),
+        deselect(
+          submitted
+            .map((facility) => facility.id)
+            .filter((id) => !error.failed.includes(id)),
         );
+        assignedQuery.refetch();
       }
       // Parent reports the error; keep the form intact so it can be corrected.
       return;
@@ -133,7 +139,7 @@ export default function QuotaSheet(props: {
       setSubmitting(false);
     }
     if (isCreating) {
-      setSelectedFacilities([]);
+      deselect(submitted.map((facility) => facility.id));
       setQuota({
         facility_external_id: "",
         tokens: 1000000,
