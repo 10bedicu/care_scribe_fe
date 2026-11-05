@@ -1,5 +1,6 @@
 import {
   Code,
+  ProductKnowledgeBase,
   ScribeAIResponse,
   ScribeDeseriliazedValue,
   ScribeHydratedAndRawField,
@@ -483,6 +484,123 @@ export async function searchByDisplay(
     } catch (err) {
       console.warn(
         `searchByDisplay failed for slug "${slug}" / display "${d}"`,
+        err,
+      );
+    }
+  }
+  return null;
+}
+
+const DOSE_FORM_STOPWORDS = new Set([
+  "tablet",
+  "tablets",
+  "capsule",
+  "capsules",
+  "injection",
+  "injections",
+  "solution",
+  "suspension",
+  "syrup",
+  "cream",
+  "ointment",
+  "gel",
+  "drops",
+  "drop",
+  "inhaler",
+  "spray",
+  "patch",
+  "oral",
+  "intravenous",
+  "iv",
+  "im",
+  "intramuscular",
+  "subcutaneous",
+  "topical",
+  "prefilled",
+  "syringe",
+  "film",
+  "coated",
+  "modified",
+  "release",
+  "extended",
+  "dispersible",
+  "effervescent",
+  "for",
+  "in",
+  "and",
+  "with",
+  "of",
+  "the",
+  "product",
+  "mg",
+  "ml",
+  "mcg",
+  "g",
+  "kg",
+  "l",
+  "unit",
+  "units",
+  "iu",
+  "meq",
+  "mmol",
+]);
+
+function extractIngredientToken(display: string): string | null {
+  const normalized = display.toLowerCase().replace(/[^a-z0-9\s]+/g, " ");
+  const beforeStrength = normalized.split(/\d/)[0].trim();
+  const phrase = beforeStrength || normalized;
+  const tokens = phrase
+    .split(/\s+/)
+    .filter((t) => t.length > 2 && !DOSE_FORM_STOPWORDS.has(t));
+  if (!tokens.length) return null;
+  return tokens.reduce((longest, t) =>
+    t.length > longest.length ? t : longest,
+  );
+}
+
+function productMatchesIngredient(
+  product: ProductKnowledgeBase,
+  token: string,
+): boolean {
+  const re = new RegExp(`\\b${token}\\b`, "i");
+  if (product.name && re.test(product.name)) return true;
+  return (product.names || []).some((n) => n?.name && re.test(n.name));
+}
+
+export async function searchProductKnowledge(
+  facilityId: string,
+  displays: string[],
+): Promise<ProductKnowledgeBase | null> {
+  for (const d of displays) {
+    if (!d) continue;
+    const ingredient = extractIngredientToken(d);
+    if (!ingredient) continue;
+    try {
+      const { results } = await API.productKnowledge.list({
+        facility: facilityId,
+        name: d,
+        status: "active",
+        limit: 10,
+      });
+      if (!results || !results.length) continue;
+
+      const candidates = results.filter((p) =>
+        productMatchesIngredient(p, ingredient),
+      );
+      if (!candidates.length) continue;
+      const fuse = new Fuse(candidates, {
+        keys: ["name", "names.name"],
+        ignoreLocation: true,
+        includeScore: true,
+        threshold: 0.4,
+      });
+      const best = fuse.search(d)[0]?.item ?? candidates[0];
+      if (best) {
+        return best;
+      }
+    } catch (err) {
+      console.warn(
+        `searchProductKnowledge failed for facility "${facilityId}" / display "${d}"`,
         err,
       );
     }

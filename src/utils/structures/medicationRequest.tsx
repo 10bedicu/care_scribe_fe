@@ -5,7 +5,7 @@ import {
   validateEnumDescription,
 } from ".";
 import { z } from "zod";
-import { Code, UserBareMinimum } from "@/types";
+import { Code, ProductKnowledgeBase, UserBareMinimum } from "@/types";
 import {
   BOUNDS_DURATION_UNITS,
   DOSAGE_UNITS_CODES,
@@ -24,6 +24,7 @@ import {
 } from "./code";
 import {
   lookupCode,
+  searchProductKnowledge,
   shiftUTCToLocalClockTime,
   validateTime,
 } from "../response-utils";
@@ -41,6 +42,10 @@ const doseRange = z.object({
   low: doseQuantity,
   high: doseQuantity,
 });
+
+const DOSAGE_FREQUENCY_OPTIONS = Object.values(
+  MEDICATION_REQUEST_TIMING_OPTIONS,
+).map((timing) => timing.timing.code.display);
 
 const toolStructure = z.array(
   z
@@ -68,15 +73,24 @@ const toolStructure = z.array(
         •	1 year -> the value will be 1 and unit will be “a”.
         ... and so on.
     `),
-      dosage_frequency: enumDescription(
-        Object.values(MEDICATION_REQUEST_TIMING_OPTIONS).map(
-          (timing) => timing.timing.code.display,
-        ) as [string],
-      ),
+      dosage_frequency: z
+        .string()
+        .nullable()
+        .describe(
+          `The scheduled dosing frequency for a regularly-taken medication. ENUM VALUE -- ONLY USE: ${DOSAGE_FREQUENCY_OPTIONS.join(
+            " | ",
+          )}. Leave this null when the medication is taken only as needed (PRN) / "if required" / "SOS" — set dosage_as_needed_boolean to true instead.`,
+        ),
+      dosage_as_needed_boolean: z
+        .boolean()
+        .nullable()
+        .describe(
+          'Set to true when the medication is to be taken only as needed (PRN) rather than on a fixed schedule — e.g. the clinician says "if required", "only if needed", "SOS", "when necessary", or (Hindi/Hinglish) "agar zarurat pade" / "zarurat padne par" / "jarurat pade toh". When true, leave dosage_frequency and dosage_duration null. Default to false for regularly-scheduled medications.',
+        ),
       dosage_as_needed_for: indicatorReason()
         .nullable()
         .describe(
-          "Indicator: Fill only if the medication is prescribed as needed (PRN), or if an indicator is explicitly provided. Do not assume or infer this value. If no indicator is stated, leave this field blank.",
+          "The specific clinical reason/indication for an as-needed (PRN) medication (e.g. 'for pain', 'for fever'). Only fill this when a specific reason is explicitly stated. A medication can be PRN without a reason — use dosage_as_needed_boolean to mark PRN and leave this null when no specific indication is given.",
         ),
       dosage_site: site()
         .nullable()
@@ -127,18 +141,6 @@ export interface DosageQuantity {
 export interface DoseRange {
   low: DosageQuantity;
   high: DosageQuantity;
-}
-
-export interface ProductKnowledgeBase {
-  id: string;
-  slug: string;
-  product_type: unknown;
-  status: unknown;
-  code?: Code;
-  name: string;
-  names: unknown[];
-  storage_guidelines: unknown[];
-  definitional?: unknown;
 }
 
 interface MedicationRequest {
@@ -196,12 +198,21 @@ export const medicationRequestStructure: Structure<
     const errors: string[] = [];
 
     const parsed = data.map(async (medicationRequest) => {
-      const code = await lookupCode(
-        medicationRequest.medicine.code,
-        medicationRequest.medicine.display_names,
-        "system-medication",
-      );
-      if (!code) {
+      const productKnowledge = meta.facilityId
+        ? await searchProductKnowledge(
+            meta.facilityId,
+            medicationRequest.medicine.display_names,
+          )
+        : null;
+
+      const code = productKnowledge
+        ? undefined
+        : await lookupCode(
+            medicationRequest.medicine.code,
+            medicationRequest.medicine.display_names,
+            "system-medication",
+          );
+      if (!productKnowledge && !code) {
         errors.push(
           `Could not find a medication that matches with ${medicationRequest.medicine.display_names[0]}. Please enter manually.`,
         );
@@ -257,8 +268,20 @@ export const medicationRequestStructure: Structure<
         (timing) =>
           timing.timing.code.display === medicationRequest.dosage_frequency,
       );
+
+      const isPrn = !!(
+        medicationRequest.dosage_as_needed_boolean ||
+        medicationRequest.dosage_as_needed_for
+      );
+
       const medReq: MedicationRequest = {
-        medication: code,
+        medication: code || undefined,
+        ...(productKnowledge
+          ? {
+              requested_product: productKnowledge.id,
+              requested_product_internal: productKnowledge,
+            }
+          : {}),
         intent:
           validateEnumDescription(
             medicationRequest.intent,
@@ -276,7 +299,7 @@ export const medicationRequestStructure: Structure<
               ? [additionalInstructions]
               : [],
             timing:
-              dosageTiming && !medicationRequest.dosage_as_needed_for
+              dosageTiming && !isPrn
                 ? {
                     repeat: {
                       frequency: dosageTiming?.timing.repeat.frequency,
@@ -294,7 +317,7 @@ export const medicationRequestStructure: Structure<
                     code: dosageTiming?.timing.code,
                   }
                 : undefined,
-            as_needed_boolean: !!medicationRequest.dosage_as_needed_for,
+            as_needed_boolean: isPrn,
             as_needed_for: asNeededFor || undefined,
             site: site || undefined,
             route: route || undefined,
@@ -415,11 +438,19 @@ export const medicationRequestStructure: Structure<
     const newMedReq = (await Promise.all(parsed)).filter(
       (s) => !!s,
     ) as MedicationRequest[];
-    // remove any duplicates
-    const currentCodes = new Set(currentData?.map((s) => s.medication?.code));
+    // remove any duplicates, keyed by product knowledge (when resolved to a
+    // facility product) or the medication value-set code otherwise.
+    const dedupKey = (s: MedicationRequest) =>
+      s.requested_product || s.medication?.code;
+    const currentKeys = new Set(
+      currentData?.map(dedupKey).filter((k): k is string => !!k),
+    );
     const merged = [
       ...(currentData || []),
-      ...newMedReq.filter((s) => !currentCodes.has(s.medication?.code)),
+      ...newMedReq.filter((s) => {
+        const key = dedupKey(s);
+        return !key || !currentKeys.has(key);
+      }),
     ];
     return {
       data: merged,
@@ -439,17 +470,20 @@ export const medicationRequestStructure: Structure<
               "display" in medicationRequest.medication
                 ? medicationRequest.medication.display
                 : medicationRequest.requested_product_internal
-                  ? medicationRequest.requested_product_internal.code?.display
+                  ? medicationRequest.requested_product_internal.name ||
+                    medicationRequest.requested_product_internal.code?.display
                   : "N/A"}{" "}
               <span className="text-xs font-normal capitalize opacity-70">
                 {medicationRequest.intent?.replace("_", " ")}
               </span>
-              <span className="rounded-xl bg-white/10 px-2 py-1 text-[10px] italic">
-                SNOMED:{" "}
-                {medicationRequest.medication?.code ||
-                  medicationRequest.requested_product_internal?.code?.code ||
-                  "N/A"}
-              </span>
+              {(medicationRequest.medication?.code ||
+                medicationRequest.requested_product_internal?.code?.code) && (
+                <span className="rounded-xl bg-white/10 px-2 py-1 text-[10px] italic">
+                  SNOMED:{" "}
+                  {medicationRequest.medication?.code ||
+                    medicationRequest.requested_product_internal?.code?.code}
+                </span>
+              )}
             </div>
             <div className="text-xs opacity-70">
               Authored On{" "}
@@ -511,6 +545,12 @@ export const medicationRequestStructure: Structure<
             {medicationRequest.note && (
               <div className="mt-1 whitespace-pre-wrap italic opacity-80">
                 Note: {medicationRequest.note}
+              </div>
+            )}
+            {(medicationRequest.requested_product ||
+              medicationRequest.requested_product_internal) && (
+              <div className="mt-1 text-[10px] italic opacity-60">
+                from product knowledge
               </div>
             )}
           </div>
