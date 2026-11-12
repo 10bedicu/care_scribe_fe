@@ -35,29 +35,22 @@ export function useStorage<K extends StorageKeys>(
         | StorageValues[K]
         | ((prev: StorageValues[K]) => StorageValues[K]),
     ) => {
-      setValue((prev) => {
-        const newValue =
-          typeof newValueOrUpdater === "function"
-            ? (
-                newValueOrUpdater as (
-                  prev: StorageValues[K],
-                ) => StorageValues[K]
-              )(prev)
-            : newValueOrUpdater;
+      const newValue =
+        typeof newValueOrUpdater === "function"
+          ? newValueOrUpdater(getStorage())
+          : newValueOrUpdater;
+      const serializedValue = JSON.stringify(newValue);
 
-        localStorage.setItem(key, JSON.stringify(newValue));
-        // trigger same-tab listeners manually
-        window.dispatchEvent(
-          new StorageEvent("storage", {
-            key,
-            newValue: JSON.stringify(newValue),
-          }),
-        );
-
-        return newValue;
-      });
+      localStorage.setItem(key, serializedValue);
+      setValue(newValue);
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key,
+          newValue: serializedValue,
+        }),
+      );
     },
-    [key],
+    [key, getStorage],
   );
 
   useEffect(() => {
