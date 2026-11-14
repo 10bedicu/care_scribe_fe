@@ -51,7 +51,7 @@ import {
 import dayjs from "dayjs";
 import isEqual from "lodash.isequal";
 import { Link } from "raviger";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import { distance as lev } from "fastest-levenshtein";
@@ -61,6 +61,7 @@ import { cleanAIResponse, poller } from "@/utils/response-utils";
 import { getHydratedFields, getQuestionInputs } from "@/utils/field-utils";
 import { uploadScribeFile } from "@/utils/upload-utils";
 import useAuthUser from "@/hooks/useAuthUser";
+import { calculateCost } from "@/utils/utils";
 
 export interface BenchmarkIteration {
   id: string;
@@ -82,13 +83,44 @@ export interface Benchmark {
   iterations: BenchmarkIteration[];
 }
 
+const calculateIterationCost = (
+  iteration: BenchmarkIteration,
+): number | null => {
+  const processings = iteration.scribeInstance?.meta.processings;
+  const processing = processings?.[processings.length - 1];
+  if (
+    !processing ||
+    (processing.completion_input_tokens === undefined &&
+      processing.completion_output_tokens === undefined)
+  ) {
+    return null;
+  }
+  const model = processing.chat_model
+    ? `${processing.chat_provider === "google" ? "google" : "openai"}/${processing.chat_model}`
+    : iteration.model;
+  if (!(model in AI_MODELS)) return null;
+  return calculateCost(
+    processing.completion_input_tokens ?? 0,
+    processing.completion_audio_input_tokens ?? 0,
+    processing.completion_output_tokens ?? 0,
+    processing.completion_cached_tokens ?? 0,
+    processing.completion_cached_audio_tokens ?? 0,
+    model,
+  );
+};
+
 export default function BenchmarkPage() {
   const { t } = useTranslation(I18NNAMESPACE);
   const containerRef = useContainerRef();
   const [benchmarks, setBenchmarks] = useStorage("scribe-benchmarks");
-  const [startup, setStartup] = useState(true);
-  const [selectedIteration, setSelectedIteration] =
-    useState<BenchmarkIteration | null>(null);
+  const startup = useRef(true);
+  const activeIteration = useRef<string | null>(null);
+  const [selectedIterationId, setSelectedIterationId] = useState<string | null>(
+    null,
+  );
+  const selectedIteration = benchmarks
+    .flatMap((benchmark) => benchmark.iterations)
+    .find((iteration) => iteration.id === selectedIterationId);
 
   const [queuedIteration, setQueuedIteration] = useState<string | null>(null);
   const user = useAuthUser();
@@ -236,13 +268,16 @@ export default function BenchmarkPage() {
 
   useEffect(() => {
     let pending: BenchmarkIteration[] = [];
-    if (benchmarks.length && startup) {
+    if (startup.current) {
+      startup.current = false;
       pending = benchmarks.flatMap((b) =>
         b.iterations.filter((i) => i.status === "in-progress"),
       );
-      setStartup(false);
     }
-    if (queuedIteration) return;
+    if (activeIteration.current) return;
+    pending.forEach((iteration) => {
+      updateIteration(iteration.id, { status: "pending" });
+    });
     const pendingIterations = [
       ...pending,
       ...benchmarks.flatMap((b) =>
@@ -253,12 +288,10 @@ export default function BenchmarkPage() {
       | BenchmarkIteration
       | undefined;
     if (nextIteration) {
+      activeIteration.current = nextIteration.id;
       setQueuedIteration(nextIteration.id);
       processIteration(nextIteration);
     }
-    pending.forEach((iteration) => {
-      updateIteration(iteration.id, { status: "pending" });
-    });
   }, [queuedIteration, benchmarks]);
 
   const updateIteration = (
@@ -287,7 +320,6 @@ export default function BenchmarkPage() {
       );
       if (!benchmark) {
         console.error(`Benchmark not found for iteration ${iteration.id}`);
-        setQueuedIteration(null);
         return;
       }
 
@@ -307,6 +339,10 @@ export default function BenchmarkPage() {
         "ai_response",
       );
       if (!aiResponse) throw new Error("AI response is null");
+      const completedScribe = await API.scribe
+        .get(scribeInstance.external_id)
+        .catch(() => null);
+      if (completedScribe) scribeInstance = completedScribe;
       const cleaned = await cleanAIResponse(
         aiResponse as ScribeAIResponse,
         fields,
@@ -322,7 +358,6 @@ export default function BenchmarkPage() {
         scribeInstance,
         endTime: new Date(),
       });
-      setQueuedIteration(null);
     } catch (error) {
       console.error(`Error processing iteration ${iteration.id}:`, error);
       updateIteration(iteration.id, {
@@ -331,11 +366,13 @@ export default function BenchmarkPage() {
         scribeInstance,
         endTime: new Date(),
       });
+    } finally {
+      activeIteration.current = null;
       setQueuedIteration(null);
     }
   };
 
-  const orderedBenchmarks = benchmarks.sort((a, b) => {
+  const orderedBenchmarks = [...benchmarks].sort((a, b) => {
     if (a.startTime > b.startTime) return -1;
     if (a.startTime < b.startTime) return 1;
     return 0;
@@ -454,7 +491,7 @@ export default function BenchmarkPage() {
                 />
               </div>
               <SheetFooter className="p-0">
-                <SheetClose>
+                <SheetClose asChild>
                   <Button
                     disabled={
                       newBenchmarkForm.models.length === 0 ||
@@ -502,7 +539,7 @@ export default function BenchmarkPage() {
         </Sheet>
       </div>
       <div className="mt-8 flex flex-col gap-4">
-        {orderedBenchmarks.map((benchmark, index) => {
+        {orderedBenchmarks.map((benchmark) => {
           const benchMarkStatus = benchmark.iterations.some(
             (iteration) => iteration.status === "pending",
           )
@@ -524,15 +561,31 @@ export default function BenchmarkPage() {
             return acc;
           }, 0);
 
-          const endTime =
-            benchMarkStatus === "completed"
-              ? benchmark.iterations.reduce((latest, iteration) => {
-                  if (iteration.endTime && iteration.endTime > latest) {
-                    return iteration.endTime;
-                  }
-                  return latest;
-                }, new Date(0))
-              : null;
+          const endTime = benchmark.iterations.every(
+            (iteration) =>
+              iteration.status === "completed" || iteration.status === "failed",
+          )
+            ? benchmark.iterations.reduce<number | null>(
+                (latest, iteration) => {
+                  if (!iteration.endTime) return latest;
+                  const timestamp = dayjs(iteration.endTime).valueOf();
+                  if (!Number.isFinite(timestamp)) return latest;
+                  return latest === null
+                    ? timestamp
+                    : Math.max(latest, timestamp);
+                },
+                null,
+              )
+            : null;
+          const iterationCosts = benchmark.iterations.map(
+            calculateIterationCost,
+          );
+          const totalCost = iterationCosts.every((cost) => cost !== null)
+            ? iterationCosts.reduce<number>(
+                (total, cost) => total + (cost ?? 0),
+                0,
+              )
+            : null;
 
           const unsortedModelScores = benchmark.iterations.reduce(
             (acc, iteration) => {
@@ -561,7 +614,7 @@ export default function BenchmarkPage() {
 
           return (
             <div
-              key={index}
+              key={benchmark.id}
               className={twMerge(
                 "relative flex flex-col gap-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 text-left",
                 benchMarkStatus === "pending" && "animate-pulse",
@@ -633,13 +686,17 @@ export default function BenchmarkPage() {
                         benchmark.iterations.length
                       ).toFixed(2)}{" "}
                       %
+                      <div>
+                        {t("estimated_cost")}:{" "}
+                        {totalCost === null ? "-" : `$${totalCost.toFixed(6)}`}
+                      </div>
                     </div>
                   )}
                   <div className="flex items-center gap-4 text-xs opacity-70">
                     {dayjs(benchmark.startTime).format(
                       "DD MMM YYYY, hh:mm:ss a",
                     )}
-                    {endTime && (
+                    {endTime !== null && (
                       <>
                         <ArrowRightIcon />{" "}
                         {dayjs(endTime).format("DD MMM YYYY, hh:mm:ss a")}
@@ -668,8 +725,27 @@ export default function BenchmarkPage() {
                 {benchMarkStatus === "completed" && (
                   <div className="text-xs">
                     <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead />
+                          <TableHead>{t("chat_model")}</TableHead>
+                          <TableHead>{t("benchmark_accuracy")}</TableHead>
+                          <TableHead>{t("benchmark_average_cost")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
                       <TableBody>
                         {modelScores.map(([model, scores], i) => {
+                          const costs = benchmark.iterations
+                            .filter((iteration) => iteration.model === model)
+                            .map(calculateIterationCost);
+                          const averageCost = costs.every(
+                            (cost) => cost !== null,
+                          )
+                            ? costs.reduce<number>(
+                                (total, cost) => total + (cost ?? 0),
+                                0,
+                              ) / costs.length
+                            : null;
                           return (
                             <TableRow key={i} className="text-xs">
                               <TableCell className="py-1">{i + 1}</TableCell>
@@ -680,6 +756,11 @@ export default function BenchmarkPage() {
                                     scores.length || 0
                                 ).toFixed(2)}
                                 %
+                              </TableCell>
+                              <TableCell className="py-1">
+                                {averageCost === null
+                                  ? "-"
+                                  : `$${averageCost.toFixed(6)}`}
                               </TableCell>
                             </TableRow>
                           );
@@ -694,8 +775,8 @@ export default function BenchmarkPage() {
                       (iteration) => iteration.model === model,
                     );
                     return (
-                      <div className="flex flex-col gap-2">
-                        {iterations.map((iteration, idx) => {
+                      <div key={model} className="flex flex-col gap-2">
+                        {iterations.map((iteration) => {
                           const score =
                             iteration.status === "completed"
                               ? calculateIterationScore(
@@ -720,15 +801,16 @@ export default function BenchmarkPage() {
                           }
                           return (
                             <button
-                              key={idx}
+                              key={iteration.id}
                               onClick={() => {
                                 if (selectedIteration?.id === iteration.id) {
-                                  setSelectedIteration(null);
+                                  setSelectedIterationId(null);
                                 } else {
-                                  setSelectedIteration(iteration);
+                                  setSelectedIterationId(iteration.id);
                                 }
                               }}
-                              title={`${iteration.model} - ${score?.toFixed(2) ?? "N/A"}%`}
+                              title={`${iteration.model} - ${iteration.status} - ${score?.toFixed(2) ?? "N/A"}%`}
+                              aria-label={`${iteration.model} - ${iteration.status} - ${iteration.id}`}
                               className={twMerge(
                                 "h-2 w-4 rounded-full bg-slate-200",
                                 bg,
@@ -749,12 +831,41 @@ export default function BenchmarkPage() {
                   (it) => it.id === selectedIteration.id,
                 ) && (
                   <div>
-                    <Link
-                      className="text-blue-500"
-                      href={`/facility/abc/users/abc/scribe-history/${selectedIteration.scribeInstance?.external_id}`}
-                    >
-                      Open Details
-                    </Link>
+                    <div className="flex flex-col items-start gap-2">
+                      {selectedIteration.errors.map((error, index) => (
+                        <p key={index} className="text-sm text-red-700">
+                          {error}
+                        </p>
+                      ))}
+                      <Button
+                        variant="outline"
+                        disabled={
+                          selectedIteration.status === "pending" ||
+                          selectedIteration.status === "in-progress"
+                        }
+                        onClick={() => {
+                          updateIteration(selectedIteration.id, {
+                            status: "pending",
+                            errors: [],
+                            result: null,
+                            startTime: new Date(),
+                            endTime: null,
+                            scribeInstance: null,
+                          });
+                        }}
+                      >
+                        <RocketIcon />
+                        {t("rerun_run")}
+                      </Button>
+                    </div>
+                    {selectedIteration.scribeInstance && (
+                      <Link
+                        className="text-blue-500"
+                        href={`/facility/abc/users/abc/scribe-history/${selectedIteration.scribeInstance.external_id}`}
+                      >
+                        Open Details
+                      </Link>
+                    )}
                     {(() => {
                       const score = calculateIterationScore(
                         benchmark.benchmark,

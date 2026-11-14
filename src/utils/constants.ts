@@ -540,4 +540,18 @@ export const AI_MODELS = {
       audio_input: 2,
     },
   },
+  "google/gemini-3.5-flash": {
+    cost: {
+      input: 1.5,
+      output: 9,
+      cached: 0.15,
+    },
+  },
+  "google/gemini-3.5-flash-lite": {
+    cost: {
+      input: 0.3,
+      output: 2.5,
+      cached: 0.03,
+    },
+  },
 } as const;

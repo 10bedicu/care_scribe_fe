@@ -184,5 +184,8 @@
   "quotas_deleted_successfully_one": "{{count}} quota deleted successfully",
   "quotas_deleted_successfully_other": "{{count}} quotas deleted successfully",
   "bulk_quota_deletion_failed_one": "{{count}} quota could not be deleted. It is still selected so you can retry.",
-  "bulk_quota_deletion_failed_other": "{{count}} quotas could not be deleted. They are still selected so you can retry."
+  "bulk_quota_deletion_failed_other": "{{count}} quotas could not be deleted. They are still selected so you can retry.",
+  "rerun_run": "Re-run",
+  "benchmark_accuracy": "Accuracy",
+  "benchmark_average_cost": "Avg. estimated cost"
 }
