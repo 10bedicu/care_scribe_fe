@@ -1,14 +1,18 @@
 import { ScribeFileType } from "@/types";
-import { Dispatch, SetStateAction } from "react";
 import { API } from "./api";
+
+// Below this upload speed, the network is considered slow.
+const SLOW_NETWORK_THRESHOLD_BYTES_PER_SEC = 50 * 1024; // 50 KB/s
+// Minimum time between speed samples, to avoid noisy readings.
+const SLOW_NETWORK_SAMPLE_INTERVAL_MS = 1000;
 
 export function handleUploadPercentage(
   event: ProgressEvent,
-  setUploadPercent: Dispatch<SetStateAction<number>>,
+  onProgress: (percent: number) => void,
 ) {
   if (event.lengthComputable) {
     const percentComplete = Math.round((event.loaded / event.total) * 100);
-    setUploadPercent(percentComplete);
+    onProgress(percentComplete);
   }
 }
 
@@ -18,8 +22,9 @@ const uploadFile = (
   reqMethod: string,
   headers: object,
   onLoad: (xhr: XMLHttpRequest) => void,
-  setUploadPercent: Dispatch<SetStateAction<number>> | null,
+  onProgress: ((percent: number) => void) | null,
   onError: () => void,
+  onSlowNetwork?: (isSlow: boolean) => void,
 ) => {
   const xhr = new XMLHttpRequest();
   xhr.open(reqMethod, url);
@@ -42,9 +47,24 @@ const uploadFile = (
     }
   };
 
-  if (setUploadPercent != null) {
+  if (onProgress != null || onSlowNetwork != null) {
+    let lastLoaded = 0;
+    let lastTime = Date.now();
     xhr.upload.onprogress = (event: ProgressEvent) => {
-      handleUploadPercentage(event, setUploadPercent);
+      if (onProgress != null) {
+        handleUploadPercentage(event, onProgress);
+      }
+      if (onSlowNetwork != null) {
+        const now = Date.now();
+        const elapsedMs = now - lastTime;
+        if (elapsedMs >= SLOW_NETWORK_SAMPLE_INTERVAL_MS) {
+          const bytesSinceLastSample = event.loaded - lastLoaded;
+          const bytesPerSec = bytesSinceLastSample / (elapsedMs / 1000);
+          onSlowNetwork(bytesPerSec < SLOW_NETWORK_THRESHOLD_BYTES_PER_SEC);
+          lastLoaded = event.loaded;
+          lastTime = now;
+        }
+      }
     };
   }
 
@@ -62,6 +82,8 @@ export const uploadScribeFile = async (
   blob: Blob,
   scribeInstanceId: string,
   type: ScribeFileType,
+  onProgress?: (percent: number) => void,
+  onSlowNetwork?: (isSlow: boolean) => void,
 ) => {
   const category = type === ScribeFileType.AUDIO ? "AUDIO" : "UNSPECIFIED";
   const extension = blob?.type?.split("/")?.[1].split(";")?.[0];
@@ -106,8 +128,9 @@ export const uploadScribeFile = async (
       "PUT",
       headers,
       (xhr: XMLHttpRequest) => (xhr.status === 200 ? resolve() : reject()),
-      null,
+      onProgress ?? null,
       reject,
+      onSlowNetwork,
     );
   });
 

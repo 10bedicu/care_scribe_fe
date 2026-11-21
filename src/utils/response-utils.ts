@@ -356,7 +356,9 @@ export async function poller(
         const { status, transcript, ai_response } = res;
         if (status === "FAILED" || status === "REFUSED") {
           clearInterval(interval);
-          return reject(new Error("Transcription failed"));
+          const processings = res.meta?.processings;
+          const processingError = processings?.[processings.length - 1]?.error;
+          return reject(new Error(processingError || "Transcription failed"));
         }
 
         if (
