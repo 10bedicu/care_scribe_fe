@@ -285,6 +285,10 @@ export function Controller(props: {
 
     return data.external_id;
   };
+
+  const refreshQuota = () =>
+    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
+
   // updates the transcript and fetches a new AI response
   const handleUpdateTranscript = async (updatedTranscript: string) => {
     if (updatedTranscript === lastTranscript && !files.length) return;
@@ -295,22 +299,25 @@ export function Controller(props: {
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
     try {
-      await API.scribe.update(instanceId, {
-        status: "READY",
-        transcript: updatedTranscript,
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
-      });
-    } catch {
-      throw Error("Error updating Scribe Instance");
+      try {
+        await API.scribe.update(instanceId, {
+          status: "READY",
+          transcript: updatedTranscript,
+          requested_in_facility_id: facilityId || "",
+          requested_in_encounter_id: encounterId || "",
+        });
+      } catch {
+        throw Error("Error updating Scribe Instance");
+      }
+      setStatus("THINKING");
+      const fields = getQuestionInputs(formStateSnapshot);
+      const aiResponse = await getAIResponse(instanceId, fields);
+      if (!aiResponse) return;
+      setStatus("REVIEWING");
+      setToReview(getFieldsToReview(aiResponse, fields));
+    } finally {
+      refreshQuota();
     }
-    setStatus("THINKING");
-    const fields = getQuestionInputs(formStateSnapshot);
-    const aiResponse = await getAIResponse(instanceId, fields);
-    if (!aiResponse) return;
-    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
-    setStatus("REVIEWING");
-    setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleStartRecording = async () => {
@@ -341,33 +348,36 @@ export function Controller(props: {
     setStatus("UPLOADING");
     stopSegmentedRecording();
 
-    const fields = getQuestionInputs(props.formState);
-    const instanceId = scribe
-      ? scribe.external_id
-      : await createScribeInstance(fields);
-    if (isAbortedRef.current) return;
-    setInstanceId(instanceId);
+    try {
+      const fields = getQuestionInputs(props.formState);
+      const instanceId = scribe
+        ? scribe.external_id
+        : await createScribeInstance(fields);
+      if (isAbortedRef.current) return;
+      setInstanceId(instanceId);
 
-    setStatus("TRANSCRIBING");
-    const transcript = await getTranscript(
-      instanceId,
-      scribe ? fields : undefined,
-    );
-    if (isAbortedRef.current) return;
-    setLastTranscript(transcript);
-    setTranscript(transcript);
+      setStatus("TRANSCRIBING");
+      const transcript = await getTranscript(
+        instanceId,
+        scribe ? fields : undefined,
+      );
+      if (isAbortedRef.current) return;
+      setLastTranscript(transcript);
+      setTranscript(transcript);
 
-    setStatus("THINKING");
-    const aiResponse = await getAIResponse(instanceId, fields);
-    if (isAbortedRef.current) return;
+      setStatus("THINKING");
+      const aiResponse = await getAIResponse(instanceId, fields);
+      if (isAbortedRef.current) return;
 
-    queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
-    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
-    if (!aiResponse) return;
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+      if (!aiResponse) return;
 
-    setStatus("REVIEWING");
-    if (!formStateSnapshot) setFormStateSnapshot(props.formState);
-    setToReview(getFieldsToReview(aiResponse, fields));
+      setStatus("REVIEWING");
+      if (!formStateSnapshot) setFormStateSnapshot(props.formState);
+      setToReview(getFieldsToReview(aiResponse, fields));
+    } finally {
+      refreshQuota();
+    }
   };
 
   const handleCancel = (
@@ -401,29 +411,32 @@ export function Controller(props: {
     isAbortedRef.current = false;
     setStatus("UPLOADING");
     setError(null);
-    const fields = getQuestionInputs(props.formState);
-    const instanceId = scribe
-      ? scribe.external_id
-      : await createScribeInstance(fields);
-    if (isAbortedRef.current) return;
-    setInstanceId(instanceId);
-    setStatus("TRANSCRIBING");
-    const transcript = await getTranscript(
-      instanceId,
-      scribe ? fields : undefined,
-    );
-    if (isAbortedRef.current) return;
-    setLastTranscript(transcript);
-    setTranscript(transcript);
-    setStatus("THINKING");
-    const aiResponse = await getAIResponse(instanceId, fields);
-    if (isAbortedRef.current) return;
-    queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
-    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
-    if (!aiResponse) return;
-    setStatus("REVIEWING");
-    if (!formStateSnapshot) setFormStateSnapshot(props.formState);
-    setToReview(getFieldsToReview(aiResponse, fields));
+    try {
+      const fields = getQuestionInputs(props.formState);
+      const instanceId = scribe
+        ? scribe.external_id
+        : await createScribeInstance(fields);
+      if (isAbortedRef.current) return;
+      setInstanceId(instanceId);
+      setStatus("TRANSCRIBING");
+      const transcript = await getTranscript(
+        instanceId,
+        scribe ? fields : undefined,
+      );
+      if (isAbortedRef.current) return;
+      setLastTranscript(transcript);
+      setTranscript(transcript);
+      setStatus("THINKING");
+      const aiResponse = await getAIResponse(instanceId, fields);
+      if (isAbortedRef.current) return;
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+      if (!aiResponse) return;
+      setStatus("REVIEWING");
+      if (!formStateSnapshot) setFormStateSnapshot(props.formState);
+      setToReview(getFieldsToReview(aiResponse, fields));
+    } finally {
+      refreshQuota();
+    }
   };
 
   return (

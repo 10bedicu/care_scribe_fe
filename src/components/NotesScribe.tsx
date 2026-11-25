@@ -104,6 +104,9 @@ export function NotesScribe(props: NotesScribeProps) {
     };
   }, []);
 
+  const refreshQuota = () =>
+    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
+
   const runTranscription = async (blobs: Blob[]) => {
     if (!blobs.length) {
       setStatus("IDLE");
@@ -166,6 +169,7 @@ export function NotesScribe(props: NotesScribeProps) {
         setStatus("FAILED");
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+      refreshQuota();
       return;
     }
 
@@ -178,7 +182,6 @@ export function NotesScribe(props: NotesScribeProps) {
         setScribe,
       );
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
-      queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
 
       if (isAbortedRef.current) return;
 
@@ -196,6 +199,8 @@ export function NotesScribe(props: NotesScribeProps) {
         setStatus("FAILED");
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+    } finally {
+      refreshQuota();
     }
   };
 
@@ -295,6 +300,8 @@ export function NotesScribe(props: NotesScribeProps) {
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
       setStatus("IDLE");
+    } finally {
+      refreshQuota();
     }
   };
 

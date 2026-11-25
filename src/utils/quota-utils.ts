@@ -47,6 +47,9 @@ const buildStatus = (
   };
 };
 
+const remainingFraction = (status: QuotaStatus) =>
+  status.total > 0 ? status.remaining / status.total : 0;
+
 /**
  * Returns the most restrictive quota status for the current user, combining
  * the facility pool and the user's per-user allocation (as returned by
@@ -70,7 +73,13 @@ export const getMyQuotaStatus = (
     facilityQuota.tokens_per_user,
   );
 
-  return LEVEL_SEVERITY[facilityStatus.level] > LEVEL_SEVERITY[userStatus.level]
+  const facilitySeverity = LEVEL_SEVERITY[facilityStatus.level];
+  const userSeverity = LEVEL_SEVERITY[userStatus.level];
+  if (facilitySeverity !== userSeverity) {
+    return facilitySeverity > userSeverity ? facilityStatus : userStatus;
+  }
+  // Same severity: report whichever is closer to running out (unrounded).
+  return remainingFraction(facilityStatus) < remainingFraction(userStatus)
     ? facilityStatus
     : userStatus;
 };
