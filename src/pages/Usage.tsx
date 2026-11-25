@@ -1,6 +1,7 @@
 import SidebarIcon from "@/components/Icon";
 import { PaginationControls } from "@/components/Pagination";
 import QuotaSheet from "@/components/QuotaSheet";
+import QuotaLevelBadge from "@/components/QuotaLevelBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,9 +151,17 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
     {
       icon: <CheckboxIcon />,
       label: t("available_tokens"),
-      value: facilityQuota
-        ? (facilityQuota.tokens - facilityQuota.used).toLocaleString()
-        : "",
+      value: facilityQuota ? (
+        <div className="flex items-center gap-2">
+          {(facilityQuota.tokens - facilityQuota.used).toLocaleString()}
+          <QuotaLevelBadge
+            used={facilityQuota.used}
+            total={facilityQuota.tokens}
+          />
+        </div>
+      ) : (
+        ""
+      ),
     },
     {
       icon: <CameraIcon />,
@@ -290,9 +299,17 @@ export default function ScribeQuotaUsage(props: { quotaId: string }) {
                   </TableCell>
                   <TableCell>{quota.used.toLocaleString()}</TableCell>
                   <TableCell>
-                    {(
-                      (facilityQuota?.tokens_per_user || 0) - quota.used
-                    ).toLocaleString()}
+                    <div className="flex items-center gap-2">
+                      {(
+                        (facilityQuota?.tokens_per_user || 0) - quota.used
+                      ).toLocaleString()}
+                      {facilityQuota && (
+                        <QuotaLevelBadge
+                          used={quota.used}
+                          total={facilityQuota.tokens_per_user}
+                        />
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {dayjs(quota.created_date).format("D MMMM YYYY")}

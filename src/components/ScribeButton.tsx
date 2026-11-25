@@ -7,16 +7,21 @@ import { useRef, useState } from "react";
 
 import { I18NNAMESPACE } from "@/utils/constants";
 import { useStorage } from "@/hooks/useStorage";
+import { QuotaStatus } from "@/utils/quota-utils";
+import QuotaBanner from "./QuotaBanner";
 
 export default function ScribeButton(props: {
   files: File[];
   status: ScribeStatus;
   onClick: () => void;
   disabled?: boolean;
+  quotaStatus?: QuotaStatus;
 }) {
-  const { status, onClick, disabled, files } = props;
+  const { status, onClick, disabled, files, quotaStatus } = props;
   const { t } = useTranslation(I18NNAMESPACE);
-  const [, setControllerPosition] = useStorage("scribe-controller-position");
+  const [controllerPosition, setControllerPosition] = useStorage(
+    "scribe-controller-position",
+  );
 
   const [initMousePosition, setInitMousePosition] = useState<{
     x: number;
@@ -29,7 +34,7 @@ export default function ScribeButton(props: {
   const [estimatedMovingPosition, setEstimatedMovingPosition] =
     useState<ScribeControllerPosition>();
 
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   useKeyboardShortcut(["X"], onClick);
 
@@ -95,46 +100,52 @@ export default function ScribeButton(props: {
       <div
         className={`-bottom-10 -left-10 ${placeholderCommonClasses} ${visibleClasses(estimatedMovingPosition === "bottom-left")}`}
       />
-      <button
-        ref={buttonRef}
-        onTouchStart={(e) => handleDragStart(touchCords(e))}
-        onTouchEnd={handleDragEnd}
-        onTouchMove={(e) => handleDragMove(touchCords(e))}
-        onTouchCancel={handleDragEnd}
-        onMouseDown={(e) => handleDragStart(mouseCords(e))}
-        onMouseMove={(e) => handleDragMove(mouseCords(e))}
-        onMouseUp={handleDragEnd}
-        onMouseLeave={handleDragEnd}
-        onClick={() => (!estimatedMovingPosition ? onClick() : undefined)}
-        className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border border-neutral-300 bg-neutral-100 hover:bg-neutral-200"} ${estimatedMovingPosition ? "opacity-50" : ""} cursor-pointer transition-[background,top,right,left,bottom,opacity] disabled:bg-neutral-200`}
-        disabled={disabled}
-        style={{ touchAction: "none" }}
-      >
-        <div
-          className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-neutral-200 group-hover:bg-neutral-300"} p-4 text-xl`}
+      <div ref={buttonRef} className="relative z-10">
+        <QuotaBanner
+          status={quotaStatus}
+          placement={controllerPosition.includes("top") ? "bottom" : "top"}
+          align={controllerPosition.includes("right") ? "right" : "left"}
+        />
+        <button
+          onTouchStart={(e) => handleDragStart(touchCords(e))}
+          onTouchEnd={handleDragEnd}
+          onTouchMove={(e) => handleDragMove(touchCords(e))}
+          onTouchCancel={handleDragEnd}
+          onMouseDown={(e) => handleDragStart(mouseCords(e))}
+          onMouseMove={(e) => handleDragMove(mouseCords(e))}
+          onMouseUp={handleDragEnd}
+          onMouseLeave={handleDragEnd}
+          onClick={() => (!estimatedMovingPosition ? onClick() : undefined)}
+          className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 hover:bg-primary-600 text-white" : "border border-neutral-300 bg-neutral-100 hover:bg-neutral-200"} ${estimatedMovingPosition ? "opacity-50" : ""} cursor-pointer transition-[background,top,right,left,bottom,opacity] disabled:bg-neutral-200`}
+          disabled={disabled}
+          style={{ touchAction: "none" }}
         >
-          {status === "IDLE" ? (
-            <MicrophoneIcon className="w-4 invert" />
-          ) : status === "RECORDING" ? (
-            <MicrophoneSlashIcon className="w-5" />
-          ) : status === "ATTACHING" ? (
-            <ImageIcon />
-          ) : (
-            <ReloadIcon />
-          )}
-        </div>
-        <div className="flex items-center justify-between pr-6 pl-2 font-semibold">
-          {status === "IDLE"
-            ? t("voice_autofill")
-            : status === "ATTACHING"
-              ? t("process_images")
-              : status === "RECORDING"
-                ? t("stop_recording")
-                : files.length > 0
-                  ? t("reupload_files")
-                  : t("retake_recording")}
-        </div>
-      </button>
+          <div
+            className={`flex size-12 shrink-0 items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-neutral-200 group-hover:bg-neutral-300"} text-xl`}
+          >
+            {status === "IDLE" ? (
+              <MicrophoneIcon className="w-4 invert" />
+            ) : status === "RECORDING" ? (
+              <MicrophoneSlashIcon className="w-5" />
+            ) : status === "ATTACHING" ? (
+              <ImageIcon />
+            ) : (
+              <ReloadIcon />
+            )}
+          </div>
+          <div className="flex items-center justify-between pr-6 pl-2 font-semibold">
+            {status === "IDLE"
+              ? t("voice_autofill")
+              : status === "ATTACHING"
+                ? t("process_images")
+                : status === "RECORDING"
+                  ? t("stop_recording")
+                  : files.length > 0
+                    ? t("reupload_files")
+                    : t("retake_recording")}
+          </div>
+        </button>
+      </div>
     </>
   );
 }

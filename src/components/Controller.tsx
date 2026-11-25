@@ -308,6 +308,7 @@ export function Controller(props: {
     const fields = getQuestionInputs(formStateSnapshot);
     const aiResponse = await getAIResponse(instanceId, fields);
     if (!aiResponse) return;
+    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
     setStatus("REVIEWING");
     setToReview(getFieldsToReview(aiResponse, fields));
   };
@@ -317,6 +318,7 @@ export function Controller(props: {
       setShowTnc(true);
       return;
     }
+    if (!quota.checkBeforeStart()) return;
     handleCancel();
     isAbortedRef.current = true;
 
@@ -360,6 +362,7 @@ export function Controller(props: {
     if (isAbortedRef.current) return;
 
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
     if (!aiResponse) return;
 
     setStatus("REVIEWING");
@@ -393,6 +396,7 @@ export function Controller(props: {
       setShowTnc(true);
       return;
     }
+    if (!quota.checkBeforeStart()) return;
     setError(null);
     isAbortedRef.current = false;
     setStatus("UPLOADING");
@@ -415,6 +419,7 @@ export function Controller(props: {
     const aiResponse = await getAIResponse(instanceId, fields);
     if (isAbortedRef.current) return;
     queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
     if (!aiResponse) return;
     setStatus("REVIEWING");
     if (!formStateSnapshot) setFormStateSnapshot(props.formState);
@@ -612,6 +617,7 @@ export function Controller(props: {
               setInstanceId(scribe.external_id);
             }}
             transcriptOnly={false}
+            quotaStatus={quota.status}
           />
 
           {[
@@ -651,6 +657,7 @@ export function Controller(props: {
                     : handleStopRecording
             }
             disabled={status === "ATTACHING" && files.length === 0}
+            quotaStatus={quota.status}
           />
         </div>
       </div>
