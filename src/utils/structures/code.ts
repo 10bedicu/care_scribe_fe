@@ -5,7 +5,9 @@ export const clinicalDrug = () =>
     code: z.string().describe(
       `The SNOMED CT concept identifier **for the full clinical-drug concept** \
 (including strength & dose form) — **NOT** the ingredient-only code. \
-Example: "376771007" for "Zinc 25 mg oral capsule".`,
+Example: "376771007" for "Zinc 25 mg oral capsule". \
+If you are not certain of the code (e.g. brand names, local formulations or nutritional products such as "F75"), \
+return an empty string. Never guess a code or copy the example.`,
     ),
 
     display_names: z
@@ -13,6 +15,10 @@ Example: "376771007" for "Zinc 25 mg oral capsule".`,
       .nonempty()
       .describe(
         `Provide display names in this order:  
+0. **As spoken** — the medicine name exactly as the clinician said it, including any brand or product name and strength \
+(e.g. "Dolo 650", "F75", "Multivitamin"). This is used to match the facility's own product catalog, so always include it, \
+even if it is not a standard drug or you do not recognise it. Never replace it with a different medicine.
+
 1. **Preferred term** — must include:  
    - Ingredient name (e.g. "Zinc")  
    - Exact numeric strength (e.g. "25 mg")  
@@ -23,7 +29,8 @@ Example: "376771007" for "Zinc 25 mg oral capsule".`,
 2. **Fully specified name** — include the full formulation (e.g. salt/ester), strength, route, and dosage form.  
    Example: "Zinc (as zinc acetate) 25 mg oral capsule"
 
-⚠️ Do **not** return vague or incomplete forms like "tablet" or "capsule". Always include the **route** (e.g. "oral", "intravenous") to ensure precision.`,
+⚠️ Do **not** return vague or incomplete forms like "tablet" or "capsule". Always include the **route** (e.g. "oral", "intravenous") to ensure precision.
+If you do not recognise the medicine, return only the "as spoken" name.`,
       ),
   });
 
