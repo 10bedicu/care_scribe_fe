@@ -19,6 +19,12 @@ import { API } from "@/utils/api";
 import { ScribeFileType, ScribeModel } from "@/types";
 import { uploadScribeFile } from "@/utils/upload-utils";
 import { poller } from "@/utils/response-utils";
+import {
+  formatQuotaPercent,
+  isQuotaAlert,
+  isQuotaExhausted,
+  quotaAlertMessageKey,
+} from "@/utils/quota-utils";
 import TncDialog from "./TncDialog";
 import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
@@ -103,6 +109,9 @@ export function NotesScribe(props: NotesScribeProps) {
     };
   }, []);
 
+  const refreshQuota = () =>
+    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
+
   const runTranscription = async (blobs: Blob[]) => {
     if (!blobs.length) {
       setStatus("IDLE");
@@ -165,6 +174,7 @@ export function NotesScribe(props: NotesScribeProps) {
         setStatus("FAILED");
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+      refreshQuota();
       return;
     }
 
@@ -194,6 +204,8 @@ export function NotesScribe(props: NotesScribeProps) {
         setStatus("FAILED");
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+    } finally {
+      refreshQuota();
     }
   };
 
@@ -293,6 +305,8 @@ export function NotesScribe(props: NotesScribeProps) {
       }
       queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
       setStatus("IDLE");
+    } finally {
+      refreshQuota();
     }
   };
 
@@ -335,6 +349,8 @@ export function NotesScribe(props: NotesScribeProps) {
       return;
     }
 
+    if (!quota.checkBeforeStart()) return;
+
     try {
       setError(null);
       messageBeforeRecording.current = message;
@@ -352,6 +368,14 @@ export function NotesScribe(props: NotesScribeProps) {
   };
 
   if (!SCRIBE_ENABLED) return null;
+
+  const quotaStatus = quota.status;
+  const quotaAlertLabel =
+    quotaStatus && isQuotaAlert(quotaStatus)
+      ? `${t(quotaAlertMessageKey(quotaStatus), {
+          percent: formatQuotaPercent(quotaStatus.percentRemaining),
+        })} ${t("quota_contact_admin")}`
+      : undefined;
 
   const busyLabel =
     status === "UPLOADING"
@@ -400,7 +424,8 @@ export function NotesScribe(props: NotesScribeProps) {
           </div>
         </div>
       )}
-      <div className="flex shrink-0 items-stretch">
+      {/* Title lives on the wrapper: disabled buttons don't show tooltips. */}
+      <div className="flex shrink-0 items-stretch" title={quotaAlertLabel}>
         <Button
           className={cn(
             "relative size-10 shrink-0 rounded-r-none",
@@ -409,12 +434,29 @@ export function NotesScribe(props: NotesScribeProps) {
               : "text-white",
           )}
           onClick={handleToggleRecording}
-          disabled={isBusy || isReviewing || isFailed}
+          disabled={
+            isBusy ||
+            isReviewing ||
+            isFailed ||
+            (status === "IDLE" && isQuotaExhausted(quotaStatus))
+          }
           type="button"
         >
           <div className="absolute top-0.5 right-0.5 text-[8px] font-semibold tracking-wide text-white uppercase">
             Beta
           </div>
+          {quotaAlertLabel && (
+            <>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute bottom-0.5 left-0.5 size-2 rounded-full ring-1 ring-white",
+                  quotaStatus?.level === "low" ? "bg-amber-400" : "bg-red-500",
+                )}
+              />
+              <span className="sr-only">{quotaAlertLabel}</span>
+            </>
+          )}
           {isBusy ? (
             <ReloadIcon className="size-5 animate-spin text-white" />
           ) : (
@@ -431,6 +473,7 @@ export function NotesScribe(props: NotesScribeProps) {
           )}
           triggerIconClassName="size-3"
           transcriptOnly
+          quotaStatus={quotaStatus}
         />
       </div>
       <TncDialog

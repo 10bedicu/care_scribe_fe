@@ -184,5 +184,20 @@
   "quotas_deleted_successfully_one": "{{count}} quota deleted successfully",
   "quotas_deleted_successfully_other": "{{count}} quotas deleted successfully",
   "bulk_quota_deletion_failed_one": "{{count}} quota could not be deleted. It is still selected so you can retry.",
-  "bulk_quota_deletion_failed_other": "{{count}} quotas could not be deleted. They are still selected so you can retry."
+  "bulk_quota_deletion_failed_other": "{{count}} quotas could not be deleted. They are still selected so you can retry.",
+  "quota_low_user": "Only {{percent}}% of your user limit is left this month.",
+  "quota_low_facility": "Only {{percent}}% of the facility limit is left this month.",
+  "quota_exhausted_user": "Your user limit for this month has been reached.",
+  "quota_exhausted_facility": "The facility limit for this month has been reached.",
+  "quota_contact_admin": "Contact your administrator to increase the quota.",
+  "quota_level_low": "Low",
+  "quota_level_critical": "Critical",
+  "quota_level_exhausted": "Exhausted",
+  "quota_percent_left": "{{percent}}% quota left",
+  "usage": "Usage",
+  "quota_percent_used": "{{percent}}% used",
+  "quota_tokens_used": "{{used}} / {{total}} tokens this month",
+  "quota_tokens_used_facility": "Facility: {{used}} / {{total}} tokens this month",
+  "quota_limit_user": "User limit",
+  "quota_limit_facility": "Facility limit"
 }

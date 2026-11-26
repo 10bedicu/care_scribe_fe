@@ -23,12 +23,15 @@ import { ScribeModel } from "@/types";
 import HistorySheet from "./History";
 import { useStorage } from "@/hooks/useStorage";
 import { cn } from "@/utils/utils";
+import { QuotaStatus } from "@/utils/quota-utils";
+import QuotaUsage from "./QuotaUsage";
 
 export default function ControllerDropDownMenu(props: {
   onUseScribe: (scribe: ScribeModel) => void;
   triggerClassName?: string;
   triggerIconClassName?: string;
   transcriptOnly?: boolean;
+  quotaStatus?: QuotaStatus;
 }) {
   const { t } = useTranslation(I18NNAMESPACE);
   const [devMode, setDevMode] = useStorage("scribe-enable-dev-mode");
@@ -102,6 +105,12 @@ export default function ControllerDropDownMenu(props: {
             <DropdownMenuItem onClick={() => setHistorySheetOpen(true)}>
               {t("history")}
             </DropdownMenuItem>
+            {props.quotaStatus && (
+              <>
+                <DropdownMenuSeparator />
+                <QuotaUsage status={props.quotaStatus} />
+              </>
+            )}
             {user?.is_superuser && (
               <>
                 <DropdownMenuSeparator />

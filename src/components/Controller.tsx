@@ -45,6 +45,7 @@ import {
 import { uploadScribeFile } from "@/utils/upload-utils";
 import useAuthUser from "@/hooks/useAuthUser";
 import { prefetchValueSets } from "@/utils/valueset-cache";
+import { isQuotaExhausted } from "@/utils/quota-utils";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const latestProcessing =
@@ -113,6 +114,7 @@ export function Controller(props: {
     ? path.split("/encounter/")[1].split("/")[0]
     : undefined;
   const quota = useQuota(facilityId);
+  const quotaExhausted = isQuotaExhausted(quota.status);
 
   const {
     startRecording: startSegmentedRecording,
@@ -285,6 +287,10 @@ export function Controller(props: {
 
     return data.external_id;
   };
+
+  const refreshQuota = () =>
+    queryClient.invalidateQueries({ queryKey: ["my-quota", facilityId] });
+
   // updates the transcript and fetches a new AI response
   const handleUpdateTranscript = async (updatedTranscript: string) => {
     if (updatedTranscript === lastTranscript && !files.length) return;
@@ -295,21 +301,25 @@ export function Controller(props: {
     setToReview(undefined);
     setLastTranscript(updatedTranscript);
     try {
-      await API.scribe.update(instanceId, {
-        status: "READY",
-        transcript: updatedTranscript,
-        requested_in_facility_id: facilityId || "",
-        requested_in_encounter_id: encounterId || "",
-      });
-    } catch {
-      throw Error("Error updating Scribe Instance");
+      try {
+        await API.scribe.update(instanceId, {
+          status: "READY",
+          transcript: updatedTranscript,
+          requested_in_facility_id: facilityId || "",
+          requested_in_encounter_id: encounterId || "",
+        });
+      } catch {
+        throw Error("Error updating Scribe Instance");
+      }
+      setStatus("THINKING");
+      const fields = getQuestionInputs(formStateSnapshot);
+      const aiResponse = await getAIResponse(instanceId, fields);
+      if (!aiResponse) return;
+      setStatus("REVIEWING");
+      setToReview(getFieldsToReview(aiResponse, fields));
+    } finally {
+      refreshQuota();
     }
-    setStatus("THINKING");
-    const fields = getQuestionInputs(formStateSnapshot);
-    const aiResponse = await getAIResponse(instanceId, fields);
-    if (!aiResponse) return;
-    setStatus("REVIEWING");
-    setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleStartRecording = async () => {
@@ -317,6 +327,7 @@ export function Controller(props: {
       setShowTnc(true);
       return;
     }
+    if (!quota.checkBeforeStart()) return;
     handleCancel();
     isAbortedRef.current = true;
 
@@ -339,32 +350,36 @@ export function Controller(props: {
     setStatus("UPLOADING");
     stopSegmentedRecording();
 
-    const fields = getQuestionInputs(props.formState);
-    const instanceId = scribe
-      ? scribe.external_id
-      : await createScribeInstance(fields);
-    if (isAbortedRef.current) return;
-    setInstanceId(instanceId);
+    try {
+      const fields = getQuestionInputs(props.formState);
+      const instanceId = scribe
+        ? scribe.external_id
+        : await createScribeInstance(fields);
+      if (isAbortedRef.current) return;
+      setInstanceId(instanceId);
 
-    setStatus("TRANSCRIBING");
-    const transcript = await getTranscript(
-      instanceId,
-      scribe ? fields : undefined,
-    );
-    if (isAbortedRef.current) return;
-    setLastTranscript(transcript);
-    setTranscript(transcript);
+      setStatus("TRANSCRIBING");
+      const transcript = await getTranscript(
+        instanceId,
+        scribe ? fields : undefined,
+      );
+      if (isAbortedRef.current) return;
+      setLastTranscript(transcript);
+      setTranscript(transcript);
 
-    setStatus("THINKING");
-    const aiResponse = await getAIResponse(instanceId, fields);
-    if (isAbortedRef.current) return;
+      setStatus("THINKING");
+      const aiResponse = await getAIResponse(instanceId, fields);
+      if (isAbortedRef.current) return;
 
-    queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
-    if (!aiResponse) return;
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+      if (!aiResponse) return;
 
-    setStatus("REVIEWING");
-    if (!formStateSnapshot) setFormStateSnapshot(props.formState);
-    setToReview(getFieldsToReview(aiResponse, fields));
+      setStatus("REVIEWING");
+      if (!formStateSnapshot) setFormStateSnapshot(props.formState);
+      setToReview(getFieldsToReview(aiResponse, fields));
+    } finally {
+      refreshQuota();
+    }
   };
 
   const handleCancel = (
@@ -393,32 +408,37 @@ export function Controller(props: {
       setShowTnc(true);
       return;
     }
+    if (!quota.checkBeforeStart()) return;
     setError(null);
     isAbortedRef.current = false;
     setStatus("UPLOADING");
     setError(null);
-    const fields = getQuestionInputs(props.formState);
-    const instanceId = scribe
-      ? scribe.external_id
-      : await createScribeInstance(fields);
-    if (isAbortedRef.current) return;
-    setInstanceId(instanceId);
-    setStatus("TRANSCRIBING");
-    const transcript = await getTranscript(
-      instanceId,
-      scribe ? fields : undefined,
-    );
-    if (isAbortedRef.current) return;
-    setLastTranscript(transcript);
-    setTranscript(transcript);
-    setStatus("THINKING");
-    const aiResponse = await getAIResponse(instanceId, fields);
-    if (isAbortedRef.current) return;
-    queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
-    if (!aiResponse) return;
-    setStatus("REVIEWING");
-    if (!formStateSnapshot) setFormStateSnapshot(props.formState);
-    setToReview(getFieldsToReview(aiResponse, fields));
+    try {
+      const fields = getQuestionInputs(props.formState);
+      const instanceId = scribe
+        ? scribe.external_id
+        : await createScribeInstance(fields);
+      if (isAbortedRef.current) return;
+      setInstanceId(instanceId);
+      setStatus("TRANSCRIBING");
+      const transcript = await getTranscript(
+        instanceId,
+        scribe ? fields : undefined,
+      );
+      if (isAbortedRef.current) return;
+      setLastTranscript(transcript);
+      setTranscript(transcript);
+      setStatus("THINKING");
+      const aiResponse = await getAIResponse(instanceId, fields);
+      if (isAbortedRef.current) return;
+      queryClient.invalidateQueries({ queryKey: ["scribe-history"] });
+      if (!aiResponse) return;
+      setStatus("REVIEWING");
+      if (!formStateSnapshot) setFormStateSnapshot(props.formState);
+      setToReview(getFieldsToReview(aiResponse, fields));
+    } finally {
+      refreshQuota();
+    }
   };
 
   return (
@@ -612,6 +632,7 @@ export function Controller(props: {
               setInstanceId(scribe.external_id);
             }}
             transcriptOnly={false}
+            quotaStatus={quota.status}
           />
 
           {[
@@ -633,7 +654,9 @@ export function Controller(props: {
           {status === "IDLE" && quota.quotas?.some((q) => q.allow_ocr) && (
             <button
               onClick={() => setStatus("ATTACHING")}
-              className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300"
+              disabled={quotaExhausted}
+              aria-label={t("process_images")}
+              className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-200"
             >
               <ImageIcon />
             </button>
@@ -650,7 +673,11 @@ export function Controller(props: {
                     ? handleStartRecording
                     : handleStopRecording
             }
-            disabled={status === "ATTACHING" && files.length === 0}
+            disabled={
+              (status === "ATTACHING" && files.length === 0) ||
+              (status === "IDLE" && quotaExhausted)
+            }
+            quotaStatus={quota.status}
           />
         </div>
       </div>

@@ -2,6 +2,7 @@ import SidebarIcon from "@/components/Icon";
 import BulkQuotaEditSheet from "@/components/BulkQuotaEditSheet";
 import { PaginationControls } from "@/components/Pagination";
 import QuotaSheet from "@/components/QuotaSheet";
+import QuotaLevelBadge from "@/components/QuotaLevelBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -402,7 +403,10 @@ export default function ScribeQuotas() {
                 <TableCell>{quota.tokens_per_user.toLocaleString()}</TableCell>
                 <TableCell>{quota.used.toLocaleString()}</TableCell>
                 <TableCell>
-                  {(quota.tokens - quota.used).toLocaleString()}
+                  <div className="flex items-center gap-2">
+                    {(quota.tokens - quota.used).toLocaleString()}
+                    <QuotaLevelBadge used={quota.used} total={quota.tokens} />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1">
