@@ -31,6 +31,15 @@ export const getQuotaLevel = (used: number, total: number): QuotaLevel => {
   return "ok";
 };
 
+// Percentage left with one decimal. Only a truly exhausted quota reads 0%
+// (and a fully unused one 100%), so "100% used" always means blocked.
+const percentLeft = (remaining: number, total: number) => {
+  if (total <= 0 || remaining <= 0) return 0;
+  if (remaining >= total) return 100;
+  const percent = Math.round((remaining / total) * 1000) / 10;
+  return Math.min(Math.max(percent, 0.1), 99.9);
+};
+
 const buildStatus = (
   scope: QuotaStatus["scope"],
   used: number,
@@ -43,7 +52,7 @@ const buildStatus = (
     used,
     remaining,
     total,
-    percentRemaining: total > 0 ? Math.round((remaining / total) * 100) : 0,
+    percentRemaining: percentLeft(remaining, total),
   };
 };
 
@@ -96,6 +105,12 @@ export const quotaAlertMessageKey = (status: QuotaStatus) =>
       ? "quota_low_user"
       : "quota_low_facility";
 
+export const isQuotaExhausted = (status?: QuotaStatus) =>
+  status?.level === "exhausted";
+
 // Derived from percentRemaining so the menu and banner always add up to 100.
 export const quotaUsedPercent = (status: QuotaStatus) =>
-  100 - status.percentRemaining;
+  Math.round((100 - status.percentRemaining) * 10) / 10;
+
+export const formatQuotaPercent = (percent: number) =>
+  percent.toLocaleString(undefined, { maximumFractionDigits: 1 });

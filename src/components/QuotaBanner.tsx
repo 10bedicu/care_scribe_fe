@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { I18NNAMESPACE } from "@/utils/constants";
 import {
+  formatQuotaPercent,
   isQuotaAlert,
   quotaAlertMessageKey,
   QuotaStatus,
@@ -21,6 +22,7 @@ export default function QuotaBanner(props: {
   if (!status || !isQuotaAlert(status)) return null;
 
   const isTop = placement === "top";
+  const percent = formatQuotaPercent(status.percentRemaining);
 
   return (
     <div
@@ -40,7 +42,7 @@ export default function QuotaBanner(props: {
             : "bg-red-600 text-white",
         )}
       >
-        {t("quota_percent_left", { percent: status.percentRemaining })}
+        {t("quota_percent_left", { percent })}
       </div>
       <div
         id={tooltipId}
@@ -51,12 +53,23 @@ export default function QuotaBanner(props: {
           align === "right" ? "right-0" : "left-0",
         )}
       >
-        <div className="font-semibold">
-          {t(quotaAlertMessageKey(status), {
-            percent: status.percentRemaining,
+        <div className="text-[10px] font-semibold tracking-wide uppercase opacity-70">
+          {t(
+            status.scope === "user"
+              ? "quota_limit_user"
+              : "quota_limit_facility",
+          )}
+        </div>
+        <div className="mt-0.5 font-semibold">
+          {t(quotaAlertMessageKey(status), { percent })}
+        </div>
+        <div className="mt-0.5 opacity-80">
+          {t("quota_tokens_used", {
+            used: status.used.toLocaleString(),
+            total: status.total.toLocaleString(),
           })}
         </div>
-        <div className="mt-0.5 opacity-80">{t("quota_contact_admin")}</div>
+        <div className="mt-1 opacity-80">{t("quota_contact_admin")}</div>
       </div>
     </div>
   );

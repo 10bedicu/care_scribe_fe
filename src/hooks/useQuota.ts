@@ -1,6 +1,10 @@
 import { API } from "@/utils/api";
 import { I18NNAMESPACE } from "@/utils/constants";
-import { getMyQuotaStatus, quotaAlertMessageKey } from "@/utils/quota-utils";
+import {
+  formatQuotaPercent,
+  getMyQuotaStatus,
+  quotaAlertMessageKey,
+} from "@/utils/quota-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -25,7 +29,7 @@ export const useQuota = (facilityId?: string) => {
   const checkBeforeStart = () => {
     if (!status || status.level === "ok") return true;
     const message = t(quotaAlertMessageKey(status), {
-      percent: status.percentRemaining,
+      percent: formatQuotaPercent(status.percentRemaining),
     });
     const options = { description: t("quota_contact_admin") };
     if (status.level === "exhausted") {

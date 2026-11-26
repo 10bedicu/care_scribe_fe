@@ -1,7 +1,11 @@
 import { useTranslation } from "react-i18next";
 
 import { I18NNAMESPACE } from "@/utils/constants";
-import { QuotaStatus, quotaUsedPercent } from "@/utils/quota-utils";
+import {
+  formatQuotaPercent,
+  QuotaStatus,
+  quotaUsedPercent,
+} from "@/utils/quota-utils";
 import { cn } from "@/utils/utils";
 
 export default function QuotaUsage(props: { status: QuotaStatus }) {
@@ -14,7 +18,9 @@ export default function QuotaUsage(props: { status: QuotaStatus }) {
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium">{t("usage")}</span>
         <span className="text-neutral-600">
-          {t("quota_percent_used", { percent: usedPercent })}
+          {t("quota_percent_used", {
+            percent: formatQuotaPercent(usedPercent),
+          })}
         </span>
       </div>
       <div

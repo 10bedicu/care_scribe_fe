@@ -45,6 +45,7 @@ import {
 import { uploadScribeFile } from "@/utils/upload-utils";
 import useAuthUser from "@/hooks/useAuthUser";
 import { prefetchValueSets } from "@/utils/valueset-cache";
+import { isQuotaExhausted } from "@/utils/quota-utils";
 
 function MetaInformation(props: { meta: ScribeModel["meta"] }) {
   const latestProcessing =
@@ -113,6 +114,7 @@ export function Controller(props: {
     ? path.split("/encounter/")[1].split("/")[0]
     : undefined;
   const quota = useQuota(facilityId);
+  const quotaExhausted = isQuotaExhausted(quota.status);
 
   const {
     startRecording: startSegmentedRecording,
@@ -652,7 +654,9 @@ export function Controller(props: {
           {status === "IDLE" && quota.quotas?.some((q) => q.allow_ocr) && (
             <button
               onClick={() => setStatus("ATTACHING")}
-              className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300"
+              disabled={quotaExhausted}
+              aria-label={t("process_images")}
+              className="flex aspect-square h-full cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-neutral-200 p-4 text-xl transition-all hover:bg-neutral-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-200"
             >
               <ImageIcon />
             </button>
@@ -669,7 +673,10 @@ export function Controller(props: {
                     ? handleStartRecording
                     : handleStopRecording
             }
-            disabled={status === "ATTACHING" && files.length === 0}
+            disabled={
+              (status === "ATTACHING" && files.length === 0) ||
+              (status === "IDLE" && quotaExhausted)
+            }
             quotaStatus={quota.status}
           />
         </div>
