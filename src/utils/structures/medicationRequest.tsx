@@ -23,7 +23,9 @@ import {
   site,
 } from "./code";
 import {
+  isBrandName,
   lookupCode,
+  searchCodeByName,
   searchProductKnowledge,
   shiftUTCToLocalClockTime,
   validateTime,
@@ -198,20 +200,39 @@ export const medicationRequestStructure: Structure<
     const errors: string[] = [];
 
     const parsed = data.map(async (medicationRequest) => {
-      const productKnowledge = meta.facilityId
+      const displayNames = medicationRequest.medicine.display_names;
+      const [spoken, ...genericNames] = displayNames;
+      // A spoken brand ("Dolo 650") is looked up everywhere before the
+      // generic names the model translated it to, so the brand is not
+      // replaced by a generic product.
+      const brand = spoken && isBrandName(spoken, genericNames) ? spoken : null;
+
+      let productKnowledge = meta.facilityId
         ? await searchProductKnowledge(
             meta.facilityId,
-            medicationRequest.medicine.display_names,
+            brand ? [brand] : displayNames,
           )
         : null;
 
-      const code = productKnowledge
-        ? undefined
-        : await lookupCode(
-            medicationRequest.medicine.code,
-            medicationRequest.medicine.display_names,
-            "system-medication",
-          );
+      let code =
+        !productKnowledge && brand
+          ? await searchCodeByName("system-medication", brand)
+          : null;
+
+      if (!productKnowledge && !code && brand && meta.facilityId) {
+        productKnowledge = await searchProductKnowledge(
+          meta.facilityId,
+          genericNames,
+        );
+      }
+
+      if (!productKnowledge && !code) {
+        code = await lookupCode(
+          medicationRequest.medicine.code,
+          displayNames,
+          "system-medication",
+        );
+      }
       if (!productKnowledge && !code) {
         errors.push(
           `Could not find a medication that matches with ${medicationRequest.medicine.display_names[0]}. Please enter manually.`,

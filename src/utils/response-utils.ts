@@ -547,7 +547,8 @@ const DOSE_FORM_STOPWORDS = new Set([
 
 function extractIngredientToken(display: string): string | null {
   const normalized = display.toLowerCase().replace(/[^a-z0-9\s]+/g, " ");
-  const beforeStrength = normalized.split(/\d/)[0].trim();
+  // Split only at a number that starts a word, so names like "F75" stay intact.
+  const beforeStrength = normalized.split(/\b\d/)[0].trim();
   const phrase = beforeStrength || normalized;
   const tokens = phrase
     .split(/\s+/)
@@ -558,13 +559,91 @@ function extractIngredientToken(display: string): string | null {
   );
 }
 
-function productMatchesIngredient(
+// "F-75", "f75" and "F 75" all become "f 75".
+function normalizePhrase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/([a-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([a-z])/g, "$1 $2")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function productMatchesDisplay(
   product: ProductKnowledgeBase,
-  token: string,
+  display: string,
+  ingredient: string | null,
 ): boolean {
+  const names = [
+    product.name,
+    ...(product.names || []).map((n) => n?.name),
+  ].filter((n): n is string => !!n);
+
+  // Accept when a product name appears as a whole phrase in the display name
+  // (e.g. product "F75" for "F75 therapeutic milk").
+  const phrase = ` ${normalizePhrase(display)} `;
+  if (
+    names.some((name) => {
+      const n = normalizePhrase(name);
+      return n.replace(/\s/g, "").length >= 3 && phrase.includes(` ${n} `);
+    })
+  ) {
+    return true;
+  }
+
+  if (!ingredient) return false;
+  const re = new RegExp(`\\b${ingredient}\\b`, "i");
+  return names.some((name) => re.test(name));
+}
+
+/**
+ * A spoken name is treated as a brand (e.g. "Dolo 650") when its main word
+ * does not appear in any of the generic names the model resolved it to
+ * (e.g. "Paracetamol 650 mg oral tablet").
+ */
+export function isBrandName(spoken: string, genericNames: string[]): boolean {
+  const token = extractIngredientToken(spoken);
+  if (!token) return false;
   const re = new RegExp(`\\b${token}\\b`, "i");
-  if (product.name && re.test(product.name)) return true;
-  return (product.names || []).some((n) => n?.name && re.test(n.name));
+  return !genericNames.some((n) => n && re.test(n));
+}
+
+/**
+ * Strict value-set search by name: unlike `searchByDisplay`, only accepts an
+ * entry whose display or designation contains the name's main word, so a
+ * brand never resolves to an unrelated concept.
+ */
+export async function searchCodeByName(
+  slug: string,
+  display: string,
+): Promise<Code | null> {
+  const token = extractIngredientToken(display);
+  if (!token) return null;
+  const re = new RegExp(`\\b${token}\\b`, "i");
+  for (const q of new Set([display, token])) {
+    try {
+      const { results } = await API.valuesets.expand(slug, q);
+      const matches = (results || []).filter(
+        (r) =>
+          (!!r.display && re.test(r.display)) ||
+          (r.designation || []).some((d) => d?.value && re.test(d.value)),
+      );
+      if (!matches.length) continue;
+      const fuse = new Fuse(matches, {
+        keys: ["display"],
+        ignoreLocation: true,
+        threshold: 0.6,
+      });
+      const best = fuse.search(display)[0]?.item ?? matches[0];
+      return { system: best.system, code: best.code, display: best.display };
+    } catch (err) {
+      console.warn(
+        `searchCodeByName failed for slug "${slug}" / display "${q}"`,
+        err,
+      );
+    }
+  }
+  return null;
 }
 
 export async function searchProductKnowledge(
@@ -574,7 +653,6 @@ export async function searchProductKnowledge(
   for (const d of displays) {
     if (!d) continue;
     const ingredient = extractIngredientToken(d);
-    if (!ingredient) continue;
     try {
       const { results } = await API.productKnowledge.list({
         facility: facilityId,
@@ -585,7 +663,7 @@ export async function searchProductKnowledge(
       if (!results || !results.length) continue;
 
       const candidates = results.filter((p) =>
-        productMatchesIngredient(p, ingredient),
+        productMatchesDisplay(p, d, ingredient),
       );
       if (!candidates.length) continue;
       const fuse = new Fuse(candidates, {
